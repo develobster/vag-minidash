@@ -49,11 +49,27 @@ class ReadClient:
     def read_did_exchange(self, did):
         if type(did) is not int or not 0 <= did <= 65535:
             raise ValueError("DID must be a 16-bit integer")
+        request = b"\x22" + did.to_bytes(2, "big")
+        response, pending = self._exchange(request)
+        return UdsExchange(0x22, did, request, response, response[3:], pending)
+
+    def session_control(self, session=1, *, allow_extended=False):
+        if type(session) is not int or session not in (1, 3) or (session == 3 and not allow_extended):
+            raise ValueError("Only default or explicitly enabled extended session allowed")
+        response, _ = self._exchange(bytes([0x10, session]))
+        return response
+
+    def tester_present(self):
+        return self._exchange(b"\x3e\x00")[0]
+
+    def _exchange(self, request):
+        if not ((len(request) == 3 and request[0] == 0x22) or
+                request in (b"\x10\x01", b"\x10\x03", b"\x3e\x00")):
+            raise ValueError("Service outside read/session allowlist")
         with self.lock:
             if self.tainted:
                 raise ProtocolError("Session desynchronized; close/reopen transport before further reads")
             time.sleep(max(0, self.next_request - time.monotonic()))
-            request = b"\x22" + did.to_bytes(2, "big")
             deadline = time.monotonic() + self.total
             pending = 0
             try:
@@ -69,16 +85,28 @@ class ReadClient:
                         raise TimeoutError("UDS response timed out")
                     self.trace({"kind": "pdu", "direction": "rx", "pdu": response.hex()})
                     if response[:1] == b"\x7f":
-                        if len(response) != 3 or response[1] != 0x22:
+                        if len(response) != 3 or response[1] != request[0]:
                             raise ProtocolError("Malformed/unrelated negative response")
                         if response[2] == 0x78:
                             pending += 1
                             wait = self.p2_star
                             continue
                         raise NegativeResponse(response[2])
-                    if len(response) < 4 or response[:3] != b"\x62" + request[1:]:
-                        raise ProtocolError("Wrong SID/DID echo or empty DID payload")
-                    return UdsExchange(0x22, did, request, response, response[3:], pending)
+                    if response[:len(request)] != bytes([request[0] + 0x40]) + request[1:]:
+                        raise ProtocolError("Wrong response SID/echo")
+                    if request[0] == 0x22 and len(response) < 4:
+                        raise ProtocolError("Empty DID payload")
+                    if request[0] == 0x3e and len(response) != 2:
+                        raise ProtocolError("Malformed TesterPresent")
+                    if request[0] == 0x10:
+                        if len(response) != 6:
+                            raise ProtocolError("Expected modern UDS session timing record")
+                        p2 = int.from_bytes(response[2:4], "big") / 1000
+                        p2_star = int.from_bytes(response[4:6], "big") / 100
+                        if not 0 < p2 <= self.total or not 0 < p2_star <= self.total:
+                            raise ProtocolError("Session timings exceed local deadline or are zero")
+                        self.p2, self.p2_star = p2, p2_star
+                    return response, pending
             except NegativeResponse:
                 raise
             except Exception:

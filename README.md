@@ -1,3 +1,14 @@
+# Экспериментальный runtime fork 0.10 от аудированной v0.9
+
+Отдельная копия: session management (0x10/0x3E), reconnect/backoff,
+polling scheduler, state/freshness и scalar passive CAN decoding.
+Статус, ограничения и интеграция: [RUNTIME_FORK.md](docs/RUNTIME_FORK.md).
+Offline запуск: `python -m minidash_live.runtime_demo`.
+Проверено 78 тестов с optional transport dependencies. Реального автомобильного
+испытания и подтверждённых VAG passive CAN definitions пока нет.
+
+Ниже сохранено описание исходной версии и её исследовательского probe.
+
 # Обновление v0.8: evidence-first UDS probe и ECU catalog
 
 Независимый пакет `minidash_live` теперь содержит bounded read-only `probe`: UDS `0x22`, SocketCAN/ISO-TP, общий Windows J2534 адаптер, offline replay, complete raw JSONL exchanges и loopback API/UI. Каталог `data/` фиксирует подтверждённые fingerprints J623/J743/J104/J492 и RDID test vehicle; raw decoder для proprietary DID пока нигде не придуман. Совместимость VNCI ещё требует определения установленного API. Старые симулятор, лаборатория и firmware сохранены.
