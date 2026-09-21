@@ -6,6 +6,7 @@ through the core API.
 """
 from collections.abc import Mapping
 from dataclasses import dataclass, fields
+import json
 
 
 def _normal(value):
@@ -15,6 +16,24 @@ def _normal(value):
         raise ValueError("Boolean is not a valid identity value")
     value = str(value).strip().upper()
     return value or None
+
+
+def _normal_address(value):
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise ValueError("Boolean is not a valid address")
+    if isinstance(value, int):
+        if value < 0:
+            raise ValueError("Address cannot be negative")
+        return f"{value:X}"
+    text = str(value).strip().upper().removeprefix("0X")
+    if not text:
+        return None
+    try:
+        return f"{int(text, 16):X}"
+    except ValueError as exc:
+        raise ValueError(f"Invalid hexadecimal address: {value}") from exc
 
 
 @dataclass(frozen=True)
@@ -47,7 +66,17 @@ class EcuIdentity:
 
     def __post_init__(self):
         for item in fields(self):
-            object.__setattr__(self, item.name, _normal(getattr(self, item.name)))
+            value = getattr(self, item.name)
+            normalizer = _normal_address if item.name in {
+                "diagnostic_address", "request_id", "response_id"} else _normal
+            object.__setattr__(self, item.name, normalizer(value))
+
+    def fingerprint(self):
+        """Stable, readable identity key; missing fields are omitted, never wildcards."""
+        values = {item.name: getattr(self, item.name) for item in fields(self)
+                  if getattr(self, item.name) is not None}
+        return "ecu-v1:" + json.dumps(values, sort_keys=True, separators=(",", ":"),
+                                      ensure_ascii=True)
 
 
 @dataclass(frozen=True)

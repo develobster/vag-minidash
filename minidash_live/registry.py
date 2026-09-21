@@ -237,7 +237,7 @@ class SignalRegistry:
     def can_for_message(self, database, message, context):
         found = [item for item in self.definitions if item.source.kind == "can" and
                  item.source.database == database and item.source.message == message and
-                 item.applies_to(context)]
+                 item.applies_to(context(item) if callable(context) else context)]
         selected = []
         for signal in dict.fromkeys(item.source.signal for item in found):
             choices = [item for item in found if item.source.signal == signal]

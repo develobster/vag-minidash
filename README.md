@@ -16,9 +16,13 @@ source arbitration are documented in
 [vehicle-knowledge.md](docs/architecture/vehicle-knowledge.md). Tiguan/MQB/VAG
 are reference vehicle/dataset/provider respectively, not core constraints.
 
-Отдельная копия: session management (0x10/0x3E), reconnect/backoff,
-polling scheduler, state/freshness и scalar passive CAN decoding.
-Статус, ограничения и интеграция: [RUNTIME_FORK.md](docs/RUNTIME_FORK.md).
+The integrated read-only runtime, `discover` / `signals` / `watch` commands,
+VirtualBus proof and first-car procedure are documented in
+[end-to-end.md](docs/runtime/end-to-end.md).
+
+Session management (0x10/0x3E), reconnect/backoff, polling scheduler,
+state/freshness и passive CAN decoding уже интегрированы. История foundation и
+его ограничения: [RUNTIME_FORK.md](docs/RUNTIME_FORK.md).
 Offline запуск: `python -m minidash_live.runtime_demo`.
 Проверено 78 тестов с optional transport dependencies. Реального автомобильного
 испытания и подтверждённых VAG passive CAN definitions пока нет.

@@ -19,7 +19,8 @@ class SignalStore:
         self.clock, self.lock, self.values = clock, threading.Lock(), {}
 
     def publish(self, ecu, signal, source, value, ttl, quality="valid", unit=None, *,
-                definition_id=None, confidence=None, active_cost=None, expected_period=None):
+                definition_id=None, confidence=None, active_cost=None, expected_period=None,
+                source_metadata=None):
         positive(ttl)
         if isinstance(value, float) and not math.isfinite(value):
             value, quality = None, "invalid"
@@ -29,7 +30,8 @@ class SignalStore:
                 ecu=ecu, signal=signal, source=source, definition_id=definition_id,
                 value=value, quality=quality, unit=unit, timestamp=self.clock(), ttl=ttl,
                 confidence=confidence, active_cost=active_cost,
-                expected_period=expected_period)
+                expected_period=expected_period,
+                source_metadata=dict(source_metadata or {}))
 
     def invalidate(self, ecu, source="uds", quality="unavailable"):
         with self.lock:
@@ -161,6 +163,8 @@ class PollJob:
     confidence: str | None = None
     active_cost: float = 1.0
     expected_period: float | None = None
+    blocked: bool = False
+    require_verified: bool = False
 
     def __post_init__(self):
         if self.polling_class not in ("FAST", "MEDIUM", "SLOW", "ON_DEMAND"):
@@ -186,17 +190,21 @@ class Scheduler:
     a tick up to client.total; parallel physical-bus workers are intentionally
     not implemented here. Jobs must be bounded by the operator's bus budget.
     """
-    def __init__(self, sessions, store, jobs, *, cooldown, clock=time.monotonic):
+    def __init__(self, sessions, store, jobs, *, cooldown, clock=time.monotonic,
+                 on_result=lambda job, status, latency, error=None: None):
         positive(cooldown)
         if any(j.ecu not in sessions for j in jobs):
             raise ValueError("Unknown ECU in job")
         self.sessions, self.store, self.jobs = sessions, store, list(jobs)
         self.cooldown, self.clock, self.next_tx = cooldown, clock, {}
-        self.stats = dict(success=0, nrc=0, errors=0)
+        self.on_result = on_result
+        self.stats = dict(success=0, nrc=0, errors=0, timeouts=0,
+                          identity_unverified=0, latency_total=0.0, latency_max=0.0)
 
     def request(self, signal, ecu):
         for job in self.jobs:
-            if job.ecu == ecu and job.signal == signal and job.polling_class == "ON_DEMAND":
+            if job.ecu == ecu and job.signal == signal and job.polling_class == "ON_DEMAND" \
+                    and not job.blocked:
                 job.enabled, job.due = True, self.clock()
 
     def step(self):
@@ -212,36 +220,58 @@ class Scheduler:
             return False
         job = min(candidates, key=lambda j: j.due)
         session = self.sessions[job.ecu]
+        started = self.clock()
+        status, error = "success", None
         try:
-            raw = session.read(job.did)
+            if not session.maintain():
+                raise ConnectionError(session.last_error or "ECU in backoff")
             if session.identity_verified:
+                raw = session.read(job.did)
                 decoded = job.decoder(raw)
             else:
+                if not job.require_verified:
+                    session.read(job.did)  # Legacy raw research path; decoder stays gated.
+                else:
+                    status = "identity_unverified"
                 decoded = dict(value=None, quality="identity_unverified", unit=None)
             self.store.publish(job.ecu, job.signal, "uds", decoded.get("value"), job.ttl,
                                decoded.get("quality", "raw_only"), decoded.get("unit"),
                                definition_id=job.definition_id, confidence=job.confidence,
                                active_cost=job.active_cost,
-                               expected_period=job.expected_period or job.period)
-            self.stats["success"] += 1
+                               expected_period=job.expected_period or job.period,
+                               source_metadata={"did": f"{job.did:04X}"})
+            if status == "identity_unverified":
+                self.stats["identity_unverified"] += 1
+            else:
+                self.stats["success"] += 1
         except NegativeResponse as exc:
+            status, error = "nrc", str(exc)
             self.stats["nrc"] += 1
             quality = "unsupported" if exc.code == 0x31 else "unavailable"
             self.store.publish(job.ecu, job.signal, "uds", None, job.ttl, quality,
                                definition_id=job.definition_id, confidence=job.confidence,
                                active_cost=job.active_cost,
-                               expected_period=job.expected_period or job.period)
+                               expected_period=job.expected_period or job.period,
+                               source_metadata={"did": f"{job.did:04X}", "nrc": exc.code})
             if exc.code == 0x31:
-                job.enabled = False  # Explicit reconfiguration required, no retry storm.
-        except Exception:
+                job.enabled, job.blocked = False, True  # No retry storm until reconfiguration.
+        except Exception as exc:
+            status, error = ("timeout" if isinstance(exc, TimeoutError) else "error"), str(exc)
             self.stats["errors"] += 1
+            if isinstance(exc, TimeoutError):
+                self.stats["timeouts"] += 1
             self.store.publish(job.ecu, job.signal, "uds", None, job.ttl, "error",
                                definition_id=job.definition_id, confidence=job.confidence,
                                active_cost=job.active_cost,
-                               expected_period=job.expected_period or job.period)
+                               expected_period=job.expected_period or job.period,
+                               source_metadata={"did": f"{job.did:04X}"})
         if session.state != "active":
             self.store.invalidate(job.ecu)
         done = self.clock()
+        latency = max(0, done - started)
+        self.stats["latency_total"] += latency
+        self.stats["latency_max"] = max(self.stats["latency_max"], latency)
+        self.on_result(job, status, latency, error)
         self.next_tx[job.ecu] = done + self.cooldown
         job.due = math.inf if job.polling_class == "ON_DEMAND" else done + job.period
         return True

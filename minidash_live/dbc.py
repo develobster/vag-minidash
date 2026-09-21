@@ -13,7 +13,8 @@ def load_cantools_database(path):
 
 class DbcAdapter:
     """Decode CAN frames using a DBC object; this class never owns or sends on a bus."""
-    def __init__(self, database, database_id, registry, store, *, identity=None, context=None):
+    def __init__(self, database, database_id, registry, store, *, identity=None, context=None,
+                 observed=lambda definition, quality, metadata: None):
         self.database = database
         self.database_id = database_id
         self.registry = registry
@@ -23,7 +24,11 @@ class DbcAdapter:
         self.identity = identity if identity is not None else context
         if self.identity is None:
             raise ValueError("Vehicle/ECU identity is required")
+        self.observed = observed
         self.rejected = 0
+
+    def _identity_for(self, definition):
+        return self.identity(definition) if callable(self.identity) else self.identity
 
     def feed(self, can_id, data, *, extended=False, remote=False, error=False):
         if remote or error:
@@ -48,7 +53,12 @@ class DbcAdapter:
                                    "decode_error", item.unit, definition_id=item.id,
                                    confidence=item.provenance.confidence,
                                    active_cost=item.source.active_cost,
-                                   expected_period=item.expected_period)
+                                   expected_period=item.expected_period,
+                                   source_metadata={"database": self.database_id,
+                                       "message": message.name, "signal": item.source.signal,
+                                       "can_id": can_id})
+                self.observed(item, "decode_error", {"can_id": can_id,
+                              "message": message.name})
             return len(definitions)
         count = 0
         for item in definitions:
@@ -57,16 +67,26 @@ class DbcAdapter:
                                    "missing_signal", item.unit, definition_id=item.id,
                                    confidence=item.provenance.confidence,
                                    active_cost=item.source.active_cost,
-                                   expected_period=item.expected_period)
+                                   expected_period=item.expected_period,
+                                   source_metadata={"database": self.database_id,
+                                       "message": message.name, "signal": item.source.signal,
+                                       "can_id": can_id})
+                self.observed(item, "missing_signal", {"can_id": can_id,
+                              "message": message.name})
             else:
                 confidence = item.provenance.confidence
                 quality = "valid" if confidence == "confirmed" and \
-                    item.provenance.validated("raw_decode", self.identity) else "candidate"
+                    item.provenance.validated("raw_decode", self._identity_for(item)) else "candidate"
                 self.store.publish(item.ecu, item.canonical_name, "can",
                                    values[item.source.signal], item.ttl, quality, item.unit,
                                    definition_id=item.id,
                                    confidence=item.provenance.confidence,
                                    active_cost=item.source.active_cost,
-                                   expected_period=item.expected_period)
+                                   expected_period=item.expected_period,
+                                   source_metadata={"database": self.database_id,
+                                       "message": message.name, "signal": item.source.signal,
+                                       "can_id": can_id})
+                self.observed(item, quality, {"can_id": can_id,
+                              "message": message.name})
             count += 1
         return count

@@ -1,5 +1,10 @@
 # Runtime fork — экспериментальная ветка 0.10
 
+> Historical implementation note for the session/scheduler foundation. The
+> current integrated runtime and CLI are documented in
+> [runtime/end-to-end.md](runtime/end-to-end.md); where this file describes a
+> missing integration, the end-to-end document is authoritative.
+
 Основа: аудированная v0.9, отдельная директория `vag-minidash-runtime`.
 Это отдельная копия исходников, не GitHub fork: исходный проект без Git metadata.
 Основная v0.9 не изменена. Технический аудит описывает исходную версию, а этот
@@ -46,8 +51,9 @@ tests. Без optional transport dependencies часть старых тесто
 Новый runtime использует стандартную библиотеку Python.
 
 Существующий `python -m minidash_live probe` сохранён как bounded исследовательский
-reader; автоматического подключения runtime к нему нет. Runtime подключается
-программно через `EcuSession(factory=...)`, `PollJob`, `Scheduler`.
+reader. Новый `discover` / `signals` / `watch` path строит `EcuSession`,
+`PollJob` и `Scheduler` через acquisition planner; `probe` намеренно остаётся
+отдельной низкоуровневой исследовательской командой.
 Factory должна каждый раз возвращать новый чистый PDU transport и освобождать
 частично созданные ресурсы при ошибке конструктора. Проверенный SocketCAN/J2534
 adapter может быть такой фабрикой; автоматического выбора оборудования нет.
@@ -75,10 +81,11 @@ PassiveDecoder.profile_verified также должен происходить �
 - NRC 0x31 отключает job до явного изменения конфигурации; NRC 0x21/0x22
   повторяются только на следующем плановом period, не немедленно. Сложной
   capability rediscovery и восстановления disabled jobs после ignition пока нет.
-- Нет готовых VAG passive definitions, DBC, bitfields, checksum/counter policy.
-  Поддержка scalar byte fields — рабочий первый этап, не полный CAN catalog.
-- Store сохраняет источники отдельно; автоматического выбора лучшего источника
-  и derived signals нет. Latest API старого probe пока не подключён к этому store.
+- VAG provider содержит mappings для внешнего openDBC и exact ECU DID/name
+  associations. Сам `vw_mqb.dbc` не vendored; bitfield/checksum coverage зависит
+  от подключённого DBC и видимости frames через gateway.
+- Store сохраняет implementations отдельно; `SourceArbitrator` выбирает live
+  source и делает CAN-to-UDS fallback. Старый probe API не является runtime API.
 - Frame timestamp для freshness — время подачи в store; задержанные записи
   replay нельзя считать свежими live samples. Live receiver обязан ограничивать
   backlog и учитывать hardware timestamps перед publication.

@@ -1,6 +1,7 @@
 """Read-only command line entrypoint for live research, never coding or flashing."""
 import argparse
 from contextlib import ExitStack
+from dataclasses import asdict
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -9,9 +10,18 @@ import time
 import uuid
 
 from .api import State, serve
-from .discovery import inventory
+from .dbc import load_cantools_database
+from .discovery import (
+    DEFAULT_IDENTITY_PROBES, DiscoverySnapshot, IdentityProbe, discover_vehicle,
+    inventory, verify_discovered_identity,
+)
+from .identity import EcuIdentity, VehicleIdentity
+from .knowledge import registry_from_providers
+from .pipeline import AcquisitionPlanner, RuntimeEngine, SourceAvailability, signal_catalog
 from .profiles import decode, load_profile, match_catalog, match_fingerprint, resolve_signal
+from .runtime import EcuSession
 from .uds import NegativeResponse, ReadClient
+from .vag import VagKnowledgeProvider
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_VEHICLE = ROOT / "data/vehicles/tiguan-5na-czpa-dq500.json"
@@ -85,7 +95,185 @@ def _open_transport(connection, config_dir):
         from .j2534 import J2534Transport
         return J2534Transport(connection["dll"], txid, rxid, connection["bitrate"])
     from .transports import CanTransport
-    return CanTransport(connection["channel"], txid, rxid, connection["bitrate"])
+    return CanTransport(connection["channel"], txid, rxid, connection["bitrate"],
+                        interface=connection.get("interface", "socketcan"))
+
+
+def _identity_probes(ecu_config):
+    if "identity_probes" not in ecu_config:
+        return DEFAULT_IDENTITY_PROBES
+    return tuple(IdentityProbe.from_mapping(item) for item in ecu_config["identity_probes"])
+
+
+def _transport_factory(connection, config_dir):
+    def factory():
+        return _open_transport(connection, config_dir)
+    return factory
+
+
+def _identity_verifier(discovered, probes):
+    def verify(client):
+        return verify_discovered_identity(client, discovered, probes)
+    return verify
+
+
+def _runtime_endpoints(config_path, config, trace=lambda event: None):
+    endpoints = []
+    for role, ecu_config in config.get("ecus", {}).items():
+        connection = _connection(config, role)
+        identity_data = dict(ecu_config.get("identity", {}))
+        identity_data.setdefault("logical_role", role)
+        identity_data.setdefault("request_id", connection.get("txid"))
+        identity_data.setdefault("response_id", connection.get("rxid"))
+        identity = EcuIdentity(**identity_data)
+        factory = _transport_factory(connection, config_path.parent)
+        endpoints.append({"role": role, "factory": factory, "identity": identity,
+                          "probes": _identity_probes(ecu_config),
+                          "client_options": config.get("uds_timing", {}), "trace": trace})
+    return endpoints
+
+
+def _discover_runtime(config_path, config, trace=lambda event: None):
+    vehicle = VehicleIdentity(**config.get("vehicle_identity", {}))
+    return discover_vehicle(vehicle, _runtime_endpoints(config_path, config, trace))
+
+
+def _load_discovery(path):
+    return DiscoverySnapshot.from_mapping(_read_json(path))
+
+
+def _write_new(path, content):
+    with open(path, "x", encoding="utf-8") as output:
+        output.write(content)
+
+
+def _registry():
+    return registry_from_providers([VagKnowledgeProvider()])
+
+
+def run_discover(args):
+    config_path = Path(args.config).resolve()
+    config = _read_json(config_path)
+    events = []
+    snapshot = _discover_runtime(config_path, config,
+        trace=lambda event: events.append({"timestamp": datetime.now(timezone.utc).isoformat(), **event}))
+    result = snapshot.as_dict()
+    if args.debug:
+        result["debug"] = events
+    content = json.dumps(result, ensure_ascii=False, indent=2)
+    if args.output:
+        _write_new(args.output, content + "\n")
+    print(content)
+    return 0 if snapshot.ecus else 1
+
+
+def run_signals(args):
+    config_path = Path(args.config).resolve()
+    config = _read_json(config_path)
+    snapshot = _load_discovery(args.identity_snapshot) if args.identity_snapshot else \
+        _discover_runtime(config_path, config)
+    registry = _registry()
+    ecus = {item.role: item.identity for item in snapshot.ecus}
+    rows = signal_catalog(registry, snapshot.vehicle, ecus)
+    if args.ecu:
+        rows = [row for row in rows if row["ecu"] == args.ecu]
+    if args.source:
+        rows = [row for row in rows if row["source"] == args.source]
+    print(json.dumps({"vehicle": asdict(snapshot.vehicle),
+                      "ecus": [{"role": item.role, "identity": asdict(item.identity),
+                                "fingerprint": item.fingerprint} for item in snapshot.ecus],
+                      "signals": rows, "unavailable_ecus": list(snapshot.unavailable)},
+                     ensure_ascii=False, indent=2))
+    return 0
+
+
+def _open_passive_bus(config):
+    passive = config.get("passive_can")
+    if not passive:
+        return None
+    import can
+    return can.Bus(interface=passive.get("interface", passive.get("kind", "socketcan")),
+                   channel=passive["channel"], bitrate=passive.get("bitrate", 500000),
+                   ignore_config=True)
+
+
+def run_watch(args):
+    config_path = Path(args.config).resolve()
+    config = _read_json(config_path)
+    with ExitStack() as resources:
+        trace_file = resources.enter_context(
+            open(args.trace, "x", encoding="utf-8", buffering=1)) if args.trace else None
+        def emit(event):
+            record = {"timestamp": datetime.now(timezone.utc).isoformat(),
+                      "monotonic": time.monotonic(), **event}
+            if trace_file:
+                trace_file.write(json.dumps(record, ensure_ascii=False, allow_nan=False) + "\n")
+        snapshot = _load_discovery(args.identity_snapshot) if args.identity_snapshot else \
+            _discover_runtime(config_path, config, emit)
+        registry = _registry()
+        ecus = {item.role: item.identity for item in snapshot.ecus}
+        availability = SourceAvailability(registry.definitions)
+        planner = AcquisitionPlanner(registry, snapshot.vehicle, ecus, availability,
+                                     poll_periods=config.get("poll_periods", {}))
+        plan = planner.build(args.signal)
+        endpoint_configs = {
+            item["role"]: item for item in _runtime_endpoints(config_path, config, emit)}
+        discovered = {item.role: item for item in snapshot.ecus}
+        sessions = {}
+        for role in {job.ecu for job in plan.jobs}:
+            endpoint = endpoint_configs[role]
+            probes = endpoint["probes"]
+            verify = _identity_verifier(discovered[role], probes)
+            session = EcuSession(endpoint["factory"], verify=verify, trace=emit,
+                                 client_options=config.get("uds_timing", {}))
+            sessions[role] = session
+            resources.callback(session.close)
+        databases = {name: load_cantools_database(
+                        (config_path.parent / path).resolve()
+                        if not Path(path).is_absolute() else path)
+                     for name, path in config.get("dbc_databases", {}).items()}
+        engine = RuntimeEngine(plan, planner, sessions, databases,
+                               cooldown=config.get("poll_cooldown", .05), trace=emit)
+        bus = _open_passive_bus(config)
+        if bus is not None:
+            resources.callback(bus.shutdown)
+        else:
+            for definition in plan.passive:
+                availability.set(definition.id, "unavailable", "passive_bus_not_configured")
+        deadline, next_print = time.monotonic() + args.duration, 0
+        emit({"kind": "discovery", **snapshot.as_dict()})
+        emit({"kind": "plan", "requested": list(plan.requested),
+              "definitions": [item.id for item in plan.definitions],
+              "catalog": [row for row in signal_catalog(registry, snapshot.vehicle, ecus,
+                                                         availability)
+                          if row["canonical_name"] in plan.requested],
+              "jobs": [{"definition_id": job.definition_id, "did": f"{job.did:04X}",
+                        "period": job.period} for job in plan.jobs],
+              "skipped": list(plan.skipped)})
+        while time.monotonic() < deadline:
+            if bus:
+                message = bus.recv(.01)
+                if message is not None:
+                    engine.feed_message(message)
+            engine.step()
+            now = time.monotonic()
+            if now >= next_print:
+                current = engine.snapshot()
+                if args.json:
+                    print(json.dumps(current, ensure_ascii=False, allow_nan=False), flush=True)
+                else:
+                    for signal, decision in current["decisions"].items():
+                        row = decision["selected"]
+                        if row:
+                            print(f"{signal}: {row['value']} {row.get('unit') or ''} "
+                                  f"[{row['source']} {row['quality']} age={row['age']:.3f}s]",
+                                  flush=True)
+                        else:
+                            print(f"{signal}: unavailable", flush=True)
+                next_print = now + args.interval
+            time.sleep(.005)
+        emit({"kind": "summary", **engine.snapshot()})
+        return 0
 
 
 def run_probe(args):
@@ -180,6 +368,24 @@ def main(argv=None):
     probe.add_argument("--log", help=argparse.SUPPRESS)
     probe.add_argument("--raw", action="store_true", help="Also print each complete UDS exchange to stdout")
     probe.add_argument("--port", type=int, help="Optional loopback read-only signal API/UI")
+    discover = commands.add_parser("discover", help="Read configured ECU identity endpoints")
+    discover.add_argument("--config", required=True)
+    discover.add_argument("--output", help="New identity snapshot JSON; never overwritten")
+    discover.add_argument("--debug", action="store_true")
+    signals = commands.add_parser("signals", help="List knowledge applicable to discovered identity")
+    signals.add_argument("--config", required=True)
+    signals.add_argument("--identity-snapshot")
+    signals.add_argument("--all-implementations", action="store_true")
+    signals.add_argument("--ecu")
+    signals.add_argument("--source", choices=("can", "uds"))
+    watch = commands.add_parser("watch", help="Run canonical passive CAN/UDS acquisition")
+    watch.add_argument("signal", nargs="+", help="Canonical signal name(s), never DID/CAN ID")
+    watch.add_argument("--config", required=True)
+    watch.add_argument("--identity-snapshot")
+    watch.add_argument("--duration", type=float, default=10.0)
+    watch.add_argument("--interval", type=float, default=1.0)
+    watch.add_argument("--trace", help="New structured JSONL trace; never overwritten")
+    watch.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     try:
         if args.command == "doctor":
@@ -196,8 +402,16 @@ def main(argv=None):
             paths = sorted(Path(args.profile_dir).glob("*.json"))
             print(json.dumps({"matches": [p["id"] for p in match_catalog(paths, observed)]}, ensure_ascii=False))
             return 0
+        if args.command == "discover":
+            return run_discover(args)
+        if args.command == "signals":
+            return run_signals(args)
+        if args.command == "watch":
+            if args.duration <= 0 or args.interval <= 0:
+                raise ValueError("duration and interval must be positive")
+            return run_watch(args)
         return run_probe(args)
-    except (ValueError, KeyError, TypeError, OSError, json.JSONDecodeError) as exc:
+    except (ValueError, KeyError, TypeError, OSError, RuntimeError, json.JSONDecodeError) as exc:
         parser.error(str(exc))
 
 

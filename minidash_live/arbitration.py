@@ -31,15 +31,31 @@ class SourceArbitrator:
         return quality, confidence, freshness, -float(cost)
 
     def select(self, rows, canonical_name, *, ecu=None):
+        decision = self.decision(rows, canonical_name, ecu=ecu)
+        if decision["ambiguous"]:
+            ids = ", ".join(str(row.get("definition_id") or row.get("source"))
+                            for row in decision["winners"])
+            raise AmbiguousSourceError(f"Equal sources for {canonical_name}: {ids}")
+        return decision["selected"]
+
+    def decision(self, rows, canonical_name, *, ecu=None):
+        """Structured selection evidence for CLI/debug output."""
+        relevant = [row for row in rows if row.get("signal") == canonical_name and
+                    (ecu is None or row.get("ecu") == ecu)]
         candidates = [row for row in rows if row.get("signal") == canonical_name and
                       (ecu is None or row.get("ecu") == ecu) and row.get("value") is not None and
                       row.get("quality") in QUALITY_RANK]
         if not candidates:
-            return None
+            return {"selected": None, "ambiguous": False, "winners": [],
+                    "candidates": [], "excluded": relevant}
         scores = [(self.score(row), row) for row in candidates]
         best_score = max(score for score, _ in scores)
         best = [row for score, row in scores if score == best_score]
-        if len(best) != 1:
-            ids = ", ".join(str(row.get("definition_id") or row.get("source")) for row in best)
-            raise AmbiguousSourceError(f"Equal sources for {canonical_name}: {ids}")
-        return dict(best[0])
+        ranked = [{"definition_id": row.get("definition_id"), "source": row.get("source"),
+                   "score": list(score), "quality": row.get("quality"),
+                   "age": row.get("age")} for score, row in sorted(scores, reverse=True,
+                       key=lambda item: item[0])]
+        return {"selected": dict(best[0]) if len(best) == 1 else None,
+                "ambiguous": len(best) != 1, "winners": [dict(row) for row in best],
+                "candidates": ranked,
+                "excluded": [row for row in relevant if row not in candidates]}
