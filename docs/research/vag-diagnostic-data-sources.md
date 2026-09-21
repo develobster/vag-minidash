@@ -58,8 +58,8 @@ examples include:
 | `engine.rpm` | `Motor_12 / MO_Drehzahl_01` | 16-bit LE, `0.25 rpm/bit` |
 | `vehicle.speed` | `ESP_21 / ESP_v_Signal` | 16-bit LE, `0.01 km/h/bit` |
 | four wheel speeds | `ESP_19 / ESP_*_Radgeschw_02` | 16-bit LE, `0.0075 km/h/bit` |
-| `engine.oil_temp` | `Motor_07 / MO_Oel_Temp` | byte, `raw - 60 °C` |
-| `engine.coolant_temp` | `Motor_07 / MO_Kuehlmittel_Temp` | byte, `0.75*raw - 48 °C` |
+| `engine.oil_temperature` | `Motor_07 / MO_Oel_Temp` | byte, `raw - 60 °C` |
+| `engine.coolant_temperature` | `Motor_07 / MO_Kuehlmittel_Temp` | byte, `0.75*raw - 48 °C` |
 | intake-air temperature | `Motor_07 / MO_Ansaugluft_Temp` | byte, `0.75*raw - 48 °C` |
 | relative manifold pressure | `Motor_20` | documented in DBC, including CRC/counter |
 | displayed/selected gear | `Getriebe_11 / GE_Fahrstufe` and related fields | enum/raw value in DBC |
@@ -152,6 +152,11 @@ and `vehicle_tested`.
 
 ## Unified signal architecture
 
+The generic identity/provider/applicability boundary is specified in
+[Vehicle knowledge architecture](../architecture/vehicle-knowledge.md). VAG
+and MQB are now dataset/provider concerns; `SignalRegistry`, `SignalStore` and
+source arbitration contain no VAG selector names or Tiguan branching.
+
 ```mermaid
 flowchart TD
     A["CAN RX"] --> B["cantools + external DBC"]
@@ -214,7 +219,7 @@ not silently resolved by load order.
 
 ## What is implemented in this branch
 
-* `SignalRegistry` with exact applicability selection, duplicate/conflict
+* `SignalRegistry` with semantic applicability selection, duplicate/conflict
   rejection and unknown-DID raw fallback;
 * provenance/confidence/verification-scope metadata;
 * optional `cantools` adapter publishing decoded passive values into the

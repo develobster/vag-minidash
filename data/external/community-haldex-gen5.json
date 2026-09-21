@@ -1,22 +1,23 @@
 {
   "schema_version": 1,
+  "provider_id": "vag",
   "definitions": [
     {
-      "id": "openhaldex.gen5.028d.module_temp", "canonical_name": "awd.module_temp", "ecu": "awd",
+      "id": "openhaldex.gen5.028d.module_temp", "canonical_name": "awd.module_temperature", "ecu": "awd",
       "source": {"kind": "uds", "did": "028D"}, "unit": "degC", "ttl": 5.0,
       "decoder": {"length": 1, "byteorder": "big", "signed": false, "scale": 1.0, "offset": -55.0, "invalid_raw": [], "source": "OpenHaldex-C6 heat sweep"},
       "applicability": {"platform": "MQB", "ecu_family": "0CQ_GEN5"},
       "provenance": {"origin": "community", "confidence": "candidate", "source_url": "https://github.com/Forbes-Automotive/OpenHaldex-C6/blob/main/src/OpenHaldexC6_UDS.cpp", "vehicle_tested": false, "verification_scope": "other_0cq_variants", "notes": "VCDS heat-sweep on 0CQ 554C/554D, not yet raw-validated on MiniDash 0CQ907554H."}
     },
     {
-      "id": "openhaldex.gen5.2be4.cooling_fin_temp", "canonical_name": "awd.cooling_fin_temp", "ecu": "awd",
+      "id": "openhaldex.gen5.2be4.cooling_fin_temp", "canonical_name": "awd.cooling_fin_temperature", "ecu": "awd",
       "source": {"kind": "uds", "did": "2BE4"}, "unit": "degC", "ttl": 5.0,
       "decoder": {"length": 2, "byteorder": "little", "signed": false, "scale": 0.01, "offset": -227.67, "invalid_raw": [], "source": "OpenHaldex-C6 heat sweep"},
       "applicability": {"platform": "MQB", "ecu_family": "0CQ_GEN5"},
       "provenance": {"origin": "community", "confidence": "candidate", "source_url": "https://github.com/Forbes-Automotive/OpenHaldex-C6/blob/main/src/OpenHaldexC6_UDS.cpp", "vehicle_tested": false, "verification_scope": "other_0cq_variants"}
     },
     {
-      "id": "openhaldex.gen5.2bf1.clutch_temp", "canonical_name": "awd.clutch_temp", "ecu": "awd",
+      "id": "openhaldex.gen5.2bf1.clutch_temp", "canonical_name": "awd.clutch_temperature", "ecu": "awd",
       "source": {"kind": "uds", "did": "2BF1"}, "unit": "degC", "ttl": 5.0,
       "decoder": {"length": 2, "byteorder": "little", "signed": false, "scale": 0.01, "offset": -227.67, "invalid_raw": [], "source": "OpenHaldex-C6 heat sweep"},
       "applicability": {"platform": "MQB", "ecu_family": "0CQ_GEN5"},

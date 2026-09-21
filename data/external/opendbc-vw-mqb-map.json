@@ -1,5 +1,6 @@
 {
   "schema_version": 1,
+  "provider_id": "vag",
   "definitions": [
     {
       "id": "opendbc.vw_mqb.engine.rpm",
@@ -21,7 +22,7 @@
     },
     {
       "id": "opendbc.vw_mqb.wheel.fl",
-      "canonical_name": "vehicle.wheel_speed.fl",
+      "canonical_name": "wheel.front_left.speed",
       "ecu": "abs",
       "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "ESP_19", "signal": "ESP_VL_Radgeschw_02"},
       "unit": "km/h", "ttl": 0.25,
@@ -30,7 +31,7 @@
     },
     {
       "id": "opendbc.vw_mqb.wheel.fr",
-      "canonical_name": "vehicle.wheel_speed.fr",
+      "canonical_name": "wheel.front_right.speed",
       "ecu": "abs",
       "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "ESP_19", "signal": "ESP_VR_Radgeschw_02"},
       "unit": "km/h", "ttl": 0.25,
@@ -39,7 +40,7 @@
     },
     {
       "id": "opendbc.vw_mqb.wheel.rl",
-      "canonical_name": "vehicle.wheel_speed.rl",
+      "canonical_name": "wheel.rear_left.speed",
       "ecu": "abs",
       "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "ESP_19", "signal": "ESP_HL_Radgeschw_02"},
       "unit": "km/h", "ttl": 0.25,
@@ -48,7 +49,7 @@
     },
     {
       "id": "opendbc.vw_mqb.wheel.rr",
-      "canonical_name": "vehicle.wheel_speed.rr",
+      "canonical_name": "wheel.rear_right.speed",
       "ecu": "abs",
       "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "ESP_19", "signal": "ESP_HR_Radgeschw_02"},
       "unit": "km/h", "ttl": 0.25,
@@ -57,7 +58,7 @@
     },
     {
       "id": "opendbc.vw_mqb.engine.oil_temp",
-      "canonical_name": "engine.oil_temp",
+      "canonical_name": "engine.oil_temperature",
       "ecu": "engine",
       "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "Motor_07", "signal": "MO_Oel_Temp"},
       "unit": "degC", "ttl": 2.0,
@@ -66,7 +67,7 @@
     },
     {
       "id": "opendbc.vw_mqb.engine.coolant_temp",
-      "canonical_name": "engine.coolant_temp",
+      "canonical_name": "engine.coolant_temperature",
       "ecu": "engine",
       "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "Motor_07", "signal": "MO_Kuehlmittel_Temp"},
       "unit": "degC", "ttl": 2.0,

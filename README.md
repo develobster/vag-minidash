@@ -11,6 +11,11 @@
 
 Optional DBC dependency: `pip install -r requirements-data.txt`.
 
+Core identity/applicability, canonical/raw namespaces, provider boundary and
+source arbitration are documented in
+[vehicle-knowledge.md](docs/architecture/vehicle-knowledge.md). Tiguan/MQB/VAG
+are reference vehicle/dataset/provider respectively, not core constraints.
+
 Отдельная копия: session management (0x10/0x3E), reconnect/backoff,
 polling scheduler, state/freshness и scalar passive CAN decoding.
 Статус, ограничения и интеграция: [RUNTIME_FORK.md](docs/RUNTIME_FORK.md).

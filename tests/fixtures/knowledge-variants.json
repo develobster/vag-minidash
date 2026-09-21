@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "provider_id": "vag",
+  "definitions": [
+    {
+      "id": "fixture.vag.dq250.gear", "canonical_name": "transmission.gear", "ecu": "transmission",
+      "source": {"kind": "uds", "did": "3816"},
+      "applicability": {"manufacturer": "VAG", "platform": "MQB", "ecu_family": "DQ250"},
+      "provenance": {"origin": "test_fixture", "confidence": "candidate", "source_url": "fixture://vag-variants", "verification_scope": "architecture_test"}
+    },
+    {
+      "id": "fixture.vag.dq381.gear", "canonical_name": "transmission.gear", "ecu": "transmission",
+      "source": {"kind": "uds", "did": "4816"},
+      "applicability": {"manufacturer": "VAG", "platform": "MQB", "ecu_family": "DQ381"},
+      "provenance": {"origin": "test_fixture", "confidence": "guessed", "source_url": "fixture://vag-variants", "verification_scope": "architecture_test", "notes": "Synthetic DID: tests isolation only."}
+    },
+    {
+      "id": "fixture.vag.dq500.gear", "canonical_name": "transmission.gear", "ecu": "transmission",
+      "source": {"kind": "uds", "did": "3816"},
+      "applicability": {"manufacturer": "VAG", "platform": "MQB", "ecu_family": "DQ500"},
+      "provenance": {"origin": "test_fixture", "confidence": "candidate", "source_url": "fixture://vag-variants", "verification_scope": "architecture_test"}
+    },
+    {
+      "id": "fixture.vag.dq500.0dl300011p.gear", "canonical_name": "transmission.gear", "ecu": "transmission",
+      "source": {"kind": "uds", "did": "3816"},
+      "applicability": {"part_number": "0DL300011P", "software_version": "2004", "asam_id": "EV_TCMDQ500021", "asam_version": "001001"},
+      "provenance": {"origin": "minidash_test", "confidence": "confirmed", "source_url": "fixture://vag-variants", "vehicle_tested": true, "verification_scope": "did_association"}
+    },
+    {
+      "id": "fixture.vag.ea211.coolant", "canonical_name": "engine.coolant_temperature", "ecu": "engine",
+      "source": {"kind": "uds", "did": "2233"},
+      "applicability": {"manufacturer": "VAG", "platform": "MQB", "ecu_family": "EA211"},
+      "provenance": {"origin": "test_fixture", "confidence": "guessed", "source_url": "fixture://vag-variants", "verification_scope": "architecture_test", "notes": "Synthetic DID: tests isolation only."}
+    },
+    {
+      "id": "fixture.vag.ea288.coolant", "canonical_name": "engine.coolant_temperature", "ecu": "engine",
+      "source": {"kind": "uds", "did": "3344"},
+      "applicability": {"manufacturer": "VAG", "platform": "MQB", "ecu_family": "EA288"},
+      "provenance": {"origin": "test_fixture", "confidence": "guessed", "source_url": "fixture://vag-variants", "verification_scope": "architecture_test", "notes": "Synthetic DID: tests isolation only."}
+    },
+    {
+      "id": "fixture.vag.czpa.coolant", "canonical_name": "engine.coolant_temperature", "ecu": "engine",
+      "source": {"kind": "uds", "did": "F405"},
+      "applicability": {"part_number": "5NA907115D", "software_version": "0003", "asam_id": "EV_ECM20TFS0115NA907115D", "asam_version": "001004", "ecu_family": "EA888"},
+      "provenance": {"origin": "minidash_test", "confidence": "confirmed", "source_url": "fixture://vag-variants", "vehicle_tested": true, "verification_scope": "did_association"}
+    }
+  ]
+}

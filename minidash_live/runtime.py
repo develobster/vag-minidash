@@ -4,7 +4,7 @@ import math
 import threading
 import time
 
-from .uds import ReadClient, NegativeResponse, ProtocolError
+from .uds import ReadClient, NegativeResponse
 
 
 def positive(value):
@@ -18,13 +18,18 @@ class SignalStore:
     def __init__(self, clock=time.monotonic):
         self.clock, self.lock, self.values = clock, threading.Lock(), {}
 
-    def publish(self, ecu, signal, source, value, ttl, quality="valid", unit=None):
+    def publish(self, ecu, signal, source, value, ttl, quality="valid", unit=None, *,
+                definition_id=None, confidence=None, active_cost=None, expected_period=None):
         positive(ttl)
         if isinstance(value, float) and not math.isfinite(value):
             value, quality = None, "invalid"
         with self.lock:
-            self.values[(ecu, signal, source)] = dict(ecu=ecu, signal=signal, source=source,
-                value=value, quality=quality, unit=unit, timestamp=self.clock(), ttl=ttl)
+            implementation = definition_id or source
+            self.values[(ecu, signal, source, implementation)] = dict(
+                ecu=ecu, signal=signal, source=source, definition_id=definition_id,
+                value=value, quality=quality, unit=unit, timestamp=self.clock(), ttl=ttl,
+                confidence=confidence, active_cost=active_cost,
+                expected_period=expected_period)
 
     def invalidate(self, ecu, source="uds", quality="unavailable"):
         with self.lock:
@@ -42,6 +47,9 @@ class SignalStore:
                     row.update(value=None, quality="stale")
                 rows.append(row)
             return rows
+
+    def best(self, signal, arbitrator, *, ecu=None):
+        return arbitrator.select(self.snapshot(), signal, ecu=ecu)
 
 
 class EcuSession:
@@ -149,6 +157,10 @@ class PollJob:
     polling_class: str = "SLOW"
     due: float = 0
     enabled: bool = True
+    definition_id: str | None = None
+    confidence: str | None = None
+    active_cost: float = 1.0
+    expected_period: float | None = None
 
     def __post_init__(self):
         if self.polling_class not in ("FAST", "MEDIUM", "SLOW", "ON_DEMAND"):
@@ -158,6 +170,11 @@ class PollJob:
         else:
             positive(self.period)
         positive(self.ttl)
+        if isinstance(self.active_cost, bool) or not isinstance(self.active_cost, (int, float)) \
+                or not math.isfinite(self.active_cost) or self.active_cost < 0:
+            raise ValueError("Invalid active cost")
+        if self.expected_period is not None:
+            positive(self.expected_period)
         if type(self.did) is not int or not 0 <= self.did <= 65535:
             raise ValueError("Invalid DID")
 
@@ -202,17 +219,26 @@ class Scheduler:
             else:
                 decoded = dict(value=None, quality="identity_unverified", unit=None)
             self.store.publish(job.ecu, job.signal, "uds", decoded.get("value"), job.ttl,
-                               decoded.get("quality", "raw_only"), decoded.get("unit"))
+                               decoded.get("quality", "raw_only"), decoded.get("unit"),
+                               definition_id=job.definition_id, confidence=job.confidence,
+                               active_cost=job.active_cost,
+                               expected_period=job.expected_period or job.period)
             self.stats["success"] += 1
         except NegativeResponse as exc:
             self.stats["nrc"] += 1
             quality = "unsupported" if exc.code == 0x31 else "unavailable"
-            self.store.publish(job.ecu, job.signal, "uds", None, job.ttl, quality)
+            self.store.publish(job.ecu, job.signal, "uds", None, job.ttl, quality,
+                               definition_id=job.definition_id, confidence=job.confidence,
+                               active_cost=job.active_cost,
+                               expected_period=job.expected_period or job.period)
             if exc.code == 0x31:
                 job.enabled = False  # Explicit reconfiguration required, no retry storm.
         except Exception:
             self.stats["errors"] += 1
-            self.store.publish(job.ecu, job.signal, "uds", None, job.ttl, "error")
+            self.store.publish(job.ecu, job.signal, "uds", None, job.ttl, "error",
+                               definition_id=job.definition_id, confidence=job.confidence,
+                               active_cost=job.active_cost,
+                               expected_period=job.expected_period or job.period)
         if session.state != "active":
             self.store.invalidate(job.ecu)
         done = self.clock()
