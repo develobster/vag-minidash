@@ -225,6 +225,12 @@ Synthetic bytes prove wiring only and are not vehicle validation evidence.
 
 Reference vehicle: VW Tiguan II 2017, MQB, CZPA, DQ500, 4Motion.
 
+The authoritative garage procedure and current go/no-go gates are in
+[`tiguan-first-live.md`](tiguan-first-live.md). In particular, the repository
+still has no vehicle-evidenced Engine physical endpoint or ECU identity-probe
+layout. The commands below are an architectural example, not authorization to
+copy illustrative addresses or start measurement polling.
+
 1. Connect a battery support unit if the session may be long. Ignition ON;
    begin with engine OFF. Close ODIS and every other diagnostic tester.
 2. For VNCI/J2534, inventory the driver first:

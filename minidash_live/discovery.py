@@ -9,6 +9,13 @@ from .identity import EcuIdentity, IdentityContext, VehicleIdentity
 from .uds import NegativeResponse, ReadClient
 
 
+J2534_REQUIRED_EXPORTS = frozenset({
+    "PassThruOpen", "PassThruClose", "PassThruConnect", "PassThruDisconnect",
+    "PassThruStartMsgFilter", "PassThruStopMsgFilter", "PassThruReadMsgs",
+    "PassThruWriteMsgs",
+})
+
+
 @dataclass(frozen=True)
 class IdentityProbe:
     """One explicitly evidenced identification read.
@@ -226,6 +233,8 @@ def pe_info(path):
 def inventory(paths=()):
     result = {'platform':platform.system(),'python_bits':struct.calcsize('P')*8,
               'vehicle_io_performed':False,'j2534':[],'d_pdu_registry':[], 'dlls':[], 'errors':[]}
+    requested = {os.path.normcase(os.path.abspath(os.path.expandvars(str(path))))
+                 for path in paths}
     candidates = set(paths)
     if os.name == 'nt':
         import winreg as w
@@ -262,7 +271,17 @@ def inventory(paths=()):
                     result['errors'].append(str(exc))
     for path in sorted(candidates):
         try:
-            result['dlls'].append(pe_info(path))
+            info = pe_info(path)
+            exports = {name.lstrip("_").split("@", 1)[0]
+                       for name in info["diagnostic_exports"]}
+            missing = sorted(J2534_REQUIRED_EXPORTS - exports)
+            info.update({
+                "j2534_required_exports_present": not missing,
+                "j2534_missing_exports": missing,
+                "python_bitness_match": info["bits"] == result["python_bits"],
+                "explicit_candidate": os.path.normcase(os.path.abspath(str(path))) in requested,
+            })
+            result['dlls'].append(info)
         except (OSError,ValueError,struct.error) as exc:
             result['errors'].append(f'{path}: {exc}')
     result['interpretation'] = ('J2534 registration/exports are candidates, not proof of device connection. '

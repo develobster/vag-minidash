@@ -11,6 +11,8 @@ vnci-*.json
 connection.json
 captures/
 traces/
+artifacts/first-live/*
+!artifacts/first-live/.gitkeep
 
 # Build output
 build/

@@ -20,11 +20,14 @@ The integrated read-only runtime, `discover` / `signals` / `watch` commands,
 VirtualBus proof and first-car procedure are documented in
 [end-to-end.md](docs/runtime/end-to-end.md).
 
+The VNCI/Tiguan garage pre-flight and its current physical-endpoint stop gate
+are documented in [tiguan-first-live.md](docs/runtime/tiguan-first-live.md).
+
 Session management (0x10/0x3E), reconnect/backoff, polling scheduler,
 state/freshness и passive CAN decoding уже интегрированы. История foundation и
 его ограничения: [RUNTIME_FORK.md](docs/RUNTIME_FORK.md).
 Offline запуск: `python -m minidash_live.runtime_demo`.
-Проверено 78 тестов с optional transport dependencies. Реального автомобильного
+Проверено 110 тестов с optional transport dependencies. Реального автомобильного
 испытания и подтверждённых VAG passive CAN definitions пока нет.
 
 Ниже сохранено описание исходной версии и её исследовательского probe.

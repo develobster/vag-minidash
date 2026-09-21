@@ -1,5 +1,10 @@
 # PC reader / `probe`
 
+For the first VNCI/Tiguan connection use the stricter staged checklist in
+[`runtime/tiguan-first-live.md`](runtime/tiguan-first-live.md). The Engine
+physical route is still an explicit evidence gate; this document does not
+authorize the illustrative IDs below.
+
 The live reader is a bounded, **read-only** UDS `0x22` client. It cannot code, flash, run adaptations/basic settings, request security access, write a DID, clear DTCs, or send a functional broadcast. It reads one DID per request, no automatic retry; a timeout or malformed response taints the connection and stops further traffic.
 
 ```powershell

@@ -3,9 +3,11 @@ import argparse
 from contextlib import ExitStack
 from dataclasses import asdict
 from datetime import datetime, timezone
+from importlib import metadata, util
 import json
 from pathlib import Path
 import sys
+import tempfile
 import time
 import uuid
 
@@ -25,10 +27,130 @@ from .vag import VagKnowledgeProvider
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_VEHICLE = ROOT / "data/vehicles/tiguan-5na-czpa-dq500.json"
+FORBIDDEN_CONFIG_KEYS = frozenset({
+    "adaptation", "clear_dtc", "coding", "ecu_reset", "flashing",
+    "routine_control", "security_access", "write_data_by_identifier",
+})
 
 
 def _read_json(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def _walk_keys(value):
+    if isinstance(value, dict):
+        for key, child in value.items():
+            yield str(key).lower()
+            yield from _walk_keys(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _walk_keys(child)
+
+
+def validate_runtime_config(path, *, check_files=True):
+    """Validate the live parser contract without opening a DLL, VCI or vehicle."""
+    path = Path(path).resolve()
+    errors = []
+    try:
+        config = _read_json(path)
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        return {"path": str(path), "valid": False, "read_only": False,
+                "ecu_roles": [], "errors": [str(exc)]}
+    if not isinstance(config, dict):
+        errors.append("Configuration root must be a JSON object")
+        config = {}
+    forbidden = sorted(set(_walk_keys(config)) & FORBIDDEN_CONFIG_KEYS)
+    if forbidden:
+        errors.append("Forbidden operation keys: " + ", ".join(forbidden))
+    ecus = config.get("ecus")
+    if not isinstance(ecus, dict) or not ecus:
+        errors.append("At least one explicit physical ECU endpoint is required")
+        ecus = {}
+    roles = []
+    for role in ecus:
+        roles.append(role)
+        try:
+            connection = _connection(config, role)
+            if connection["kind"] == "replay":
+                continue
+            txid = int(str(connection["txid"]), 16)
+            rxid = int(str(connection["rxid"]), 16)
+            from .transports import validate_can
+            validate_can(txid, rxid, connection["bitrate"])
+            if connection["kind"] == "j2534":
+                dll = connection.get("dll")
+                if not isinstance(dll, str) or not dll:
+                    raise ValueError("J2534 transport needs an absolute FunctionLibrary DLL path")
+                dll_path = Path(dll)
+                if not dll_path.is_absolute():
+                    raise ValueError("J2534 FunctionLibrary DLL path must be absolute")
+                if check_files:
+                    if not dll_path.is_file():
+                        raise ValueError("J2534 FunctionLibrary DLL must be an existing absolute path")
+            _identity_probes(ecus[role])
+        except (KeyError, TypeError, ValueError, OSError) as exc:
+            errors.append(f"ECU {role}: {exc}")
+    return {"path": str(path), "valid": not errors, "read_only": not forbidden,
+            "ecu_roles": roles, "errors": errors}
+
+
+def _dependency_inventory():
+    packages = {
+        "python-can": "can", "can-isotp": "isotp", "udsoncan": "udsoncan",
+        "cantools": "cantools",
+    }
+    result = {}
+    for package, module in packages.items():
+        try:
+            version = metadata.version(package)
+        except metadata.PackageNotFoundError:
+            version = None
+        result[package] = {"module": module, "installed": util.find_spec(module) is not None,
+                           "version": version}
+    return result
+
+
+def _artifact_directory(path):
+    if not path:
+        return None
+    directory = Path(path).resolve()
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(prefix=".minidash-write-test-", dir=directory):
+            pass
+        return {"path": str(directory), "writable": True}
+    except OSError as exc:
+        return {"path": str(directory), "writable": False, "error": str(exc)}
+
+
+def doctor_report(*, dlls=(), config_path=None, artifact_dir=None):
+    selected = list(dlls)
+    config = validate_runtime_config(config_path) if config_path else None
+    if config_path:
+        try:
+            raw = _read_json(config_path)
+            dll = raw.get("transport", {}).get("dll")
+            if isinstance(dll, str) and dll and dll not in selected:
+                selected.append(dll)
+        except (AttributeError, OSError, ValueError, TypeError, json.JSONDecodeError):
+            pass
+    result = inventory(selected)
+    result["dependencies"] = _dependency_inventory()
+    result["dependencies_ready"] = all(item["installed"]
+                                       for item in result["dependencies"].values())
+    result["config"] = config
+    result["artifact_directory"] = _artifact_directory(artifact_dir)
+    result["dll_load_performed"] = False
+    result["backend_initialization_performed"] = False
+    checks = [item["j2534_required_exports_present"] and item["python_bitness_match"]
+              for item in result["dlls"] if item["explicit_candidate"]]
+    result["preflight_ready"] = bool(checks and all(checks) and result["dependencies_ready"])
+    if config is not None:
+        result["preflight_ready"] = result["preflight_ready"] and config["valid"]
+    if result["artifact_directory"] is not None:
+        result["preflight_ready"] = (result["preflight_ready"] and
+                                     result["artifact_directory"]["writable"])
+    return result
 
 
 def _did(text):
@@ -158,6 +280,15 @@ def run_discover(args):
     snapshot = _discover_runtime(config_path, config,
         trace=lambda event: events.append({"timestamp": datetime.now(timezone.utc).isoformat(), **event}))
     result = snapshot.as_dict()
+    result["metrics"] = {
+        "endpoints_configured": len(config.get("ecus", {})),
+        "ecus_discovered": len(snapshot.ecus),
+        "endpoints_unavailable": len(snapshot.unavailable),
+        "pdu_tx": sum(event.get("kind") == "pdu" and event.get("direction") == "tx"
+                      for event in events),
+        "pdu_rx": sum(event.get("kind") == "pdu" and event.get("direction") == "rx"
+                      for event in events),
+    }
     if args.debug:
         result["debug"] = events
     content = json.dumps(result, ensure_ascii=False, indent=2)
@@ -350,8 +481,10 @@ def run_probe(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description="VAG MiniDash read-only PC diagnostic reader")
     commands = parser.add_subparsers(dest="command", required=True)
-    doctor = commands.add_parser("doctor", help="Inventory PC API evidence only; never opens a VCI")
+    doctor = commands.add_parser("doctor", help="Offline PC/config preflight; never opens a VCI")
     doctor.add_argument("--dll", action="append", default=[])
+    doctor.add_argument("--config", help="Validate a runtime config without opening its transport")
+    doctor.add_argument("--artifact-dir", help="Create/check a writable artifact directory")
     doctor.add_argument("--output")
     listing = commands.add_parser("profile", help="Validate and print an ECU profile")
     listing.add_argument("path")
@@ -389,11 +522,14 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         if args.command == "doctor":
-            content = json.dumps(inventory(args.dll), ensure_ascii=False, indent=2)
+            report = doctor_report(dlls=args.dll, config_path=args.config,
+                                   artifact_dir=args.artifact_dir)
+            content = json.dumps(report, ensure_ascii=False, indent=2)
             if args.output:
-                Path(args.output).write_text(content, encoding="utf-8")
+                _write_new(args.output, content + "\n")
             print(content)
-            return 0
+            return 0 if (not args.config and not args.dll and not args.artifact_dir) \
+                or report["preflight_ready"] else 1
         if args.command == "profile":
             print(json.dumps(load_profile(args.path), ensure_ascii=False, indent=2))
             return 0

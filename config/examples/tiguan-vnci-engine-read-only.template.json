@@ -1,0 +1,21 @@
+{
+  "transport": {
+    "kind": "j2534",
+    "dll": null
+  },
+  "ecus": {
+    "engine": {
+      "txid": null,
+      "rxid": null,
+      "bitrate": null,
+      "address_evidence": null,
+      "identity_probes": [
+        {
+          "did": "F190",
+          "target": "vehicle.vin",
+          "encoding": "ascii"
+        }
+      ]
+    }
+  }
+}
