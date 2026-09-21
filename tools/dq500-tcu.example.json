@@ -1,0 +1,11 @@
+{
+  "profile": "../profiles/diagnostic/dq500-tcu.json",
+  "address_evidence": null,
+  "transport": {
+    "kind": "j2534",
+    "dll": null,
+    "txid": null,
+    "rxid": null,
+    "bitrate": null
+  }
+}

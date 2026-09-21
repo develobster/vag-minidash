@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "id": "czpa-engine-research",
+  "ecu": "0001",
+  "applicability": {
+    "vehicle": "VW Tiguan II 2017",
+    "engine": "CZPA",
+    "transmission": "DQ500",
+    "ecu_part_number": null,
+    "software_version": null,
+    "dataset": null
+  },
+  "addressing": null,
+  "dids": [
+    {
+      "did": "F405",
+      "signal": "coolant_temperature",
+      "label": "Coolant temperature",
+      "unit": "degC",
+      "status": "confirmed",
+      "status_scope": "ODIS label/RDID association, not raw decoder verification",
+      "decoder": null,
+      "raw_response": null,
+      "source": "user-handoff-2026-09-20",
+      "method": "ODIS Engineering 17.0.1 measured-values observation",
+      "observation": null
+    },
+    {
+      "did": "F433",
+      "signal": "ambient_pressure",
+      "label": "Ambient pressure",
+      "unit": "kPa",
+      "status": "confirmed",
+      "status_scope": "ODIS label/RDID association, not raw decoder verification",
+      "decoder": null,
+      "raw_response": null,
+      "source": "user-handoff-2026-09-20",
+      "method": "ODIS Engineering 17.0.1 measured-values observation",
+      "observation": "approximately 99 kPa"
+    },
+    {
+      "did": "16F3",
+      "signal": "engine_rpm",
+      "label": "Crankshaft speed",
+      "unit": "rpm",
+      "status": "confirmed",
+      "status_scope": "ODIS label/RDID association, not raw decoder verification",
+      "decoder": null,
+      "raw_response": null,
+      "source": "user-handoff-2026-09-20",
+      "method": "ODIS Engineering 17.0.1 measured-values observation",
+      "observation": "approximately 840 rpm"
+    },
+    {
+      "did": "11F0",
+      "signal": "charge_pressure_actual",
+      "label": "Charge air pressure actual",
+      "unit": "kPa",
+      "status": "confirmed",
+      "status_scope": "ODIS label/RDID association, not raw decoder verification",
+      "decoder": null,
+      "raw_response": null,
+      "source": "user-handoff-2026-09-20",
+      "method": "ODIS Engineering 17.0.1 measured-values observation",
+      "observation": "ODIS approximately 993 hPa; normalized target unit kPa"
+    },
+    {
+      "did": "11F1",
+      "signal": "charge_pressure_specified",
+      "label": "Charge air pressure specified",
+      "unit": "kPa",
+      "status": "confirmed",
+      "status_scope": "ODIS label/RDID association, not raw decoder verification",
+      "decoder": null,
+      "raw_response": null,
+      "source": "user-handoff-2026-09-20",
+      "method": "ODIS Engineering 17.0.1 measured-values observation",
+      "observation": null
+    },
+    {
+      "did": "11DC",
+      "signal": "manifold_pressure_11dc",
+      "label": "Intake manifold pressure variant; exact meaning unresolved",
+      "unit": "kPa",
+      "status": "candidate",
+      "status_scope": "ODIS label/RDID association, not raw decoder verification",
+      "decoder": null,
+      "raw_response": null,
+      "source": "user-handoff-2026-09-20",
+      "method": "ODIS Engineering 17.0.1 measured-values observation",
+      "observation": "ODIS observed set 397/330/375 hPa; no per-DID association asserted"
+    },
+    {
+      "did": "11DD",
+      "signal": "manifold_pressure_11dd",
+      "label": "Intake manifold pressure variant; exact meaning unresolved",
+      "unit": "kPa",
+      "status": "candidate",
+      "status_scope": "ODIS label/RDID association, not raw decoder verification",
+      "decoder": null,
+      "raw_response": null,
+      "source": "user-handoff-2026-09-20",
+      "method": "ODIS Engineering 17.0.1 measured-values observation",
+      "observation": "ODIS observed set 397/330/375 hPa; no per-DID association asserted"
+    },
+    {
+      "did": "11DA",
+      "signal": "manifold_pressure_11da",
+      "label": "Intake manifold pressure variant; exact meaning unresolved",
+      "unit": "kPa",
+      "status": "candidate",
+      "status_scope": "ODIS label/RDID association, not raw decoder verification",
+      "decoder": null,
+      "raw_response": null,
+      "source": "user-handoff-2026-09-20",
+      "method": "ODIS Engineering 17.0.1 measured-values observation",
+      "observation": "ODIS observed set 397/330/375 hPa; no per-DID association asserted"
+    },
+    {
+      "did": "1632",
+      "signal": "engine_oil_temperature",
+      "label": "Engine oil temperature",
+      "unit": "degC",
+      "status": "unsupported",
+      "status_scope": "ODIS label/RDID association, not raw decoder verification",
+      "decoder": null,
+      "raw_response": null,
+      "source": "user-handoff-2026-09-20",
+      "method": "ODIS Engineering 17.0.1 measured-values observation",
+      "observation": "ODIS -273.1 degC on this ECU; invalid, raw sentinel/scaling unknown"
+    }
+  ]
+}

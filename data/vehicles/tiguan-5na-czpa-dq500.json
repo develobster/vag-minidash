@@ -1,0 +1,5 @@
+{
+  "schema_version":1,"id":"vw-tiguan-5na-2017-czpa-dq500","manufacturer":"Volkswagen","model":"Tiguan II / MQB","year":2017,"powertrain":"2.0 TSI CZPA / DQ500 / 4Motion",
+  "ecu_profiles":{"engine":"../ecu_profiles/j623-czpa-5na907115d.json","transmission":"../ecu_profiles/j743-dq500-0dl300011p.json","abs":"../ecu_profiles/j104-esc-5q0614517ce.json","awd":"../ecu_profiles/j492-haldex-0cq907554h.json"},
+  "notes":"Research vehicle. Vehicle title never selects a decoder; exact ECU fingerprint selects it. No CAN addresses included by design."
+}

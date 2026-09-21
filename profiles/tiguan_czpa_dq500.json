@@ -1,0 +1,10 @@
+{
+  "id": "tiguan-ii-czpa-dq500",
+  "status": "unverified-template",
+  "vehicle": {"platform": "MQB", "engine": "CZPA", "transmission": "DQ500"},
+  "ecu_identity": {"hardware": null, "software": null, "dataset": null},
+  "can_bitrate": null,
+  "signals": [],
+  "coding_recipes": [],
+  "real_vehicle_write_enabled": false
+}

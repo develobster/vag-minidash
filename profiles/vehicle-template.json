@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "name": "Мой автомобиль — заполнить по диагностическому отчёту",
+  "platform": "unknown",
+  "ecus": [
+    {"address":"01","part_number":null,"hardware":null,"software":null,"dataset":null,"equipment":[]},
+    {"address":"02","part_number":null,"hardware":null,"software":null,"dataset":null,"equipment":[]},
+    {"address":"09","part_number":null,"hardware":null,"software":null,"dataset":null,"equipment":[]},
+    {"address":"42","part_number":null,"hardware":null,"software":null,"dataset":null,"equipment":[]},
+    {"address":"52","part_number":null,"hardware":null,"software":null,"dataset":null,"equipment":[]}
+  ]
+}

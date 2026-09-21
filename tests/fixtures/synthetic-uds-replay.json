@@ -1,0 +1,8 @@
+{
+  "kind": "synthetic_uds_replay_v1",
+  "note": "Unit-test bytes only. They are not captured from a vehicle and must never be used to derive a decoder.",
+  "responses": {
+    "22f405": "62f405aabb",
+    "22f999": "62f99900"
+  }
+}
