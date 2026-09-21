@@ -1,0 +1,37 @@
+[
+  {
+    "did": 4660,
+    "long_name": "Synthetic_temperature",
+    "structure": {
+      "type": "STRUCTURE",
+      "byte_size": 2,
+      "parameters": [
+        {
+          "type": "PARAMETER",
+          "long_name": "Synthetic_temperature",
+          "translated_name": "Synthetic temperature",
+          "byte_position": 0,
+          "bit_position": 0,
+          "parameter_type": "VALUE",
+          "dop": {
+            "type": "DOP",
+            "coded_base_data_type": "A_UINT32",
+            "diag_coded_type": "STANDARD-LENGTH-TYPE",
+            "bit_length": 16,
+            "encoding": "NONE",
+            "endianness": "big",
+            "units": {"display_name": "degC"},
+            "compu_category": "LINEAR",
+            "compu_scale": {"formula": "(-40.0 + (x * 0.1)) / 1.0"},
+            "internal_constraint": {"scale_constraints": [{"lower_limit": {"type": "CLOSED", "value": 65535}, "upper_limit": {"type": "CLOSED", "value": 65535}, "validity": "NOT-AVAILABLE"}]}
+          }
+        }
+      ]
+    }
+  },
+  {
+    "did": 4661,
+    "long_name": "Unsupported_mux",
+    "structure": {"type": "STRUCTURE", "byte_size": null, "parameters": [{"parameter_type": "VALUE", "byte_position": 0, "bit_position": 0, "dop": {"type": "MUX"}}]}
+  }
+]

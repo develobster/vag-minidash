@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "definitions": [
+    {
+      "id": "opendbc.vw_mqb.engine.rpm",
+      "canonical_name": "engine.rpm",
+      "ecu": "engine",
+      "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "Motor_12", "signal": "MO_Drehzahl_01"},
+      "unit": "rpm", "ttl": 0.25,
+      "applicability": {"platform": "MQB"},
+      "provenance": {"origin": "opendbc", "confidence": "documented", "source_url": "https://github.com/commaai/opendbc/blob/master/opendbc/dbc/vw_mqb.dbc", "vehicle_tested": false, "verification_scope": "dbc_definition"}
+    },
+    {
+      "id": "opendbc.vw_mqb.vehicle.speed",
+      "canonical_name": "vehicle.speed",
+      "ecu": "abs",
+      "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "ESP_21", "signal": "ESP_v_Signal"},
+      "unit": "km/h", "ttl": 0.25,
+      "applicability": {"platform": "MQB"},
+      "provenance": {"origin": "opendbc", "confidence": "documented", "source_url": "https://github.com/commaai/opendbc/blob/master/opendbc/dbc/vw_mqb.dbc", "vehicle_tested": false, "verification_scope": "dbc_definition"}
+    },
+    {
+      "id": "opendbc.vw_mqb.wheel.fl",
+      "canonical_name": "vehicle.wheel_speed.fl",
+      "ecu": "abs",
+      "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "ESP_19", "signal": "ESP_VL_Radgeschw_02"},
+      "unit": "km/h", "ttl": 0.25,
+      "applicability": {"platform": "MQB"},
+      "provenance": {"origin": "opendbc", "confidence": "documented", "source_url": "https://github.com/commaai/opendbc/blob/master/opendbc/dbc/vw_mqb.dbc", "vehicle_tested": false, "verification_scope": "dbc_definition"}
+    },
+    {
+      "id": "opendbc.vw_mqb.wheel.fr",
+      "canonical_name": "vehicle.wheel_speed.fr",
+      "ecu": "abs",
+      "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "ESP_19", "signal": "ESP_VR_Radgeschw_02"},
+      "unit": "km/h", "ttl": 0.25,
+      "applicability": {"platform": "MQB"},
+      "provenance": {"origin": "opendbc", "confidence": "documented", "source_url": "https://github.com/commaai/opendbc/blob/master/opendbc/dbc/vw_mqb.dbc", "vehicle_tested": false, "verification_scope": "dbc_definition"}
+    },
+    {
+      "id": "opendbc.vw_mqb.wheel.rl",
+      "canonical_name": "vehicle.wheel_speed.rl",
+      "ecu": "abs",
+      "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "ESP_19", "signal": "ESP_HL_Radgeschw_02"},
+      "unit": "km/h", "ttl": 0.25,
+      "applicability": {"platform": "MQB"},
+      "provenance": {"origin": "opendbc", "confidence": "documented", "source_url": "https://github.com/commaai/opendbc/blob/master/opendbc/dbc/vw_mqb.dbc", "vehicle_tested": false, "verification_scope": "dbc_definition"}
+    },
+    {
+      "id": "opendbc.vw_mqb.wheel.rr",
+      "canonical_name": "vehicle.wheel_speed.rr",
+      "ecu": "abs",
+      "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "ESP_19", "signal": "ESP_HR_Radgeschw_02"},
+      "unit": "km/h", "ttl": 0.25,
+      "applicability": {"platform": "MQB"},
+      "provenance": {"origin": "opendbc", "confidence": "documented", "source_url": "https://github.com/commaai/opendbc/blob/master/opendbc/dbc/vw_mqb.dbc", "vehicle_tested": false, "verification_scope": "dbc_definition"}
+    },
+    {
+      "id": "opendbc.vw_mqb.engine.oil_temp",
+      "canonical_name": "engine.oil_temp",
+      "ecu": "engine",
+      "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "Motor_07", "signal": "MO_Oel_Temp"},
+      "unit": "degC", "ttl": 2.0,
+      "applicability": {"platform": "MQB"},
+      "provenance": {"origin": "opendbc", "confidence": "documented", "source_url": "https://github.com/commaai/opendbc/blob/master/opendbc/dbc/vw_mqb.dbc", "vehicle_tested": false, "verification_scope": "dbc_definition"}
+    },
+    {
+      "id": "opendbc.vw_mqb.engine.coolant_temp",
+      "canonical_name": "engine.coolant_temp",
+      "ecu": "engine",
+      "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "Motor_07", "signal": "MO_Kuehlmittel_Temp"},
+      "unit": "degC", "ttl": 2.0,
+      "applicability": {"platform": "MQB"},
+      "provenance": {"origin": "opendbc", "confidence": "documented", "source_url": "https://github.com/commaai/opendbc/blob/master/opendbc/dbc/vw_mqb.dbc", "vehicle_tested": false, "verification_scope": "dbc_definition"}
+    },
+    {
+      "id": "opendbc.vw_mqb.transmission.gear",
+      "canonical_name": "transmission.gear",
+      "ecu": "transmission",
+      "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "Getriebe_11", "signal": "GE_Fahrstufe"},
+      "unit": null, "ttl": 0.5,
+      "applicability": {"platform": "MQB"},
+      "provenance": {"origin": "opendbc", "confidence": "documented", "source_url": "https://github.com/commaai/opendbc/blob/master/opendbc/dbc/vw_mqb.dbc", "vehicle_tested": false, "verification_scope": "dbc_definition", "notes": "Raw DBC enum/value; normalize semantics only after a Tiguan trace."}
+    }
+  ]
+}

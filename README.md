@@ -1,5 +1,16 @@
 # Экспериментальный runtime fork 0.10 от аудированной v0.9
 
+## Diagnostic data integration (feature branch)
+
+Добавлен минимальный data-driven Signal Registry, optional `cantools` adapter
+для внешнего `vw_mqb.dbc`, provenance/applicability metadata и консервативный
+импорт простых scalar MWB records из локально извлечённого MCD JSON. Чужие DBC
+и proprietary ODIS database в repository не включаются. Исследование источников,
+лицензий, известных MQB signals и границ доверия:
+[vag-diagnostic-data-sources.md](docs/research/vag-diagnostic-data-sources.md).
+
+Optional DBC dependency: `pip install -r requirements-data.txt`.
+
 Отдельная копия: session management (0x10/0x3E), reconnect/backoff,
 polling scheduler, state/freshness и scalar passive CAN decoding.
 Статус, ограничения и интеграция: [RUNTIME_FORK.md](docs/RUNTIME_FORK.md).

@@ -1,0 +1,10 @@
+VERSION "synthetic MiniDash test"
+
+NS_ :
+
+BS_:
+
+BU_: TESTER
+
+BO_ 168 Motor_12: 8 TESTER
+ SG_ MO_Drehzahl_01 : 16|16@1+ (0.25,0) [0|16383.75] "rpm" TESTER
