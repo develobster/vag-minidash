@@ -3,8 +3,13 @@ import json
 from pathlib import Path
 
 from .knowledge import ProviderMetadata
-from .registry import Provenance, SignalDefinition, SignalSource, load_registry
-
+from .registry import (
+    Provenance,
+    SignalDefinition,
+    SignalSource,
+    ValidationEvidence,
+    load_registry,
+)
 
 CANONICAL_ALIASES = {
     "engine.coolant_temp": "engine.coolant_temperature",
@@ -52,6 +57,17 @@ class VagKnowledgeProvider:
                 status = signal.get("validation_status", "CANDIDATE")
                 confidence = "confirmed" if status.startswith("CONFIRMED") else "candidate"
                 decoder = signal.get("raw", {}).get("decoder")
+                validation_evidence = tuple(
+                    ValidationEvidence(
+                        scope=item.get("scope", ""),
+                        method=item.get("method", ""),
+                        result=item.get("result", ""),
+                        identity=item.get("identity"),
+                        date=item.get("date"),
+                        notes=item.get("notes", ""),
+                    )
+                    for item in signal.get("validation_evidence", ())
+                )
                 yield SignalDefinition(
                     id=f"minidash.{profile['id']}.{signal['did'].lower()}",
                     canonical_name=CANONICAL_ALIASES.get(
@@ -59,11 +75,15 @@ class VagKnowledgeProvider:
                     ecu=profile["ecu_alias"],
                     source=SignalSource("uds", did=int(signal["did"], 16)),
                     provenance=Provenance(
-                        origin="minidash_test", confidence=confidence,
+                        origin=signal.get("provenance_origin", "minidash_test"),
+                        confidence=confidence,
                         source_url=f"minidash://{profile_source}",
-                        vehicle_tested=status == "CONFIRMED_LIVE",
-                        verification_scope="did_association",
-                        notes=signal.get("notes", "")),
+                        vehicle_tested=(status == "CONFIRMED_LIVE" and
+                                        not validation_evidence),
+                        verification_scope=signal.get(
+                            "verification_scope", "did_association"),
+                        notes=signal.get("notes", ""),
+                        validation_evidence=validation_evidence),
                     provider_id="vag", applicability=fingerprint,
                     decoder=decoder, unit=signal.get("unit"), ttl=1.0,
                     metadata={"raw_decoder_available": decoder is not None,

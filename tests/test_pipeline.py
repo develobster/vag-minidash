@@ -1,29 +1,36 @@
 import importlib.util
-from contextlib import redirect_stdout
 import io
 import json
-import threading
 import tempfile
+import threading
 import time
 import unittest
 import uuid
+from contextlib import redirect_stdout
 from pathlib import Path
 
+from minidash_live.__main__ import main
 from minidash_live.dbc import load_cantools_database
 from minidash_live.discovery import (
-    IdentityProbe, discover_vehicle, verify_discovered_identity,
+    IdentityProbe,
+    discover_vehicle,
+    verify_discovered_identity,
 )
 from minidash_live.identity import EcuIdentity, VehicleIdentity
 from minidash_live.pipeline import (
-    AcquisitionPlanner, RuntimeEngine, SourceAvailability, signal_catalog,
+    AcquisitionPlanner,
+    RuntimeEngine,
+    SourceAvailability,
+    signal_catalog,
 )
 from minidash_live.registry import (
-    Provenance, SignalDefinition, SignalRegistry, SignalSource,
+    Provenance,
+    SignalDefinition,
+    SignalRegistry,
+    SignalSource,
 )
 from minidash_live.runtime import EcuSession
 from minidash_live.transports import CanTransport
-from minidash_live.__main__ import main
-
 
 ROOT = Path(__file__).resolve().parents[1]
 AVAILABLE = all(importlib.util.find_spec(name) for name in ("can", "isotp", "cantools"))
@@ -176,7 +183,12 @@ class PipelineIntegrationTests(unittest.TestCase):
                 self.assertEqual(main(["discover", "--config", str(config_path),
                                        "--output", str(output_path), "--debug"]), 0)
             snapshot = json.loads(output_path.read_text(encoding="utf-8"))
-            self.assertEqual(snapshot["vehicle"]["vin"], "TESTVIN0000000001")
+            self.assertIsNone(snapshot["vehicle"]["vin"])
+            vin_field = next(item for item in snapshot["ecus"][0]["fields"]
+                             if item["target"] == "vehicle.vin")
+            self.assertTrue(vin_field["redacted"])
+            self.assertNotIn("value", vin_field)
+            self.assertNotIn("TESTVIN0000000001", output_path.read_text(encoding="utf-8"))
             self.assertEqual(snapshot["ecus"][0]["identity"]["asam_id"], "EV_TEST_ENGINE")
             self.assertTrue(snapshot["debug"])
 

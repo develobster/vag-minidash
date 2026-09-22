@@ -139,7 +139,7 @@ must lower confidence and must not silently authorize a decoder.
 
 | ECU | What MiniDash already knows | Best external next source |
 |---|---|---|
-| J623 CZPA `5NA907115D/0003`, `EV_ECM20TFS0115NA907115D/001004` | Real identity and DID/name associations, including RPM, coolant/oil temperature and pressure records; no raw codecs | Exact MCD ECU-variant overlay. No equally trustworthy public CZPA formula set was found. |
+| J623 CZPA `5NA907115D/0003`, `EV_ECM20TFS0115NA907115D/001004` | Real identity and DID/name associations; F405 is the first exact-identity vehicle-tested raw codec (`uint8 - 40 degC`) | Exact MCD ECU-variant overlay plus the same synchronized validation method for remaining signals. |
 | J743 DQ500 `0DL300011P/2004`, `EV_TCMDQ500021/001001` | Real identity and 29 DID/name associations; no raw codecs | Exact MCD overlay. MQB-sniffer's DQ250 `3815/3816` data is only a candidate; `3816` association is already seen on our DQ500. |
 | J104 MK100 IPB `5Q0614517CE/0413` | Real identity and wheel/dynamics DID associations; no raw codecs | openDBC for fast passive wheel/vehicle dynamics; exact MCD for diagnostic-only values. |
 | J492 Gen5 `0CQ907554H/7083`, `EV_AllWheelContrHA1VW37X/004013` | Real identity and seven live DID/name associations; no raw codecs | OpenHaldex formulas as candidates, then exact MCD and a synchronized MiniDash/ODIS raw capture. |

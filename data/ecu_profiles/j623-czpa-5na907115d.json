@@ -6,9 +6,73 @@
   "system": "2.0 R4 TFSI",
   "protocol": "UDS / ISO-TP",
   "fingerprint": {"sw_part": "5NA907115D", "sw_version": "0003", "hw_part": "06L907309B", "hw_version": "H31", "asam_id": "EV_ECM20TFS0115NA907115D", "asam_version": "001004", "odx_container_version": "001003"},
-  "addressing": {"can": null, "note": "No physical CAN IDs are assumed. Operator supplies verified IDs in connection config."},
+  "addressing": {
+    "can": {
+      "request_id": "7E0",
+      "response_id": "7E8",
+      "bitrate": 500000,
+      "identifier_bits": 11,
+      "isotp_addressing": "normal",
+      "protocol": "UDS on ISO-TP on classic CAN",
+      "logical_link": "LL_EnginContrModul1UDS"
+    },
+    "evidence": {
+      "classification": "confirmed_real_vehicle",
+      "method": "ODIS Engineering 17.0.1 ECF logical-link open plus CAN bus trace",
+      "date": "2026-09-22",
+      "notes": "Sanitized evidence summary; original VIN-bearing ODIS artifacts remain outside Git. D-PDU vehicle-side evidence does not prove J2534 provider compatibility."
+    }
+  },
   "signals": [
-    {"did":"F405","name":"Coolant temperature","canonical_name":"engine.coolant_temp","unit":"degC","raw":{"data_type":null,"endian":null,"scale":null,"offset":null,"enum_mapping":null,"invalid_sentinel":null,"decoder":null},"validation_status":"CONFIRMED_LIVE","source":"ODIS Engineering 17.0.1 / user handoff 2026-09-20","notes":"Ignition ON ~64 C; idle ~63-65 C."},
+    {
+      "did": "F405",
+      "name": "Coolant temperature",
+      "canonical_name": "engine.coolant_temp",
+      "unit": "degC",
+      "raw": {
+        "data_type": "uint8",
+        "endian": "big",
+        "scale": 1,
+        "offset": -40,
+        "enum_mapping": null,
+        "invalid_sentinel": null,
+        "decoder": {
+          "length": 1,
+          "byteorder": "big",
+          "signed": false,
+          "scale": 1,
+          "offset": -40,
+          "invalid_raw": [],
+          "range": [-40, 215],
+          "source": "ODIS Engineering 17.0.1 UI-to-UDS comparison on exact ECU identity, 2026-09-22"
+        }
+      },
+      "validation_status": "CONFIRMED_LIVE",
+      "source": "Real vehicle ODIS Engineering 17.0.1 ECF/CAN trace validation, 2026-09-22",
+      "provenance_origin": "real_vehicle_validation",
+      "verification_scope": "raw_decode",
+      "validation_evidence": [
+        {
+          "scope": "raw_decode",
+          "method": "ODIS Engineering 17.0.1 displayed value correlated with repeated physical UDS responses",
+          "result": "pass",
+          "identity": {
+            "ecu": {
+              "logical_role": "engine",
+              "part_number": "5NA907115D",
+              "software_version": "0003",
+              "hardware_part_number": "06L907309B",
+              "hardware_version": "H31",
+              "asam_id": "EV_ECM20TFS0115NA907115D",
+              "asam_version": "001004"
+            }
+          },
+          "date": "2026-09-22",
+          "notes": "DID F405, one-byte payload: 0x32 -> 10 degC; 0x44 -> 28 degC; 0x45 -> 29 degC. Request 22 F4 05 and response 62 F4 05 XX observed on 7E0/7E8. Original VIN-bearing traces are retained outside Git."
+        }
+      ],
+      "notes": "Exact-identity vehicle-tested decoder: uint8 - 40 degC. Do not generalize to other 7E0 ECUs, MQB, CZPA, or VAG."
+    },
     {"did":"F40F","name":"Intake air temperature","canonical_name":"engine.intake_air_temp","unit":"degC","raw":{"data_type":null,"endian":null,"scale":null,"offset":null,"enum_mapping":null,"invalid_sentinel":null,"decoder":null},"validation_status":"CONFIRMED_ODIS","source":"ODIS Engineering 17.0.1 / user handoff 2026-09-20","notes":"RDID/name confirmed; no raw capture."},
     {"did":"F43C","name":"Exhaust temperature 1 bank 1","canonical_name":"engine.exhaust_temp.bank1.sensor1","unit":"degC","raw":{"data_type":null,"endian":null,"scale":null,"offset":null,"enum_mapping":null,"invalid_sentinel":null,"decoder":null},"validation_status":"CONFIRMED_ODIS","source":"ODIS Engineering 17.0.1 / user handoff 2026-09-20","notes":"No raw capture."},
     {"did":"F40D","name":"Vehicle speed","canonical_name":"vehicle.speed","unit":"km/h","raw":{"data_type":null,"endian":null,"scale":null,"offset":null,"enum_mapping":null,"invalid_sentinel":null,"decoder":null},"validation_status":"CONFIRMED_ODIS","source":"ODIS Engineering 17.0.1 / user handoff 2026-09-20","notes":"Engine-source vehicle speed."},

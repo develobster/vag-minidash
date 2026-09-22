@@ -1,8 +1,8 @@
 """Single-flight, read-only UDS 0x22 over complete diagnostic PDUs."""
-from dataclasses import dataclass
 import math
 import threading
 import time
+from dataclasses import dataclass
 from typing import Protocol
 
 
@@ -30,6 +30,18 @@ class UdsExchange:
     response: bytes
     payload: bytes
     pending_count: int
+
+
+def pdu_log_fields(pdu, *, request=None):
+    """Return trace-safe PDU fields; F190/VIN payloads are never persisted."""
+    pdu = bytes(pdu)
+    if request == b"\x22\xf1\x90" and pdu[:1] != b"\x7f":
+        return {
+            "pdu": pdu[:3].hex(),
+            "payload_redacted": "vehicle.vin",
+            "payload_length": max(0, len(pdu) - 3),
+        }
+    return {"pdu": pdu.hex()}
 
 
 class ReadClient:
@@ -73,7 +85,8 @@ class ReadClient:
             deadline = time.monotonic() + self.total
             pending = 0
             try:
-                self.trace({"kind": "pdu", "direction": "tx", "pdu": request.hex()})
+                self.trace({"kind": "pdu", "direction": "tx",
+                            **pdu_log_fields(request)})
                 self.transport.send(request, min(self.p2, self.total))
                 wait = self.p2
                 while True:
@@ -83,7 +96,8 @@ class ReadClient:
                     response = self.transport.recv(min(wait, remaining))
                     if response is None:
                         raise TimeoutError("UDS response timed out")
-                    self.trace({"kind": "pdu", "direction": "rx", "pdu": response.hex()})
+                    self.trace({"kind": "pdu", "direction": "rx",
+                                **pdu_log_fields(response, request=request)})
                     if response[:1] == b"\x7f":
                         if len(response) != 3 or response[1] != request[0]:
                             raise ProtocolError("Malformed/unrelated negative response")

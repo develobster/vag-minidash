@@ -5,10 +5,12 @@
   },
   "ecus": {
     "engine": {
-      "txid": null,
-      "rxid": null,
-      "bitrate": null,
-      "address_evidence": null,
+      "txid": "7E0",
+      "rxid": "7E8",
+      "bitrate": 500000,
+      "can_id_format": "11bit",
+      "isotp_addressing": "normal",
+      "address_evidence": "CONFIRMED REAL VEHICLE: ODIS Engineering 17.0.1 ECF logical link LL_EnginContrModul1UDS plus CAN bus trace, 2026-09-22",
       "identity_probes": [
         {
           "did": "F190",
@@ -17,5 +19,8 @@
         }
       ]
     }
+  },
+  "poll_periods": {
+    "engine.coolant_temperature": 2.0
   }
 }

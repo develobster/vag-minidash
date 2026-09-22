@@ -2,9 +2,17 @@
 
 ## Подтверждено / неизвестно
 
-По handoff пользователя: ODIS Engineering 17.0.1 успешно работает с этим VNCI и автомобилем. Это подтверждает рабочую связку ODIS/VCI, но не доступность J2534 или публичного сетевого протокола стороннему клиенту.
+По реальной сессии 2026-09-22 ODIS Engineering 17.0.1 успешно работал с
+VNCI/VAS6154A через Volkswagen D-PDU API. Для Engine подтверждены
+`LL_EnginContrModul1UDS`, 500 kbit/s, 11-bit Normal ISO-TP и physical route
+`7E0/7E8`. Это подтверждает vehicle-side CAN/ISO-TP route, но не доступность или
+совместимость J2534 FunctionLibrary для MiniDash.
 
-На текущем Linux-хосте драйверы VNCI и сам прибор отсутствуют. Доступ сторонней программы **не определён**. Общий J2534 адаптер реализован, совместимость VNCI с ним не заявляется. Маркетинговые упоминания DoIP/CAN FD и наличие Wi-Fi не устанавливают API между PC и прибором.
+На текущем Linux-хосте драйверы VNCI и сам прибор отсутствуют. Доступ сторонней
+программы **не определён**. Общий J2534 ISO15765 adapter реализован для complete
+UDS PDU и Normal 11-bit addressing; совместимость установленного VNCI-драйвера
+с ним ещё не доказана. Raw CAN ISO-TP PCI bytes из ODIS trace нельзя передавать
+этому adapter: segmentation/flow control выполняет PassThru ISO15765.
 
 ## Следующее действие на Windows
 

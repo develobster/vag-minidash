@@ -20,15 +20,17 @@ The integrated read-only runtime, `discover` / `signals` / `watch` commands,
 VirtualBus proof and first-car procedure are documented in
 [end-to-end.md](docs/runtime/end-to-end.md).
 
-The VNCI/Tiguan garage pre-flight and its current physical-endpoint stop gate
+The evidence-backed VNCI/Tiguan Engine route and F190-first garage pre-flight
 are documented in [tiguan-first-live.md](docs/runtime/tiguan-first-live.md).
+F405 coolant decoding is now vehicle-tested for one exact Engine identity; it
+remains unavailable until MiniDash itself observes that identity.
 
 Session management (0x10/0x3E), reconnect/backoff, polling scheduler,
 state/freshness и passive CAN decoding уже интегрированы. История foundation и
 его ограничения: [RUNTIME_FORK.md](docs/RUNTIME_FORK.md).
 Offline запуск: `python -m minidash_live.runtime_demo`.
-Проверено 110 тестов с optional transport dependencies. Реального автомобильного
-испытания и подтверждённых VAG passive CAN definitions пока нет.
+Реальный Engine endpoint и один F405 codec подтверждены ODIS/physical trace;
+физический VNCI J2534 path MiniDash и VAG passive CAN всё ещё не проверены.
 
 Ниже сохранено описание исходной версии и её исследовательского probe.
 

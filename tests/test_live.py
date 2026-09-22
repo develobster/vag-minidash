@@ -1,18 +1,24 @@
 import ctypes
 import importlib.util
 import json
-from pathlib import Path
 import tempfile
 import threading
 import unittest
 import uuid
+from pathlib import Path
 from urllib.request import urlopen
-from minidash_live.uds import ReadClient, NegativeResponse, ProtocolError
-from minidash_live.profiles import load_profile, decode
-from minidash_live.j2534 import Message, message, received_pdu
-from minidash_live.transports import CanTransport, validate_can
+
 from minidash_live.api import State, serve
 from minidash_live.discovery import inventory
+from minidash_live.j2534 import Message, message, received_pdu
+from minidash_live.profiles import decode, load_profile
+from minidash_live.transports import CanTransport, validate_can
+from minidash_live.uds import (
+    NegativeResponse,
+    ProtocolError,
+    ReadClient,
+    pdu_log_fields,
+)
 
 
 class Pdus:
@@ -95,6 +101,19 @@ class LiveTests(unittest.TestCase):
         m.RxStatus=0; m.DataSize=5000
         with self.assertRaises(OSError): received_pdu(m,0x708)
 
+    def test_f190_trace_redacts_vin_payload(self):
+        events = []
+        vin = b"TESTVIN0000000001"
+        client = ReadClient(Pdus(b"\x62\xf1\x90" + vin), trace=events.append,
+                            interval=.001)
+        self.assertEqual(client.read_did(0xF190), vin)
+        self.assertEqual(events[0]["pdu"], "22f190")
+        self.assertEqual(events[1]["pdu"], "62f190")
+        self.assertEqual(events[1]["payload_redacted"], "vehicle.vin")
+        self.assertNotIn(vin.decode(), json.dumps(events))
+        self.assertEqual(pdu_log_fields(bytes.fromhex("7f2231"),
+                                        request=bytes.fromhex("22f190"))["pdu"],
+                         "7f2231")
     def test_no_address_defaults_or_broadcast(self):
         for tx,rx in [(0x7df,0x708),(0x700,0x700),(-1,0x708),(0x1800,0x708)]:
             with self.assertRaises(ValueError): validate_can(tx,rx,500000)
@@ -118,7 +137,8 @@ class LiveTests(unittest.TestCase):
 @unittest.skipUnless(all(importlib.util.find_spec(x) for x in ('can','isotp')),'transport dependencies required')
 class LiveWireTests(unittest.TestCase):
     def test_real_isotp_multiframe_pending_and_cleanup(self):
-        import can,isotp
+        import can
+        import isotp
         channel='live-test-'+uuid.uuid4().hex
         bus=can.Bus(interface='virtual',channel=channel,ignore_config=True)
         server=isotp.CanStack(bus=bus,address=isotp.Address(isotp.AddressingMode.Normal_11bits,txid=0x708,rxid=0x700))
@@ -148,13 +168,17 @@ class LiveWireTests(unittest.TestCase):
 class J2534LifecycleTests(unittest.TestCase):
     def test_open_filter_read_close_and_connect_failure(self):
         from unittest.mock import Mock, patch
+
         from minidash_live import j2534 as j
         def put(pointer, value):
             ctypes.cast(pointer, ctypes.POINTER(j.U32))[0] = value
         for connect_error in (False, True):
             dll=Mock()
             dll.PassThruOpen.side_effect=lambda name,out: (put(out,10) or 0)
-            dll.PassThruConnect.side_effect=lambda dev,proto,flags,rate,out: 7 if connect_error else (put(out,20) or 0)
+            dll.PassThruConnect.side_effect = (
+                lambda dev, proto, flags, rate, out, failed=connect_error:
+                7 if failed else (put(out, 20) or 0)
+            )
             def filt(channel,kind,mask,pattern,flow,out):
                 self.assertEqual((channel,kind),(20,3))
                 messages=[ctypes.cast(x,ctypes.POINTER(j.Message)).contents for x in (mask,pattern,flow)]
@@ -163,8 +187,16 @@ class J2534LifecycleTests(unittest.TestCase):
                 put(out,30)
                 return 0
             dll.PassThruStartMsgFilter.side_effect=filt
-            for name in ('PassThruClose','PassThruDisconnect','PassThruStopMsgFilter','PassThruWriteMsgs'):
+            for name in ('PassThruClose','PassThruDisconnect','PassThruStopMsgFilter'):
                 getattr(dll,name).return_value=0
+            written=[]
+            def write(channel,out,count,timeout, target=written):
+                sent=ctypes.cast(out,ctypes.POINTER(j.Message)).contents
+                target.append(bytes(sent.Data[:sent.DataSize]))
+                self.assertEqual(sent.ProtocolID,6)
+                self.assertEqual(sent.TxFlags,0x40)
+                return 0
+            dll.PassThruWriteMsgs.side_effect=write
             def read(channel,out,count,timeout):
                 msg=j.message(0x708,bytes.fromhex('62f40582'))
                 ctypes.memmove(out,ctypes.byref(msg),ctypes.sizeof(msg));put(count,1)
@@ -180,6 +212,10 @@ class J2534LifecycleTests(unittest.TestCase):
                 else:
                     transport=j.J2534Transport('driver.dll',0x700,0x708,500000)
                     transport.send(bytes.fromhex('22f405'),1)
+                    # ISO15765 PassThru receives CAN-ID prefix + complete UDS PDU.
+                    # Raw ISO-TP PCI/padding from a CAN trace must not be supplied.
+                    self.assertEqual(written,[bytes.fromhex('0000070022f405')])
+                    self.assertNotEqual(written[0][4:],bytes.fromhex('0322f40555555555'))
                     self.assertEqual(transport.recv(1),bytes.fromhex('62f40582'))
                     transport.close();transport.close()
                     dll.PassThruStopMsgFilter.assert_called_once_with(20,30)
@@ -189,6 +225,7 @@ class J2534LifecycleTests(unittest.TestCase):
 
     def test_pe_inspection_reads_bitness_without_loading(self):
         import struct
+
         from minidash_live.discovery import pe_info
         for magic,bits,size in ((0x10b,32,224),(0x20b,64,240)):
             blob=bytearray(512);blob[:2]=b'MZ'

@@ -1,17 +1,16 @@
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from minidash_live.__main__ import main
 from minidash_live.profiles import load_profile, match_catalog, resolve_signal, signals
-
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class ProbeTests(unittest.TestCase):
-    def test_handoff_catalog_is_complete_and_raw_only(self):
+    def test_handoff_catalog_is_complete_and_only_f405_has_validated_decoder(self):
         expected = {
             "j623-czpa-5na907115d.json": {"F405", "F40F", "F43C", "F40D", "16F3", "F433", "11BD", "15B7", "1632", "11F0", "11F1", "11EF", "11DC", "11DD", "11DA", "159F", "11D7", "15CD", "1065", "149E", "128A"},
             "j743-dq500-0dl300011p.json": {"2104", "102B", "102C", "102A", "028D", "38B2", "100A", "380A", "380B", "380C", "380D", "380E", "380F", "3816", "382E", "382F", "3830", "3831", "3834", "3835", "3838", "3839", "383A", "383D", "383E", "38EA", "38EB", "38EC", "38ED"},
@@ -22,7 +21,9 @@ class ProbeTests(unittest.TestCase):
         for filename, dids in expected.items():
             profile = load_profile(directory / filename)
             self.assertEqual({x["did"] for x in signals(profile)}, dids)
-            self.assertTrue(all(x["raw"]["decoder"] is None for x in signals(profile)))
+            decoders = {x["did"] for x in signals(profile)
+                        if x["raw"]["decoder"] is not None}
+            self.assertEqual(decoders, {"F405"} if filename.startswith("j623-") else set())
         engine = load_profile(directory / "j623-czpa-5na907115d.json")
         self.assertEqual(resolve_signal(engine, "1632")["validation_status"], "UNSUPPORTED")
 
@@ -45,7 +46,7 @@ class ProbeTests(unittest.TestCase):
             events = [json.loads(line) for line in trace.read_text(encoding="utf-8").splitlines()]
             exchanges = [x for x in events if x["kind"] == "uds_exchange"]
             self.assertEqual([(x["did"], x["request"], x["response"]) for x in exchanges], [("F405", "22f405", "62f405aabb"), ("F999", "22f999", "62f99900")])
-            self.assertEqual(exchanges[0]["decoded"]["quality"], "raw_only")
+            self.assertEqual(exchanges[0]["decoded"]["quality"], "identity_unverified")
             self.assertEqual(exchanges[1]["decoded"]["canonical_name"], "unknown.did.F999")
             self.assertIn("selected_profile_fingerprint", exchanges[0])
             self.assertNotIn("ecu_fingerprint", exchanges[0])
@@ -63,3 +64,30 @@ class ProbeTests(unittest.TestCase):
                 main(["probe", "--config", str(config), "--ecu", "engine", "--did", "F405", "--trace", str(trace)])
             self.assertEqual(result.exception.code, 2)
             self.assertEqual(trace.read_text(encoding="utf-8"), "preserve")
+
+    def test_f190_probe_trace_does_not_persist_vin_in_decoded_raw(self):
+        with tempfile.TemporaryDirectory() as work:
+            work = Path(work)
+            fixture = work / "replay.json"
+            vin = "TESTVIN0000000001"
+            fixture.write_text(json.dumps({
+                "kind": "synthetic_uds_replay_v1",
+                "note": "Synthetic VIN used only to test redaction",
+                "responses": {"22f190": "62f190" + vin.encode().hex()},
+            }), encoding="utf-8")
+            config = work / "connection.json"
+            config.write_text(json.dumps({
+                "transport": {"kind": "replay", "fixture": str(fixture)},
+            }), encoding="utf-8")
+            trace = work / "trace.jsonl"
+            self.assertEqual(main(["probe", "--config", str(config),
+                                   "--ecu", "engine", "--did", "F190",
+                                   "--trace", str(trace)]), 0)
+            content = trace.read_text(encoding="utf-8")
+            self.assertNotIn(vin, content)
+            events = [json.loads(line) for line in content.splitlines()]
+            exchange = next(item for item in events
+                            if item["kind"] == "uds_exchange")
+            self.assertEqual(exchange["response"], "62f190")
+            self.assertEqual(exchange["decoded"]["quality"], "redacted")
+            self.assertIsNone(exchange["decoded"]["raw"])

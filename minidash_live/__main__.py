@@ -1,35 +1,53 @@
 """Read-only command line entrypoint for live research, never coding or flashing."""
 import argparse
-from contextlib import ExitStack
-from dataclasses import asdict
-from datetime import datetime, timezone
-from importlib import metadata, util
 import json
-from pathlib import Path
 import sys
 import tempfile
 import time
 import uuid
+from contextlib import ExitStack
+from dataclasses import asdict
+from datetime import datetime, timezone
+from importlib import metadata, util
+from pathlib import Path
 
 from .api import State, serve
 from .dbc import load_cantools_database
 from .discovery import (
-    DEFAULT_IDENTITY_PROBES, DiscoverySnapshot, IdentityProbe, discover_vehicle,
-    inventory, verify_discovered_identity,
+    DEFAULT_IDENTITY_PROBES,
+    DiscoverySnapshot,
+    IdentityProbe,
+    discover_vehicle,
+    inventory,
+    verify_discovered_identity,
 )
 from .identity import EcuIdentity, VehicleIdentity
 from .knowledge import registry_from_providers
-from .pipeline import AcquisitionPlanner, RuntimeEngine, SourceAvailability, signal_catalog
-from .profiles import decode, load_profile, match_catalog, match_fingerprint, resolve_signal
+from .pipeline import (
+    AcquisitionPlanner,
+    RuntimeEngine,
+    SourceAvailability,
+    signal_catalog,
+)
+from .profiles import (
+    decode,
+    load_profile,
+    match_catalog,
+    match_fingerprint,
+    resolve_signal,
+)
 from .runtime import EcuSession
-from .uds import NegativeResponse, ReadClient
+from .uds import NegativeResponse, ReadClient, pdu_log_fields
 from .vag import VagKnowledgeProvider
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_VEHICLE = ROOT / "data/vehicles/tiguan-5na-czpa-dq500.json"
 FORBIDDEN_CONFIG_KEYS = frozenset({
-    "adaptation", "clear_dtc", "coding", "ecu_reset", "flashing",
-    "routine_control", "security_access", "write_data_by_identifier",
+    "actuator_test", "adaptation", "basic_settings",
+    "clear_diagnostic_information", "clear_dtc", "coding",
+    "communication_control", "ecu_reset", "flashing",
+    "input_output_control", "routine_control", "security_access",
+    "write_data_by_identifier", "write_nvm",
 })
 
 
@@ -55,7 +73,7 @@ def validate_runtime_config(path, *, check_files=True):
         config = _read_json(path)
     except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
         return {"path": str(path), "valid": False, "read_only": False,
-                "ecu_roles": [], "errors": [str(exc)]}
+                "ecu_roles": [], "endpoints": [], "errors": [str(exc)]}
     if not isinstance(config, dict):
         errors.append("Configuration root must be a JSON object")
         config = {}
@@ -67,6 +85,7 @@ def validate_runtime_config(path, *, check_files=True):
         errors.append("At least one explicit physical ECU endpoint is required")
         ecus = {}
     roles = []
+    endpoints = []
     for role in ecus:
         roles.append(role)
         try:
@@ -77,6 +96,18 @@ def validate_runtime_config(path, *, check_files=True):
             rxid = int(str(connection["rxid"]), 16)
             from .transports import validate_can
             validate_can(txid, rxid, connection["bitrate"])
+            endpoints.append({
+                "role": role,
+                "transport": connection["kind"],
+                "protocol": "ISO15765" if connection["kind"] == "j2534"
+                            else "ISO-TP",
+                "txid": f"{txid:X}",
+                "rxid": f"{rxid:X}",
+                "bitrate": connection["bitrate"],
+                "can_id_format": connection.get("can_id_format", "11bit"),
+                "isotp_addressing": connection.get("isotp_addressing", "normal"),
+                "address_evidence": connection.get("address_evidence"),
+            })
             if connection["kind"] == "j2534":
                 dll = connection.get("dll")
                 if not isinstance(dll, str) or not dll:
@@ -91,7 +122,7 @@ def validate_runtime_config(path, *, check_files=True):
         except (KeyError, TypeError, ValueError, OSError) as exc:
             errors.append(f"ECU {role}: {exc}")
     return {"path": str(path), "valid": not errors, "read_only": not forbidden,
-            "ecu_roles": roles, "errors": errors}
+            "ecu_roles": roles, "endpoints": endpoints, "errors": errors}
 
 
 def _dependency_inventory():
@@ -160,6 +191,15 @@ def _did(text):
     return f"{int(text, 16):04X}"
 
 
+def _redact_sensitive_reading(did, reading):
+    if did != "F190":
+        return reading
+    result = dict(reading)
+    result.update(raw=None, value=None, quality="redacted",
+                  sensitive="vehicle.vin")
+    return result
+
+
 def _load_vehicle(path):
     path = Path(path).resolve()
     vehicle = _read_json(path)
@@ -193,6 +233,10 @@ def _connection(config, ecu):
         return merged
     if kind not in ("socketcan", "j2534", "d_pdu", "doip"):
         raise ValueError("Transport kind must be socketcan, j2534, replay, d_pdu or doip")
+    if merged.get("can_id_format", "11bit") != "11bit":
+        raise ValueError("Only 11bit CAN identifiers are supported")
+    if merged.get("isotp_addressing", "normal") != "normal":
+        raise ValueError("Only normal ISO-TP addressing is supported")
     if not merged.get("address_evidence"):
         raise ValueError("Record address_evidence for this ECU; no physical CAN IDs are guessed")
     for name in ("txid", "rxid", "bitrate"):
@@ -279,7 +323,7 @@ def run_discover(args):
     events = []
     snapshot = _discover_runtime(config_path, config,
         trace=lambda event: events.append({"timestamp": datetime.now(timezone.utc).isoformat(), **event}))
-    result = snapshot.as_dict()
+    result = snapshot.as_dict(redact_sensitive=True)
     result["metrics"] = {
         "endpoints_configured": len(config.get("ecus", {})),
         "ecus_discovered": len(snapshot.ecus),
@@ -310,7 +354,8 @@ def run_signals(args):
         rows = [row for row in rows if row["ecu"] == args.ecu]
     if args.source:
         rows = [row for row in rows if row["source"] == args.source]
-    print(json.dumps({"vehicle": asdict(snapshot.vehicle),
+    safe_vehicle = snapshot.as_dict(redact_sensitive=True)["vehicle"]
+    print(json.dumps({"vehicle": safe_vehicle,
                       "ecus": [{"role": item.role, "identity": asdict(item.identity),
                                 "fingerprint": item.fingerprint} for item in snapshot.ecus],
                       "signals": rows, "unavailable_ecus": list(snapshot.unavailable)},
@@ -372,7 +417,7 @@ def run_watch(args):
             for definition in plan.passive:
                 availability.set(definition.id, "unavailable", "passive_bus_not_configured")
         deadline, next_print = time.monotonic() + args.duration, 0
-        emit({"kind": "discovery", **snapshot.as_dict()})
+        emit({"kind": "discovery", **snapshot.as_dict(redact_sensitive=True)})
         emit({"kind": "plan", "requested": list(plan.requested),
               "definitions": [item.id for item in plan.definitions],
               "catalog": [row for row in signal_catalog(registry, snapshot.vehicle, ecus,
@@ -457,9 +502,16 @@ def run_probe(args):
                 item = resolve_signal(profile, did)
                 try:
                     exchange = client.read_did_exchange(int(did, 16))
-                    reading = decode(item, exchange.payload, identity_verified=identity_verified)
+                    reading = _redact_sensitive_reading(
+                        did, decode(item, exchange.payload,
+                                    identity_verified=identity_verified))
+                    response_log = pdu_log_fields(
+                        exchange.response, request=exchange.request)
                     record = emit({"kind": "uds_exchange", "service": "0x22", "did": did,
-                                   "request": exchange.request.hex(), "response": exchange.response.hex(),
+                                   "request": exchange.request.hex(),
+                                   "response": response_log["pdu"],
+                                   **{key: value for key, value in response_log.items()
+                                      if key != "pdu"},
                                    "pending_count": exchange.pending_count, "decoded": reading})
                     emit({"kind": "signal", **reading})
                     if args.raw:

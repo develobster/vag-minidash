@@ -226,10 +226,10 @@ Synthetic bytes prove wiring only and are not vehicle validation evidence.
 Reference vehicle: VW Tiguan II 2017, MQB, CZPA, DQ500, 4Motion.
 
 The authoritative garage procedure and current go/no-go gates are in
-[`tiguan-first-live.md`](tiguan-first-live.md). In particular, the repository
-still has no vehicle-evidenced Engine physical endpoint or ECU identity-probe
-layout. The commands below are an architectural example, not authorization to
-copy illustrative addresses or start measurement polling.
+[`tiguan-first-live.md`](tiguan-first-live.md). The Engine physical route is now
+confirmed as 500 kbit/s, 11-bit Normal ISO-TP, `7E0/7E8`. Exact ECU identity
+probe layouts beyond VIN are still missing, so F190 discovery is authorized but
+F405 polling remains blocked by the existing identity gate.
 
 1. Connect a battery support unit if the session may be long. Ignition ON;
    begin with engine OFF. Close ODIS and every other diagnostic tester.
@@ -239,8 +239,9 @@ copy illustrative addresses or start measurement polling.
    python -m minidash_live doctor --output .\artifacts\vnci-driver.json
    ```
 
-3. Record verified physical addressing and create a local
-   `tiguan-read-only.json`. Do not commit DLL paths, VIN or unredacted traces.
+3. Copy `config/examples/tiguan-vnci-engine-read-only.template.json` to local
+   `connection.json` and set only the discovered J2534 FunctionLibrary path.
+   Do not commit DLL paths, VIN or unredacted traces.
 4. Run discovery and keep the complete output:
 
    ```powershell
@@ -255,19 +256,11 @@ copy illustrative addresses or start measurement polling.
      --identity-snapshot .\artifacts\tiguan-identity.json --all-implementations
    ```
 
-6. With a SocketCAN/python-can capable interface, first observe passive values:
+6. Only after evidenced ECU identity probes observe the exact F405 identity,
+   use the canonical signal path:
 
    ```powershell
-   python -m minidash_live watch --config .\tiguan-read-only.json `
-     --identity-snapshot .\artifacts\tiguan-identity.json --duration 30 --json `
-     --trace .\artifacts\tiguan-passive.jsonl engine.rpm vehicle.speed
-   ```
-
-7. Only after identity selectors and a conservative polling period are reviewed,
-   add one known RDID-backed canonical signal:
-
-   ```powershell
-   python -m minidash_live watch --config .\tiguan-read-only.json `
+     python -m minidash_live watch --config .\connection.json `
      --identity-snapshot .\artifacts\tiguan-identity.json --duration 30 --json `
      --trace .\artifacts\tiguan-engine-read.jsonl engine.coolant_temperature
    ```
@@ -282,7 +275,7 @@ Bring back:
 * `vnci-driver.json`;
 * local config with secrets/paths removed;
 * `tiguan-identity.json` with VIN redacted in the copy;
-* `tiguan-passive.jsonl` and `tiguan-engine-read.jsonl`;
+* any identity-gate trace and, only after authorization, `tiguan-engine-read.jsonl`;
 * adapter/backend and ignition/engine state;
 * any NRC, timeout and unavailable-source records;
 * metrics summary, especially frames decoded, poll latency and source switches;
@@ -293,7 +286,8 @@ redacted derivative with provenance and an explicit statement of transformation.
 
 ## Remaining limitations
 
-* Physical VNCI/J2534 and SocketCAN behavior is not yet vehicle-tested.
+* The vehicle-side route is ODIS-trace confirmed; MiniDash/VNCI J2534 behavior
+  is not yet vehicle-tested because ODIS used D-PDU API.
 * Exact raw identity layouts beyond VIN require captured evidence.
 * Most exact Tiguan ECU profile signals have DID/name evidence but no raw codec.
 * openDBC may describe frames hidden by the OBD gateway.

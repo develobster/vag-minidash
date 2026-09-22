@@ -4,6 +4,12 @@
 Проверенная рабочая копия: handoff v0.8 без Git metadata  
 Приоритет оценки: correctness → architecture → reliability → testability → performance → style
 
+> Historical baseline. The later feature branch has integrated session
+> management, scheduler/state, discovery/identity, knowledge providers and the
+> end-to-end runtime. On 2026-09-22 the exact J623 route and F405 codec were
+> confirmed from real ODIS/physical traffic. Current live status and safety
+> gates are authoritative in `docs/runtime/tiguan-first-live.md`.
+
 ## Executive verdict
 
 Проект не является готовым MiniDash и пока не доказал чтение настоящего автомобиля через собственный CAN-интерфейс. Однако это уже не только GUI-макет: `minidash_live` содержит узкий read-only UDS 0x22 клиент, PDU transport abstraction, SocketCAN/can-isotp backend, общий J2534 backend, каталог реальных ECU/RDID и evidence-first JSONL trace. Это пригодное основание для эволюционной разработки; rewrite с нуля не нужен.
@@ -661,4 +667,3 @@ Do not start with a large DID batch. Required preparation:
 - Linux kernel ISO-TP documentation: https://docs.kernel.org/networking/iso15765-2.html
 - python-can-isotp v2 implementation documentation: https://can-isotp.readthedocs.io/en/latest/isotp/implementation.html
 - SAE J2534 standard landing page: https://www.sae.org/standards/content/j2534/1_201510/
-

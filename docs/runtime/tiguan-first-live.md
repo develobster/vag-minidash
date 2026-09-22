@@ -1,56 +1,63 @@
 # Tiguan / VNCI first live — read-only checklist
 
-Status: **blocked before vehicle I/O until the Engine physical diagnostic route
-is evidenced**. The repository contains no verified Engine request/response CAN
-IDs, addressing mode or bitrate for this VNCI/ODIS/car path. `7E0/7E8` in
-`docs/pc-backend.md` is explicitly illustrative and must not be copied.
+Status: **Engine physical route is confirmed; the first F190-only MiniDash
+connection is authorized after J2534 doctor passes. Measurement polling remains
+identity-gated.**
 
-Reference vehicle expectations from the ODIS handoff are CZPA and
-`EV_ECM20TFS0115NA907115D/001004`. They are review hints, not observed MiniDash
-identity and are deliberately absent from runtime identity fields.
+The confirmed real-vehicle route, observed with ODIS Engineering 17.0.1 on
+2026-09-22, is:
 
-## What this run is allowed to send
+| Field | Confirmed value |
+|---|---|
+| Logical link | `LL_EnginContrModul1UDS` |
+| Protocol | UDS / ISO-TP / classic CAN |
+| Request / response | `0x7E0` / `0x7E8` |
+| CAN identifier | 11-bit |
+| ISO-TP addressing | Normal |
+| Bitrate | 500000 bit/s |
 
-Phase 1 uses only physical `0x22 F190` (VIN). The runtime contains no coding,
-adaptation, flashing, SecurityAccess, ClearDTC, ECU reset, write-DID or routine
-command. Do not add another identification DID until its raw layout has been
-captured for this ECU. Do not use functional address `7DF`.
+ODIS used Volkswagen D-PDU API. That proves the vehicle-side route, not that a
+VNCI J2534 FunctionLibrary is installed or compatible. MiniDash must pass its
+own J2534 preflight before opening the interface.
 
-`watch` is **not authorized by this checklist yet**. The exact CZPA DID/name
-associations exist, but there is no evidenced ECU identity probe for reconnect
-verification and no raw decoder for coolant or RPM. A value rendered by ODIS is
-not enough to claim a raw byte scale.
+## Safety boundary
 
-## One evidence gate
+The first live phase sends only physical `22 F1 90` (VIN). MiniDash persists a
+redacted snapshot: the VIN payload is neither printed in the structured PDU
+trace nor written to `tiguan-identity.json`.
 
-Obtain one traceable Engine physical-route record from this exact
-VNCI/ODIS/Tiguan setup. It must contain all of:
+The runtime allowlist contains only ReadDataByIdentifier, default session,
+explicitly enabled extended session and TesterPresent. This checklist does not
+authorize session switching or TesterPresent. Coding, adaptations, flashing,
+WriteDataByIdentifier, ClearDTC, RoutineControl, SecurityAccess, ECUReset,
+InputOutputControl and CommunicationControl remain forbidden.
 
-- request CAN ID;
-- response CAN ID;
-- CAN bitrate;
-- addressing mode (the current backend accepts only Normal 11-bit ISO-TP);
-- provenance: capture/log filename, timestamp and how the route was observed.
+The validated F405 definition is exact-identity scoped to:
 
-Treat this as one endpoint record, not four independent guesses. If it indicates
-29-bit, extended/mixed addressing, CAN FD, or a D-PDU-only path, stop: the current
-generic J2534 backend is not compatible with that route.
+* `5NA907115D`, software `0003`;
+* `06L907309B`, hardware `H31`;
+* `EV_ECM20TFS0115NA907115D`, ASAM version `001004`.
+
+F190 observes the vehicle VIN, not those ECU fields. Therefore a successful
+F190 response proves connectivity but **does not unlock F405**. Do not put the
+ODIS identity into config as if MiniDash observed it. An evidence-backed set of
+ECU identity DIDs/layouts is still required before the first F405 watch.
 
 ## PREPARATION
 
-- [ ] Windows laptop charged and Python 3.11+ installed
-- [ ] VNCI vendor driver installed; no replacement driver installed for this test
-- [ ] VNCI connected by the vendor-supported link
-- [ ] ODIS and every other diagnostic tester closed before MiniDash vehicle I/O
+- [ ] Windows laptop charged; Python 3.11+ of known 32/64-bit architecture
+- [ ] vendor VNCI 6154A driver installed
+- [ ] ODIS and every other diagnostic tester closed before live I/O
 - [ ] battery support connected if available
-- [ ] ignition ON
-- [ ] engine OFF
-- [ ] verified Engine physical-route record available
-- [ ] an empty `artifacts/first-live` directory available
+- [ ] ignition ON, engine OFF
+- [ ] VNCI connected by its vendor-supported link
+- [ ] `artifacts/first-live` does not contain files from an earlier attempt
 
-From a PowerShell prompt in the repository:
+From PowerShell in the repository:
 
 ```powershell
+git switch feature/diagnostic-data-import
+git pull --ff-only origin feature/diagnostic-data-import
 py -3 -m venv .venv
 Set-ExecutionPolicy -Scope Process Bypass
 & .\.venv\Scripts\python.exe -m pip install -r .\requirements-transport.txt -r .\requirements-data.txt
@@ -58,10 +65,11 @@ New-Item -ItemType Directory -Force .\artifacts\first-live | Out-Null
 Get-ChildItem .\artifacts\first-live -Force
 ```
 
-The last command must show no output files from an earlier run. MiniDash refuses
-to overwrite discovery/watch artifacts.
+MiniDash refuses to overwrite discovery/watch artifacts.
 
-## PHASE 0A — driver inventory (no VCI or vehicle I/O)
+## PHASE 0A — offline driver inventory
+
+No VCI or vehicle I/O occurs in this phase.
 
 ```powershell
 powershell -NoProfile -File .\tools\Inspect-Vnci.ps1 `
@@ -70,46 +78,33 @@ powershell -NoProfile -File .\tools\Inspect-Vnci.ps1 `
   --output .\artifacts\first-live\vnci-driver-inventory.json
 ```
 
-Find the VNCI entry under `j2534` and copy its exact `FunctionLibrary` value.
-Do not select a DLL merely because its filename contains `VAS`, `VNCI` or
-`PassThru`. The Python architecture must match the DLL (`python_bits` equals
-`dlls[].bits`) and all `j2534_required_exports_present` checks must be true.
+Find the VNCI entry under `j2534` and copy its exact `FunctionLibrary`. Do not
+select the Volkswagen D-PDU DLL. If several PassThru providers exist, select
+the one whose registry entry belongs to the installed VNCI driver; MiniDash
+does not silently choose one.
 
-`doctor` parses PE exports but intentionally does not load the DLL, call
-`PassThruOpen`, select a device or touch the vehicle. The production backend
-later calls `PassThruOpen(NULL)`, so the vendor driver/default-device selection
-must resolve the connected VNCI; MiniDash has no vendor-specific device picker.
+Requirements:
 
-## Build the local config after the evidence gate
+* file exists;
+* `python_bits` equals the DLL PE bitness;
+* every `j2534_required_exports_present` check is true;
+* the path is a J2534 PassThru FunctionLibrary, not a D-PDU library.
 
-Do not modify the committed template. Set values copied from the local driver
-inventory and verified endpoint record:
+`doctor` parses registry/PE metadata but intentionally does not load the DLL,
+call `PassThruOpen`, select a device or send vehicle traffic. Production later
+uses `PassThruOpen(NULL)`; vendor default-device selection must resolve VNCI.
+
+## PHASE 0B — create local config and run complete doctor
+
+Only the machine-local DLL path is missing from the committed template:
 
 ```powershell
 $env:MINIDASH_J2534_DLL = 'C:\absolute\vendor\FunctionLibrary.dll'
-$env:MINIDASH_ENGINE_TXID = 'VERIFIED_HEX_REQUEST_ID'
-$env:MINIDASH_ENGINE_RXID = 'VERIFIED_HEX_RESPONSE_ID'
-$env:MINIDASH_CAN_BITRATE = 'VERIFIED_INTEGER_BITRATE'
-$env:MINIDASH_ADDRESS_EVIDENCE = 'capture filename + timestamp + observation method'
-
-$Config = Get-Content .\config\examples\tiguan-vnci-engine-read-only.template.json -Raw | ConvertFrom-Json
+Copy-Item .\config\examples\tiguan-vnci-engine-read-only.template.json .\connection.json
+$Config = Get-Content .\connection.json -Raw | ConvertFrom-Json
 $Config.transport.dll = $env:MINIDASH_J2534_DLL
-$Config.ecus.engine.txid = $env:MINIDASH_ENGINE_TXID
-$Config.ecus.engine.rxid = $env:MINIDASH_ENGINE_RXID
-$Config.ecus.engine.bitrate = [int]$env:MINIDASH_CAN_BITRATE
-$Config.ecus.engine.address_evidence = $env:MINIDASH_ADDRESS_EVIDENCE
-$Config | ConvertTo-Json -Depth 10 | Set-Content -Encoding UTF8 .\connection.json
-```
+$Config | ConvertTo-Json -Depth 20 | Set-Content -Encoding UTF8 .\connection.json
 
-`connection.json` is ignored by Git. It contains one Engine endpoint and only
-the `F190` probe. It contains no expected CZPA/ASAM values, measurement DIDs,
-poll periods, seeded vehicle identity or passive-CAN setup. This prevents
-reference facts such as `MQB` from appearing beside observed fields without
-provenance.
-
-## PHASE 0B — complete offline doctor
-
-```powershell
 & .\.venv\Scripts\python.exe -m minidash_live doctor `
   --dll "$env:MINIDASH_J2534_DLL" `
   --config .\connection.json `
@@ -117,18 +112,17 @@ provenance.
   --output .\artifacts\first-live\vnci-driver.json
 ```
 
-Expected: `preflight_ready: true`, all four dependencies installed, config
-`valid: true` and `read_only: true`, `ecu_roles: ["engine"]`, matching Python/DLL
-bitness, complete required exports and a writable artifact directory.
-`vehicle_io_performed`, `dll_load_performed` and
-`backend_initialization_performed` must all be false.
+Expected: `preflight_ready: true`, config `valid: true` and `read_only: true`,
+Engine route `7E0/7E8`, complete exports, matching bitness and a writable
+artifact directory. `vehicle_io_performed`, `dll_load_performed` and
+`backend_initialization_performed` must remain false.
 
-Stop if any check fails. In particular, changing Python bitness is acceptable;
-substituting an unrelated DLL or inventing an endpoint is not.
+Do not alter the committed route fields. They are a single evidence-backed
+record, not generic MQB defaults. `connection.json` is ignored by Git.
 
-## PHASE 1 — discover, ignition ON / engine OFF
+## PHASE 1 — first live F190 discovery
 
-Connect VNCI to the vehicle only after Phase 0 passes. Confirm ODIS is closed.
+Ignition ON, engine OFF. Confirm ODIS is closed.
 
 ```powershell
 & .\.venv\Scripts\python.exe -m minidash_live discover `
@@ -137,30 +131,24 @@ Connect VNCI to the vehicle only after Phase 0 passes. Confirm ODIS is closed.
   --debug | Tee-Object -FilePath .\artifacts\first-live\discover-console.txt
 ```
 
-Expected successful transport result:
+Success requires:
 
-- one `engine` endpoint is discovered;
-- `request_id` and `response_id` equal the verified config;
-- `fields` contains a successful `F190 → vehicle.vin`, or `errors` contains an
-  explicit NRC;
-- `fingerprint` is deterministic and contains the configured/evidenced endpoint
-  key (`logical_role`, request/response IDs), while `fields` contains the actual
-  wire observations; neither may acquire CZPA/ASAM/part/software merely because
-  those are expected;
-- metrics show one configured endpoint and PDU TX/RX counts consistent with the
-  trace.
+* one available `engine` endpoint with request/response `7E0/7E8`;
+* exactly one TX PDU: `22f190`;
+* either a positive RX header `62f190` with `payload_redacted: vehicle.vin`, or
+  an explicit NRC to diagnose;
+* no configured CZPA/ASAM/part/software values appearing as observed ECU fields;
+* deterministic endpoint fingerprint and consistent PDU metrics.
 
-A timeout/transport failure places Engine in `unavailable` and returns a failing
-exit status. That is not a discovered ECU. Preserve all output.
+The persisted JSON intentionally contains `vehicle.vin: null` and a redacted
+F190 field marker. Keep the original ODIS capture outside Git.
 
 ### STOP AND REVIEW
 
-Do not run `signals` or `watch` until the identity JSON and embedded debug PDU
-events have been reviewed. Check that the only TX PDU is `22f190`.
+Do not continue if the only TX PDU is not `22f190`, or if transport/identity
+output is unexpected.
 
-## PHASE 2 — catalog only
-
-After successful review:
+## PHASE 2 — applicable signal catalog (no vehicle I/O)
 
 ```powershell
 & .\.venv\Scripts\python.exe -m minidash_live signals `
@@ -169,62 +157,71 @@ After successful review:
   --all-implementations | Tee-Object -FilePath .\artifacts\first-live\signals.json
 ```
 
-The catalog may be empty: the config deliberately does not seed `MQB`, and exact
-CZPA UDS definitions must remain absent until an ECU identity probe has actually
-observed the applicable ECU fingerprint. This phase sends no vehicle requests
-when `--identity-snapshot` is supplied.
+With the current F190-only snapshot, the exact F405 implementation must not
+appear. An empty catalog is the expected fail-closed result. If F405 appears
+without observed part/software/hardware/ASAM identity, stop and report an
+applicability defect.
 
-### STOP AND REVIEW
+## PHASE 3 — F405 gate check only (no measurement authorized yet)
 
-If an exact CZPA UDS definition appears without observed ECU identity fields,
-stop and report it as an applicability bug.
+The following command is safe with the F190-only snapshot because planning
+finds no applicable definition and creates no PollJob. It may be used only to
+record the fail-closed planning result:
 
-## PHASE 3 — first measurement (currently blocked)
+```powershell
+& .\.venv\Scripts\python.exe -m minidash_live watch `
+  --config .\connection.json `
+  --identity-snapshot .\artifacts\first-live\tiguan-identity.json `
+  --duration 5 --interval 1 --json `
+  --trace .\artifacts\first-live\watch-gate.jsonl `
+  engine.coolant_temperature
+```
 
-There is intentionally no approved `watch` command yet. Before one is issued we
-need:
+Expected: `no_applicable_definition`, no J2534 session, no `22f405`, and no
+selected value. This is not a measurement test.
 
-1. an evidenced, safe ECU identity DID/layout that observes enough of the CZPA
-   fingerprint and can be re-read after reconnect;
-2. a raw `0x62 F405 ...` capture synchronized with ODIS coolant temperature;
-3. a tested decoder including length, endian, scale, offset and invalid values.
+After safe ECU identity DIDs and layouts are independently evidenced and added
+to local config, a fresh discovery must observe all required fields. Only then
+may the same canonical watch path create the configured conservative 2-second
+F405 PollJob. The expected decode is `uint8 - 40 degC`; compare it against ODIS
+before promoting any further signal.
 
-Only then should a low-rate, finite-duration
-`watch engine.coolant_temperature` command be added. RPM follows after coolant,
-with the engine running and comparison against cluster/ODIS. No high-frequency
-polling belongs in this first test.
+## Immediate STOP conditions
 
-## Immediate abort conditions
+Stop on any of:
 
-Stop MiniDash, switch ignition off when safe, and preserve artifacts on:
+* DLL missing, export failure or Python/DLL bitness mismatch;
+* `PassThruOpen`, `PassThruConnect`, filter or transport error;
+* endpoint/config differing from `500000`, 11-bit Normal, `7E0/7E8`;
+* response associated with an unexpected CAN ID;
+* malformed F190 response or repeated NRC/timeout;
+* any TX service other than `22 F190` during discovery;
+* configured expected identity appearing as observed identity;
+* changed fingerprint or reconnect verification failure;
+* diagnostic warning in the vehicle or evidence of another active tester.
 
-- any J2534 driver error or repeated transport timeout;
-- any TX service other than `22 F190` in Phase 1;
-- unexpected `0x10`, `0x3E` or measurement `0x22` during discovery;
-- identity mismatch or changed endpoint fingerprint;
-- repeated NRC, unstable session/bus, or reconnect loop;
-- any new vehicle diagnostic warning;
-- any indication that ODIS/another tester is still active.
-
-The abort action is `Ctrl+C`; if the process does not exit, disconnect VNCI from
-the PC before changing anything else. Do not clear DTCs as part of this run.
+Abort with `Ctrl+C`. If the process does not exit, disconnect VNCI from the PC.
+Do not clear DTCs.
 
 ## Artifacts to preserve
 
-- `vnci-windows.json`
-- `vnci-driver-inventory.json`
-- `vnci-driver.json`
-- local `connection.json` (share only after removing local DLL path)
-- the physical-route evidence record
-- `tiguan-identity.json`
-- `discover-console.txt`
-- `signals.json`, only after Phase 2
+* `vnci-windows.json`
+* `vnci-driver-inventory.json`
+* `vnci-driver.json`
+* local `connection.json` after removing the DLL path before sharing
+* `tiguan-identity.json`
+* `discover-console.txt`
+* `signals.json`
+* optional `watch-gate.jsonl`
 
-`discover` embeds its structured PDU debug events in `tiguan-identity.json`; it
-does not create a separate `discover-trace.jsonl`. `watch.jsonl` and a metrics
-summary are future artifacts after measurement authorization.
+The MiniDash artifacts above redact F190 payloads by default. Raw ODIS
+`.CAN.vmt`/`ecf.log` files can still contain VIN, local paths and diagnostic
+metadata. Keep originals immutable and outside Git; publish only a reviewed,
+sanitized derivative with its transformation and date documented.
 
-Keep the original local VIN-bearing capture unchanged. Before publishing or
-committing a derivative, replace the VIN consistently with `<REDACTED_VIN>`,
-remove the local DLL path, add a note that the copy was sanitized, and retain
-the original capture hash/date separately. Never commit the original capture.
+## What remains before actual F405 polling
+
+Capture and review the raw request/response layout for enough safe read-only ECU
+identity DIDs to observe the exact fingerprint after every connection. F190
+alone cannot provide this. Do not guess common VAG identity DIDs or copy them
+from another ECU family.

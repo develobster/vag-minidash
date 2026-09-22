@@ -2,6 +2,9 @@
 
 Исходная версия: локальный vag-minidash v0.6; Git metadata и AGENTS.md не обнаружены.
 
+> Historical v0.8 handoff record. Current runtime/pre-flight status is in
+> `docs/runtime/end-to-end.md` and `docs/runtime/tiguan-first-live.md`.
+
 | Компонент | До изменений | Решение |
 |---|---|---|
 | app.py / core.py | Tk-интерфейс и симуляция | Сохранены |

@@ -1,13 +1,12 @@
 """Read-only driver inventory and conservative ECU identity discovery."""
-from dataclasses import asdict, dataclass, fields
 import os
 import platform
 import struct
+from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
 from .identity import EcuIdentity, IdentityContext, VehicleIdentity
 from .uds import NegativeResponse, ReadClient
-
 
 J2534_REQUIRED_EXPORTS = frozenset({
     "PassThruOpen", "PassThruClose", "PassThruConnect", "PassThruDisconnect",
@@ -79,10 +78,18 @@ class DiscoverySnapshot:
     def contexts(self):
         return {item.role: IdentityContext(self.vehicle, item.identity) for item in self.ecus}
 
-    def as_dict(self):
-        return {"schema_version": 1, "vehicle": asdict(self.vehicle),
-                "ecus": [asdict(item) for item in self.ecus],
-                "unavailable": list(self.unavailable)}
+    def as_dict(self, *, redact_sensitive=False):
+        result = {"schema_version": 1, "vehicle": asdict(self.vehicle),
+                  "ecus": [asdict(item) for item in self.ecus],
+                  "unavailable": list(self.unavailable)}
+        if redact_sensitive:
+            result["vehicle"]["vin"] = None
+            for ecu in result["ecus"]:
+                for item in ecu["fields"]:
+                    if item.get("target") == "vehicle.vin" and "value" in item:
+                        item.pop("value")
+                        item["redacted"] = True
+        return result
 
     @classmethod
     def from_mapping(cls, value):
