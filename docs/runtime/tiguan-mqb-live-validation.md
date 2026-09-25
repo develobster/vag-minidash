@@ -12,6 +12,30 @@ Use the existing read-only runtime config and identity snapshot procedure in
 addresses only if their evidence is already documented for this car. Do not
 copy Octavia/MQB-sniffer `0x714/0x77E` addresses into the Tiguan config.
 
+For the external MQB DBC candidates to appear in the catalog after the first
+F190-only discovery, add only the known vehicle-level context and local DBC
+path to `connection.json`:
+
+```json
+{
+  "vehicle_identity": {
+    "manufacturer": "Volkswagen",
+    "platform": "MQB",
+    "model": "Tiguan II",
+    "model_year": 2017
+  },
+  "dbc_databases": {
+    "opendbc/vw_mqb": "C:/path/to/vw_mqb.dbc"
+  }
+}
+```
+
+These vehicle fields are operator-supplied context for candidate filtering;
+they are not ECU identity evidence and do not promote a decoder. Keep ECU
+part/software/hardware/ASAM identity sourced only from observed, read-only
+responses. If the laptop has not observed those fields, the exact ECU profiles
+must remain unavailable.
+
 Install the optional DBC reader in the project virtual environment and place
 the externally obtained `vw_mqb.dbc` at the path referenced by the runtime
 config. Use the pinned revision shown in the manifest; the DBC is not vendored.
@@ -38,6 +62,12 @@ setting to the read-only config:
 ```json
 "passive_can_grace": 60
 ```
+
+Use an installed `python-can` receive backend and the actual channel name. Do
+not assume the VNCI J2534 DLL also provides a passive `python-can` backend. If
+the VNCI cannot capture receive-only, use a separate CAN receiver whose
+hardware listen-only mode is confirmed; otherwise stop after the F190-only
+discovery and catalog review.
 
 The configured 30-second watch therefore listens for CAN throughout the case
 and will not start a fallback UDS value poll during that capture. Identity
