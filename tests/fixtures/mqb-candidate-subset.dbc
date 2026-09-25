@@ -1,0 +1,22 @@
+VERSION "MQB candidate scaling fixture; derived from signal layouts, not a vehicle capture"
+
+NS_ :
+
+BS_:
+
+BU_: Gateway_MQB Motor_Diesel_MQB
+
+BO_ 168 Motor_12: 8 Motor_Diesel_MQB
+ SG_ MO_QBit_Drehzahl_01 : 47|1@1+ (1,0) [0|1] "" Gateway_MQB
+ SG_ MO_Drehzahl_01 : 48|16@1+ (0.25,0) [0|16383] "rpm" Gateway_MQB
+
+BO_ 253 ESP_21: 8 Gateway_MQB
+ SG_ ESP_v_Signal : 32|16@1+ (0.01,0) [0|655.32] "km/h" Motor_Diesel_MQB
+
+BO_ 262 ESP_05: 8 Gateway_MQB
+ SG_ ESP_Bremsdruck : 16|10@1+ (0.3,-30) [-30|276.9] "bar" Motor_Diesel_MQB
+ SG_ ESP_Fahrer_bremst : 26|1@1+ (1,0) [0|1] "" Motor_Diesel_MQB
+
+BO_ 289 Motor_20: 8 Motor_Diesel_MQB
+ SG_ MO_Fahrpedalrohwert_01 : 12|8@1+ (0.4,0) [0|101.6] "%" Gateway_MQB
+ SG_ MO_rel_Saugrohrdruck : 30|6@1+ (18,0) [0|1134] "mbar" Gateway_MQB
