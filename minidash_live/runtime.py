@@ -60,10 +60,11 @@ class EcuSession:
     verify(client) must perform fresh identity checking; false prevents decoding,
     not raw research. No factory calls are made during backoff.
     """
-    def __init__(self, factory, *, session=1, allow_extended=False, keepalive=1,
+    def __init__(self, factory, *, session=None, allow_extended=False, keepalive=1,
                  s3=5, backoff=1, max_backoff=30, verify=lambda client: False,
                  clock=time.monotonic, trace=lambda event: None, client_options=None):
-        if type(session) is not int or session not in (1, 3) or (session == 3 and not allow_extended):
+        if (session is not None and (type(session) is not int or session not in (1, 3))) or \
+                (session == 3 and not allow_extended):
             raise ValueError("Session not allowed")
         for value in (keepalive, s3, backoff, max_backoff):
             positive(value)
@@ -112,7 +113,8 @@ class EcuSession:
                 transport.close()
                 raise
             self.identity_verified = bool(self.verify(self.client))
-            self.client.session_control(self.session, allow_extended=self.allow_extended)
+            if self.session is not None and self.identity_verified:
+                self.client.session_control(self.session, allow_extended=self.allow_extended)
             self.last_activity, self.state = self.clock(), "active"
             return True
         except Exception as exc:
@@ -122,7 +124,7 @@ class EcuSession:
     def maintain(self):
         if not self.ready():
             return False
-        if self.session != 1 and self.clock()-self.last_activity >= self.keepalive:
+        if self.session == 3 and self.clock()-self.last_activity >= self.keepalive:
             try:
                 self.client.tester_present()
                 self.last_activity = self.clock()

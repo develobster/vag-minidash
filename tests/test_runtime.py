@@ -46,9 +46,19 @@ class RuntimeTests(unittest.TestCase):
         wire = Wire([bytes.fromhex("7f1078"), bytes.fromhex("5001003201f4")])
         ReadClient(wire).session_control()
         self.assertEqual(wire.sent, [b"\x10\x01"])
+    def test_default_read_path_sends_only_read_data_by_identifier(self):
+        wire = Wire([bytes.fromhex("62123455")])
+        session = self.session(wire, verify=lambda client: True)
+        self.assertEqual(session.read(0x1234), b"\x55")
+        self.assertEqual(wire.sent, [bytes.fromhex("221234")])
+    def test_unverified_identity_does_not_enter_requested_session(self):
+        wire = Wire([])
+        session = self.session(wire, session=3, allow_extended=True,
+                               verify=lambda client: False)
+        self.assertTrue(session.ready())
+        self.assertEqual(wire.sent, [])
     def test_reconnect_fresh_transport_and_reverify(self):
-        wires = [Wire([bytes.fromhex("5001003201f4"), None]),
-                 Wire([bytes.fromhex("5001003201f4"), bytes.fromhex("62123455")])]
+        wires = [Wire([None]), Wire([bytes.fromhex("62123455")])]
         opened, verified = [], []
         def factory():
             wire = wires[len(opened)]; opened.append(wire); return wire
@@ -64,7 +74,8 @@ class RuntimeTests(unittest.TestCase):
         session.close()
     def test_keepalive_and_expiry(self):
         wire = Wire([bytes.fromhex("5003003201f4"), b"\x7e\x00"])
-        session = self.session(wire, session=3, allow_extended=True)
+        session = self.session(wire, session=3, allow_extended=True,
+                               verify=lambda client: True)
         self.assertTrue(session.ready())
         self.now = 1.1
         self.assertTrue(session.maintain())
@@ -83,7 +94,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(store.snapshot()[1]["value"], 801)
     def test_scheduler_failure_isolation_and_unknown_identity(self):
         bad = self.session(Wire([]))
-        good = self.session(Wire([bytes.fromhex("5001003201f4"), bytes.fromhex("62123455")]))
+        good = self.session(Wire([bytes.fromhex("62123455")]))
         store = SignalStore(self.clock)
         def forbidden(raw): raise AssertionError("Decoder must not run without identity")
         jobs = [PollJob(e, "rpm", 0x1234, 1, 2, forbidden) for e in ("bad", "good")]
@@ -94,14 +105,14 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(store.snapshot()[-1]["quality"], "identity_unverified")
         self.assertFalse(scheduler.step())
     def test_permanent_nrc_disables_job(self):
-        wire = Wire([bytes.fromhex("5001003201f4"), bytes.fromhex("7f2231")])
+        wire = Wire([bytes.fromhex("7f2231")])
         job = PollJob("e", "s", 0x1234, 1, 2, lambda raw: {})
         scheduler = Scheduler({"e":self.session(wire)}, SignalStore(self.clock), [job], cooldown=.2, clock=self.clock)
         scheduler.step()
         self.assertFalse(job.enabled)
     def test_on_demand(self):
         job = PollJob("e", "s", 0x1234, None, 2, lambda raw: {}, "ON_DEMAND")
-        wire = Wire([bytes.fromhex("5001003201f4"), bytes.fromhex("62123455")])
+        wire = Wire([bytes.fromhex("62123455")])
         scheduler = Scheduler({"e":self.session(wire)}, SignalStore(self.clock), [job], cooldown=.2, clock=self.clock)
         self.assertFalse(scheduler.step())
         scheduler.request("s", "e")

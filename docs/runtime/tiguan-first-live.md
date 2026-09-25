@@ -26,8 +26,8 @@ The first live phase sends only physical `22 F1 90` (VIN). MiniDash persists a
 redacted snapshot: the VIN payload is neither printed in the structured PDU
 trace nor written to `tiguan-identity.json`.
 
-The runtime allowlist contains only ReadDataByIdentifier, default session,
-explicitly enabled extended session and TesterPresent. This checklist does not
+The default live CLI path sends only ReadDataByIdentifier (`0x22`); it does not
+switch diagnostic sessions or send TesterPresent. This checklist does not
 authorize session switching or TesterPresent. Coding, adaptations, flashing,
 WriteDataByIdentifier, ClearDTC, RoutineControl, SecurityAccess, ECUReset,
 InputOutputControl and CommunicationControl remain forbidden.
