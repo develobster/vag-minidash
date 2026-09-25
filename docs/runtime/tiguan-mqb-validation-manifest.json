@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "target": {
+    "manufacturer": "Volkswagen",
+    "model": "Tiguan II",
+    "platform": "MQB",
+    "model_year": 2017,
+    "engine": "CZPA",
+    "transmission": "DQ500",
+    "awd": "Gen5 Haldex",
+    "applicability_status": "vehicle_identity_known; imported MQB/community signal decoders remain candidates"
+  },
+  "safety": {
+    "can_mode": "receive_only",
+    "uds_mode": "ReadDataByIdentifier only, after exact ECU identity and endpoint evidence",
+    "forbidden": [
+      "coding",
+      "adaptation",
+      "clear_dtc",
+      "routine_control",
+      "security_access",
+      "writes",
+      "actuator_tests"
+    ],
+    "community_octavia_addresses_must_not_be_used": [
+      "0x714",
+      "0x77E"
+    ]
+  },
+  "source_revisions": {
+    "opendbc_vw_mqb_dbc": "c4465696dc2ef0d1340ae188810ac982586999a4",
+    "opendbc_license": "MIT",
+    "blackcockpit_license": "no license found; no code copied",
+    "openhaldex_c6": "86cd553546cfbb812c96e525722597c496250e34",
+    "openhaldex_license": "MIT; upstream license includes a third-party portions note"
+  },
+  "captures": [
+    {
+      "id": "ignition_baseline",
+      "duration_seconds": 30,
+      "vehicle_state": "ignition on, engine off, stationary",
+      "observe_can_ids": [
+        "0x0FD",
+        "0x0B2",
+        "0x101",
+        "0x106",
+        "0x086",
+        "0x121",
+        "0x0A8",
+        "0x0AD",
+        "0x12B",
+        "0x3DB",
+        "0x3DC",
+        "0x3D5",
+        "0x640",
+        "0x6B7"
+      ],
+      "notes": "Gateway/tap visibility inventory; a missing frame is not evidence that the DBC layout is wrong."
+    },
+    {
+      "id": "warm_idle",
+      "duration_seconds": 30,
+      "vehicle_state": "engine warm, stationary, idle",
+      "observe_signals": [
+        "engine.rpm",
+        "vehicle.speed",
+        "engine.coolant_temperature",
+        "engine.oil_temperature",
+        "engine.torque_actual",
+        "engine.torque_validity",
+        "transmission.gear",
+        "transmission.sump_temperature"
+      ],
+      "compare_with": [
+        "ODIS displayed values and ECU identity snapshot"
+      ]
+    },
+    {
+      "id": "rpm_1500_2000",
+      "duration_seconds": 20,
+      "vehicle_state": "stationary in a safe state; stabilize near 1500 then 2000 rpm without operating MiniDash controls while moving",
+      "observe_signals": [
+        "engine.rpm",
+        "engine.rpm_validity",
+        "driver.throttle",
+        "engine.manifold_pressure_relative",
+        "engine.torque_actual"
+      ],
+      "compare_with": [
+        "ODIS engine speed, pedal position, and charge/manifold pressure"
+      ]
+    },
+    {
+      "id": "stationary_controls",
+      "duration_seconds": 60,
+      "vehicle_state": "stationary; press one control at a time and mark its timestamp",
+      "observe_signals": [
+        "brake.pressed",
+        "brake.pressure",
+        "steering.angle_magnitude",
+        "steering.angle_sign",
+        "cruise.main_switch",
+        "cruise.cancel",
+        "cruise.set",
+        "cruise.accelerate",
+        "vehicle.door.driver_open",
+        "vehicle.light.low_beam_request",
+        "vehicle.light.high_beam_request",
+        "vehicle.turn_signal.left",
+        "vehicle.turn_signal.right"
+      ],
+      "notes": "Do not infer all-door state from the single driver-door contact."
+    },
+    {
+      "id": "controlled_motion",
+      "duration_seconds": 120,
+      "vehicle_state": "only with a second person monitoring logs or on a suitable closed course",
+      "observe_signals": [
+        "vehicle.speed",
+        "wheel.front_left.speed",
+        "wheel.front_right.speed",
+        "wheel.rear_left.speed",
+        "wheel.rear_right.speed",
+        "vehicle.longitudinal_acceleration",
+        "vehicle.lateral_acceleration",
+        "vehicle.yaw_rate_magnitude",
+        "vehicle.yaw_rate_sign",
+        "transmission.gear",
+        "transmission.target_gear_code",
+        "transmission.shift_sequence_code"
+      ],
+      "notes": "Keep vehicle operation independent of the operator capturing data; DQ-hybrid gear codes remain candidate until matched against DQ500 state."
+    },
+    {
+      "id": "awd_and_diagnostics",
+      "duration_seconds": null,
+      "vehicle_state": "read-only scan/capture; no coding, adaptation, DTC clearing, or actuator test",
+      "compare_with": [
+        "J492 identity and Haldex candidate values against ODIS/VCDS display",
+        "read-only DTC report; MiniDash service 0x19 is not implemented"
+      ],
+      "notes": "Haldex codecs sourced from 0CQ 554C/554D are not promoted to 0CQ907554H without synchronized raw evidence."
+    }
+  ],
+  "community_uds_candidates_not_for_tiguan": {
+    "vehicle": "Skoda Octavia A5",
+    "route": {
+      "request_id": "0x714",
+      "response_id": "0x77E"
+    },
+    "dids": [
+      "F40C",
+      "F40D",
+      "F405",
+      "202F",
+      "1014",
+      "220D",
+      "2294",
+      "229A",
+      "2203",
+      "2299",
+      "2216",
+      "221B"
+    ],
+    "passive_rpm_can_id": "0x35B",
+    "promotion_rule": "Do not apply to Tiguan or send through a Tiguan config; candidate facts only until an exact-identity live trace establishes the association, codec, and route.",
+    "tiguan_odis_association": {
+      "DID": "0x11BD",
+      "signal": "engine.oil_temp",
+      "scope": "existing exact-identity J623 CZPA profile; no blackCockpit codec transfer"
+    }
+  },
+  "expected_period_hz": null,
+  "evidence_required_to_promote": [
+    "exact vehicle/ECU identity",
+    "timestamped raw frame or complete UDS request/response",
+    "independent physical reference",
+    "repeatable state transition",
+    "quality/sign/invalid-value behavior"
+  ]
+}
