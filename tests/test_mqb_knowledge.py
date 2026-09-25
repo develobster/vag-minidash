@@ -5,11 +5,14 @@ from pathlib import Path
 
 from minidash_live.dbc import DbcAdapter, load_cantools_database
 from minidash_live.identity import EcuIdentity, IdentityContext, VehicleIdentity
-from minidash_live.pipeline import AcquisitionPlanner, SourceAvailability, signal_catalog
+from minidash_live.pipeline import (
+    AcquisitionPlanner,
+    SourceAvailability,
+    signal_catalog,
+)
 from minidash_live.registry import SignalRegistry, load_registry
 from minidash_live.runtime import SignalStore
 from minidash_live.vag import VagKnowledgeProvider
-
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -96,6 +99,23 @@ class MqbKnowledgeTests(unittest.TestCase):
         self.assertNotIn("community.octavia_a5.cluster.f40c",
                          {row["definition_id"] for row in rows})
 
+    def test_haldex_candidate_codec_stays_unverified_for_exact_j492(self):
+        context = IdentityContext(
+            VehicleIdentity(manufacturer="Volkswagen", platform="MQB",
+                            model="Tiguan II / MQB", model_year=2017),
+            EcuIdentity(logical_role="awd", part_number="0CQ907554H",
+                        software_version="7083", hardware_part_number="0CQ525130",
+                        hardware_version="H52", asam_id="EV_AllWheelContrHA1VW37X",
+                        asam_version="004013"),
+        )
+        definition = self.registry.require_uds("awd", 0x028D, context)
+        self.assertEqual(definition.provenance.confidence, "candidate")
+        self.assertEqual(definition.metadata["applicability_status"],
+                         "external_unverified_exact_j492_fingerprint")
+        decoded = self.registry.decode_uds("awd", 0x028D, b"\x4f", context)
+        self.assertEqual(decoded["quality"], "candidate")
+        self.assertEqual(decoded["validation_status"], "CANDIDATE")
+
     def test_planner_waits_for_passive_can_then_falls_back_to_uds(self):
         now = [0.0]
         availability = SourceAvailability(self.registry.definitions, clock=lambda: now[0])
@@ -138,13 +158,16 @@ class MqbKnowledgeTests(unittest.TestCase):
                              context=context)
         msg = database.get_message_by_frame_id(0x0FD)
         data = msg.encode({"ESP_v_Signal": 30.0})
-        self.assertEqual(adapter.feed(0x0FD, data), 1)
-        row = store.snapshot()[0]
+        self.assertEqual(adapter.feed(0x0FD, data), 2)
+        row = next(row for row in store.snapshot() if row["signal"] == "vehicle.speed")
         self.assertEqual(row["signal"], "vehicle.speed")
         self.assertAlmostEqual(row["value"], 30.0)
         self.assertEqual(row["quality"], "candidate")
 
     def test_candidate_files_are_valid_json_and_have_no_raw_period_claims(self):
+        fixture_notice = (ROOT / "tests/fixtures/README.md").read_text(encoding="utf-8")
+        self.assertIn("c4465696dc2ef0d1340ae188810ac982586999a4", fixture_notice)
+        self.assertIn("MIT License", fixture_notice)
         for path in ("opendbc-vw-mqb-map.json", "opendbc-vw-mqb-candidates.json",
                      "community-vag-uds-candidates.json", "community-haldex-gen5.json"):
             data = json.loads((ROOT / "data/external" / path).read_text(encoding="utf-8"))
