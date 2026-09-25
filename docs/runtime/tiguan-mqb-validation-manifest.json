@@ -76,9 +76,9 @@
       ]
     },
     {
-      "id": "rpm_1500_2000",
-      "duration_seconds": 20,
-      "vehicle_state": "stationary in a safe state; stabilize near 1500 then 2000 rpm without operating MiniDash controls while moving",
+      "id": "rpm_1500_2000_2500",
+      "duration_seconds": 30,
+      "vehicle_state": "stationary in a safe state; stabilize near 1500, 2000, then 2500 rpm, marking each transition",
       "observe_signals": [
         "engine.rpm",
         "engine.rpm_validity",
@@ -89,6 +89,22 @@
       "compare_with": [
         "ODIS engine speed, pedal position, and charge/manifold pressure"
       ]
+    },
+    {
+      "id": "transmission_selector_and_paddles",
+      "duration_seconds": 60,
+      "vehicle_state": "stationary, parking brake applied; record P, R, N, D and each available manual/paddle up/down action one at a time",
+      "observe_signals": [
+        "transmission.selector_gear_code",
+        "transmission.gear",
+        "transmission.target_gear_code",
+        "transmission.shift_sequence_code",
+        "transmission.powerflow_status"
+      ],
+      "compare_with": [
+        "ODIS selector/actual gear state and timestamps"
+      ],
+      "notes": "Paddles are captured as operator-marked events; do not infer their CAN IDs or map selector enums before matching the trace."
     },
     {
       "id": "stationary_controls",
@@ -109,7 +125,14 @@
         "vehicle.turn_signal.left",
         "vehicle.turn_signal.right"
       ],
-      "notes": "Do not infer all-door state from the single driver-door contact."
+      "operator_marked_controls": [
+        "each steering-wheel button, individually",
+        "each stalk button and stalk direction, individually",
+        "each door, individually",
+        "low/high beam and other available lighting states",
+        "left/right turn signals and hazard lights"
+      ],
+      "notes": "Do not infer all-door state from the single driver-door contact. Button/stalk observations are raw differential candidates until the actual frame or ECU DID is identified."
     },
     {
       "id": "controlled_motion",

@@ -162,6 +162,13 @@ class MqbKnowledgeTests(unittest.TestCase):
                               .read_text(encoding="utf-8"))
         self.assertIn("0x714", manifest["safety"]["community_octavia_addresses_must_not_be_used"])
         self.assertIsNone(manifest["expected_period_hz"])
+        captures = {item["id"]: item for item in manifest["captures"]}
+        self.assertIn("rpm_1500_2000_2500", captures)
+        self.assertIn("transmission_selector_and_paddles", captures)
+        self.assertIn("each stalk button and stalk direction, individually",
+                      captures["stationary_controls"]["operator_marked_controls"])
+        self.assertIn("each steering-wheel button, individually",
+                      captures["stationary_controls"]["operator_marked_controls"])
 
 
 if __name__ == "__main__":

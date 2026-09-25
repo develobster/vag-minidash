@@ -70,11 +70,15 @@ python can_capture.py inspect artifacts/mqb-validation/ignition-baseline.jsonl
 ```
 
 Run the same watch for each case in the manifest, changing the output filename
-and the stationary vehicle state. For the 1500/2000 rpm case, keep the vehicle
-stationary and have a second person mark the ODIS reference/timestamps. Capture
-brake, steering, cruise, door, lights and indicator changes one at a time. A
-moving-vehicle dynamics case must have a second person monitoring the capture;
-the driver does not operate the laptop.
+and the stationary vehicle state. The RPM sequence is 1500, 2000, then 2500;
+mark each stable point against ODIS. With the parking brake applied, record P,
+R, N and D, then each paddle action. Capture brake, steering, cruise, every
+steering-wheel and stalk button/direction, each door, lights and turn signals
+one at a time, with a timestamped operator event list. The imported DBC only
+has a driver-door contact and light requests; other observations remain raw
+until a matching message/DID is identified. A moving-vehicle dynamics case
+must have a second person monitoring the capture; the driver does not operate
+the laptop.
 
 ## UDS fallback and source comparison
 
