@@ -74,12 +74,18 @@ class Provenance:
     verification_scope: str = "definition_only"
     notes: str = ""
     validation_evidence: tuple = ()
+    license: str | None = None
+    source_revision: str | None = None
 
     def __post_init__(self):
         if not self.origin or self.confidence not in CONFIDENCE or not self.source_url:
             raise ValueError("Complete provenance and a valid confidence are required")
         if type(self.vehicle_tested) is not bool or not self.verification_scope:
             raise ValueError("Invalid provenance verification metadata")
+        if self.license is not None and not isinstance(self.license, str):
+            raise ValueError("Provenance license must be a string")
+        if self.source_revision is not None and not isinstance(self.source_revision, str):
+            raise ValueError("Provenance source revision must be a string")
         evidence = tuple(item if isinstance(item, ValidationEvidence)
                          else _parse_validation_evidence(item)
                          for item in self.validation_evidence)

@@ -30,6 +30,8 @@ class VagKnowledgeProvider:
         self.root = root
         self.data_paths = tuple(Path(path) for path in (data_paths or (
             root / "data/external/opendbc-vw-mqb-map.json",
+            root / "data/external/opendbc-vw-mqb-candidates.json",
+            root / "data/external/community-vag-uds-candidates.json",
             root / "data/external/community-haldex-gen5.json",
         )))
         self.profile_paths = tuple(Path(path) for path in (profile_paths or

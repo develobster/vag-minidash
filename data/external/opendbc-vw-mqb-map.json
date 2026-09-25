@@ -6,82 +6,381 @@
       "id": "opendbc.vw_mqb.engine.rpm",
       "canonical_name": "engine.rpm",
       "ecu": "engine",
-      "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "Motor_12", "signal": "MO_Drehzahl_01"},
-      "unit": "rpm", "ttl": 0.25,
-      "applicability": {"platform": "MQB"},
-      "provenance": {"origin": "opendbc", "confidence": "documented", "source_url": "https://github.com/commaai/opendbc/blob/master/opendbc/dbc/vw_mqb.dbc", "vehicle_tested": false, "verification_scope": "dbc_definition"}
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Motor_12",
+        "signal": "MO_Drehzahl_01"
+      },
+      "unit": "rpm",
+      "ttl": 0.25,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC definition only; no live Tiguan II CZPA/DQ500 validation. DBC ECU sender variants differ; availability at OBD gateway is unknown."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "layout": {
+          "start_bit": 48,
+          "length": 16,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 0.25,
+          "offset": 0,
+          "unit": "rpm",
+          "can_id": 168,
+          "can_id_hex": "0x0A8"
+        },
+        "expected_frequency_hz": null
+      }
     },
     {
       "id": "opendbc.vw_mqb.vehicle.speed",
       "canonical_name": "vehicle.speed",
       "ecu": "abs",
-      "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "ESP_21", "signal": "ESP_v_Signal"},
-      "unit": "km/h", "ttl": 0.25,
-      "applicability": {"platform": "MQB"},
-      "provenance": {"origin": "opendbc", "confidence": "documented", "source_url": "https://github.com/commaai/opendbc/blob/master/opendbc/dbc/vw_mqb.dbc", "vehicle_tested": false, "verification_scope": "dbc_definition"}
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "ESP_21",
+        "signal": "ESP_v_Signal"
+      },
+      "unit": "km/h",
+      "ttl": 0.25,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC definition only; no live Tiguan II CZPA/DQ500 validation. DBC ECU sender variants differ; availability at OBD gateway is unknown."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "layout": {
+          "start_bit": 32,
+          "length": 16,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 0.01,
+          "offset": 0,
+          "unit": "km/h",
+          "can_id": 253,
+          "can_id_hex": "0x0FD"
+        },
+        "expected_frequency_hz": null
+      }
     },
     {
       "id": "opendbc.vw_mqb.wheel.fl",
       "canonical_name": "wheel.front_left.speed",
       "ecu": "abs",
-      "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "ESP_19", "signal": "ESP_VL_Radgeschw_02"},
-      "unit": "km/h", "ttl": 0.25,
-      "applicability": {"platform": "MQB"},
-      "provenance": {"origin": "opendbc", "confidence": "documented", "source_url": "https://github.com/commaai/opendbc/blob/master/opendbc/dbc/vw_mqb.dbc", "vehicle_tested": false, "verification_scope": "dbc_definition"}
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "ESP_19",
+        "signal": "ESP_VL_Radgeschw_02"
+      },
+      "unit": "km/h",
+      "ttl": 0.25,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC definition only; no live Tiguan II CZPA/DQ500 validation. DBC ECU sender variants differ; availability at OBD gateway is unknown."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "layout": {
+          "start_bit": 32,
+          "length": 16,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 0.0075,
+          "offset": 0,
+          "unit": "km/h",
+          "can_id": 178,
+          "can_id_hex": "0x0B2"
+        },
+        "expected_frequency_hz": null
+      }
     },
     {
       "id": "opendbc.vw_mqb.wheel.fr",
       "canonical_name": "wheel.front_right.speed",
       "ecu": "abs",
-      "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "ESP_19", "signal": "ESP_VR_Radgeschw_02"},
-      "unit": "km/h", "ttl": 0.25,
-      "applicability": {"platform": "MQB"},
-      "provenance": {"origin": "opendbc", "confidence": "documented", "source_url": "https://github.com/commaai/opendbc/blob/master/opendbc/dbc/vw_mqb.dbc", "vehicle_tested": false, "verification_scope": "dbc_definition"}
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "ESP_19",
+        "signal": "ESP_VR_Radgeschw_02"
+      },
+      "unit": "km/h",
+      "ttl": 0.25,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC definition only; no live Tiguan II CZPA/DQ500 validation. DBC ECU sender variants differ; availability at OBD gateway is unknown."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "layout": {
+          "start_bit": 48,
+          "length": 16,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 0.0075,
+          "offset": 0,
+          "unit": "km/h",
+          "can_id": 178,
+          "can_id_hex": "0x0B2"
+        },
+        "expected_frequency_hz": null
+      }
     },
     {
       "id": "opendbc.vw_mqb.wheel.rl",
       "canonical_name": "wheel.rear_left.speed",
       "ecu": "abs",
-      "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "ESP_19", "signal": "ESP_HL_Radgeschw_02"},
-      "unit": "km/h", "ttl": 0.25,
-      "applicability": {"platform": "MQB"},
-      "provenance": {"origin": "opendbc", "confidence": "documented", "source_url": "https://github.com/commaai/opendbc/blob/master/opendbc/dbc/vw_mqb.dbc", "vehicle_tested": false, "verification_scope": "dbc_definition"}
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "ESP_19",
+        "signal": "ESP_HL_Radgeschw_02"
+      },
+      "unit": "km/h",
+      "ttl": 0.25,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC definition only; no live Tiguan II CZPA/DQ500 validation. DBC ECU sender variants differ; availability at OBD gateway is unknown."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "layout": {
+          "start_bit": 0,
+          "length": 16,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 0.0075,
+          "offset": 0,
+          "unit": "km/h",
+          "can_id": 178,
+          "can_id_hex": "0x0B2"
+        },
+        "expected_frequency_hz": null
+      }
     },
     {
       "id": "opendbc.vw_mqb.wheel.rr",
       "canonical_name": "wheel.rear_right.speed",
       "ecu": "abs",
-      "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "ESP_19", "signal": "ESP_HR_Radgeschw_02"},
-      "unit": "km/h", "ttl": 0.25,
-      "applicability": {"platform": "MQB"},
-      "provenance": {"origin": "opendbc", "confidence": "documented", "source_url": "https://github.com/commaai/opendbc/blob/master/opendbc/dbc/vw_mqb.dbc", "vehicle_tested": false, "verification_scope": "dbc_definition"}
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "ESP_19",
+        "signal": "ESP_HR_Radgeschw_02"
+      },
+      "unit": "km/h",
+      "ttl": 0.25,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC definition only; no live Tiguan II CZPA/DQ500 validation. DBC ECU sender variants differ; availability at OBD gateway is unknown."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "layout": {
+          "start_bit": 16,
+          "length": 16,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 0.0075,
+          "offset": 0,
+          "unit": "km/h",
+          "can_id": 178,
+          "can_id_hex": "0x0B2"
+        },
+        "expected_frequency_hz": null
+      }
     },
     {
       "id": "opendbc.vw_mqb.engine.oil_temp",
       "canonical_name": "engine.oil_temperature",
       "ecu": "engine",
-      "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "Motor_07", "signal": "MO_Oel_Temp"},
-      "unit": "degC", "ttl": 2.0,
-      "applicability": {"platform": "MQB"},
-      "provenance": {"origin": "opendbc", "confidence": "documented", "source_url": "https://github.com/commaai/opendbc/blob/master/opendbc/dbc/vw_mqb.dbc", "vehicle_tested": false, "verification_scope": "dbc_definition"}
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Motor_07",
+        "signal": "MO_Oel_Temp"
+      },
+      "unit": "degC",
+      "ttl": 2.0,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC definition only; no live Tiguan II CZPA/DQ500 validation. DBC ECU sender variants differ; availability at OBD gateway is unknown."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "layout": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": -60,
+          "unit": "degC",
+          "can_id": 1600,
+          "can_id_hex": "0x640"
+        },
+        "expected_frequency_hz": null
+      }
     },
     {
       "id": "opendbc.vw_mqb.engine.coolant_temp",
       "canonical_name": "engine.coolant_temperature",
       "ecu": "engine",
-      "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "Motor_07", "signal": "MO_Kuehlmittel_Temp"},
-      "unit": "degC", "ttl": 2.0,
-      "applicability": {"platform": "MQB"},
-      "provenance": {"origin": "opendbc", "confidence": "documented", "source_url": "https://github.com/commaai/opendbc/blob/master/opendbc/dbc/vw_mqb.dbc", "vehicle_tested": false, "verification_scope": "dbc_definition"}
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Motor_07",
+        "signal": "MO_Kuehlmittel_Temp"
+      },
+      "unit": "degC",
+      "ttl": 2.0,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC definition only; no live Tiguan II CZPA/DQ500 validation. DBC ECU sender variants differ; availability at OBD gateway is unknown."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "layout": {
+          "start_bit": 24,
+          "length": 8,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 0.75,
+          "offset": -48,
+          "unit": "degC",
+          "can_id": 1600,
+          "can_id_hex": "0x640"
+        },
+        "expected_frequency_hz": null
+      }
     },
     {
       "id": "opendbc.vw_mqb.transmission.gear",
       "canonical_name": "transmission.gear",
       "ecu": "transmission",
-      "source": {"kind": "can", "database": "opendbc/vw_mqb", "message": "Getriebe_11", "signal": "GE_Fahrstufe"},
-      "unit": null, "ttl": 0.5,
-      "applicability": {"platform": "MQB"},
-      "provenance": {"origin": "opendbc", "confidence": "documented", "source_url": "https://github.com/commaai/opendbc/blob/master/opendbc/dbc/vw_mqb.dbc", "vehicle_tested": false, "verification_scope": "dbc_definition", "notes": "Raw DBC enum/value; normalize semantics only after a Tiguan trace."}
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Getriebe_11",
+        "signal": "GE_Fahrstufe"
+      },
+      "unit": null,
+      "ttl": 0.5,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "notes": "Raw DBC enum/value; normalize semantics only after a Tiguan trace. MQB DBC definition only; no live Tiguan II CZPA/DQ500 validation. DBC ECU sender variants differ; availability at OBD gateway is unknown. DBC enum is recorded as raw metadata; DQ500 gear semantics need live confirmation.",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4"
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "layout": {
+          "start_bit": 42,
+          "length": 4,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 173,
+          "can_id_hex": "0x0AD",
+          "enum_mapping": {
+            "0": "no mapped text",
+            "5": "P",
+            "6": "R",
+            "7": "N",
+            "8": "D",
+            "9": "D",
+            "10": "E",
+            "13": "T",
+            "14": "T"
+          }
+        },
+        "expected_frequency_hz": null
+      }
     }
   ]
 }
