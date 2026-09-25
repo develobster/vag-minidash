@@ -19,6 +19,10 @@ build/
 dist/
 *.egg-info/
 
+# ESP-IDF generated local configuration
+/firmware/sdkconfig
+/firmware/sdkconfig.old
+
 # Local editor/OS files
 .DS_Store
 .idea/

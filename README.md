@@ -1,5 +1,8 @@
 # Экспериментальный runtime fork 0.10 от аудированной v0.9
 
+Первый дисплейный прототип ESP32-S3/ST7789, граница host/firmware и проверка
+проводки описаны в [display-prototype.md](docs/hardware/display-prototype.md).
+
 ## Diagnostic data integration (feature branch)
 
 Добавлен минимальный data-driven Signal Registry, optional `cantools` adapter

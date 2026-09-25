@@ -85,6 +85,13 @@ cansend vcan0 123#10203040
 Тесты формата и receive-path на mock-сокете пройдены. Физический CAN и vcan в этой среде
 не проверены. ESP-IDF/LVGL и реальная запись кодировок остаются следующими этапами.
 
+## ESP32-S3 bring-up
+
+Для существующего ESP-IDF каркаса добавлен диагностический self-test платы ESP32-S3.
+Команды Windows/COM4–COM5, ограничения безопасных GPIO-проверок, PASS/FAIL сбор evidence и
+описание записываемых образов: [docs/hardware/esp32s3-bringup.md](docs/hardware/esp32s3-bringup.md).
+Тест не включает CAN и не очищает Flash целиком.
+
 Источники API:
 https://docs.kernel.org/networking/can.html
 https://python-can.readthedocs.io/en/stable/interfaces/socketcan.html

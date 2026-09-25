@@ -1,0 +1,52 @@
+menu "MiniDash display prototype"
+    config MINIDASH_DISPLAY_ENABLE
+        bool "Enable ST7789 display demo after pinout verification"
+        default n
+        help
+            Leave disabled until the exact module pinout and voltage levels are verified.
+
+    config MINIDASH_DISPLAY_ROTATION
+        int "Display rotation (0/2 landscape, 1/3 portrait)"
+        range 0 3
+        default 0
+
+    config MINIDASH_LCD_X_GAP
+        int "ST7789 X RAM offset (confirm for the delivered module)"
+        range 0 320
+        default 0
+    config MINIDASH_LCD_Y_GAP
+        int "ST7789 Y RAM offset (confirm for the delivered module)"
+        range 0 320
+        default 0
+    config MINIDASH_LCD_INVERT
+        bool "Invert ST7789 colors if required by the delivered module"
+        default n
+
+    config MINIDASH_LCD_PIN_SCLK
+        int "SPI clock GPIO (-1 = unconfirmed)"
+        range -1 48
+        default -1
+    config MINIDASH_LCD_PIN_MOSI
+        int "SPI MOSI GPIO (-1 = unconfirmed)"
+        range -1 48
+        default -1
+    config MINIDASH_LCD_PIN_CS
+        int "Display CS GPIO (-1 = unconfirmed)"
+        range -1 48
+        default -1
+    config MINIDASH_LCD_PIN_DC
+        int "Display DC GPIO (-1 = unconfirmed)"
+        range -1 48
+        default -1
+    config MINIDASH_LCD_PIN_RST
+        int "Display RESET GPIO (-1 = not connected)"
+        range -1 48
+        default -1
+    config MINIDASH_LCD_PIN_BL
+        int "Backlight switch GPIO (-1 = unavailable)"
+        range -1 48
+        default -1
+    config MINIDASH_LCD_BL_ACTIVE_HIGH
+        bool "Backlight GPIO active high"
+        default y
+endmenu
