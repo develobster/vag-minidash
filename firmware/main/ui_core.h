@@ -198,6 +198,13 @@ typedef enum {
 } md_ui_action_t;
 
 typedef enum {
+    MD_UI_TOUCH_TAP = 0,
+    MD_UI_TOUCH_DOUBLE_TAP,
+    MD_UI_TOUCH_LONG_PRESS,
+    MD_UI_TOUCH_GESTURE_COUNT,
+} md_ui_touch_gesture_t;
+
+typedef enum {
     MD_UI_INPUT_TOUCH = 0,
     MD_UI_INPUT_BUTTON,
     MD_UI_INPUT_STEERING_WHEEL,
@@ -259,3 +266,6 @@ bool md_ui_input_command(const char *command,
                          md_ui_action_t *action);
 bool md_ui_input_valid(md_ui_input_source_t source,
                        md_ui_action_t action);
+bool md_ui_touch_action(md_ui_screen_t screen, bool sleeping,
+                        md_ui_touch_gesture_t gesture,
+                        md_ui_action_t *action);

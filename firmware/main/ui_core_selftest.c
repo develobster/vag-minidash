@@ -102,6 +102,15 @@ static bool test_navigation_and_console_mapping(void)
         !state.sleeping) return false;
     if (!md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_WAKE) ||
         state.sleeping) return false;
+    if (!md_ui_touch_action(MD_UI_SCREEN_DASHBOARD, false,
+                            MD_UI_TOUCH_LONG_PRESS, &action) ||
+        action != MD_UI_ACTION_OPEN_SETTINGS) return false;
+    if (!md_ui_touch_action(MD_UI_SCREEN_SETTINGS, false,
+                            MD_UI_TOUCH_DOUBLE_TAP, &action) ||
+        action != MD_UI_ACTION_SELECT) return false;
+    if (!md_ui_touch_action(MD_UI_SCREEN_DASHBOARD, true,
+                            MD_UI_TOUCH_TAP, &action) ||
+        action != MD_UI_ACTION_WAKE) return false;
     return !md_ui_input_command("vehicle-specific-command", &source, &action);
 }
 

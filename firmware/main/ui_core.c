@@ -505,7 +505,7 @@ static bool adjust_setting(md_ui_state_t *state, md_ui_settings_t *settings,
         break;
     case 5: {
         const int next = (int)settings->brightness_pct + direction * 10;
-        settings->brightness_pct = (uint8_t)(next < 0 ? 0 : (next > 100 ? 100 : next));
+        settings->brightness_pct = (uint8_t)(next < 0 ? 100 : (next > 100 ? 0 : next));
         break;
     }
     case 6:
@@ -625,5 +625,34 @@ bool md_ui_input_command(const char *command,
     else if (strcmp(command, "sleep") == 0) *action = MD_UI_ACTION_SLEEP;
     else if (strcmp(command, "wake") == 0) *action = MD_UI_ACTION_WAKE;
     else return false;
+    return true;
+}
+
+bool md_ui_touch_action(md_ui_screen_t screen, bool sleeping,
+                        md_ui_touch_gesture_t gesture,
+                        md_ui_action_t *action)
+{
+    if (!action || screen < MD_UI_SCREEN_DASHBOARD ||
+        screen >= MD_UI_SCREEN_COUNT || gesture < MD_UI_TOUCH_TAP ||
+        gesture >= MD_UI_TOUCH_GESTURE_COUNT) return false;
+    if (sleeping) {
+        *action = MD_UI_ACTION_WAKE;
+        return true;
+    }
+    if (screen == MD_UI_SCREEN_SETTINGS) {
+        switch (gesture) {
+        case MD_UI_TOUCH_TAP: *action = MD_UI_ACTION_NEXT_ITEM; break;
+        case MD_UI_TOUCH_DOUBLE_TAP: *action = MD_UI_ACTION_SELECT; break;
+        case MD_UI_TOUCH_LONG_PRESS: *action = MD_UI_ACTION_BACK; break;
+        default: return false;
+        }
+    } else {
+        switch (gesture) {
+        case MD_UI_TOUCH_TAP: *action = MD_UI_ACTION_NEXT_SCREEN; break;
+        case MD_UI_TOUCH_DOUBLE_TAP: *action = MD_UI_ACTION_PREVIOUS_SCREEN; break;
+        case MD_UI_TOUCH_LONG_PRESS: *action = MD_UI_ACTION_OPEN_SETTINGS; break;
+        default: return false;
+        }
+    }
     return true;
 }

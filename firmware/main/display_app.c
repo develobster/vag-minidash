@@ -27,6 +27,7 @@
 
 typedef enum {
     UI_EVENT_ACTION = 0,
+    UI_EVENT_TOUCH_GESTURE,
     UI_EVENT_SET_WARNING,
 } ui_event_type_t;
 
@@ -34,6 +35,7 @@ typedef struct {
     ui_event_type_t type;
     md_ui_input_source_t source;
     md_ui_action_t action;
+    md_ui_touch_gesture_t touch_gesture;
     char canonical_signal[MD_UI_SIGNAL_NAME_LEN];
     bool warning_enabled;
     md_ui_threshold_direction_t threshold_direction;
@@ -158,6 +160,17 @@ static void settings_storage_task(void *argument)
 }
 
 #if CONFIG_MINIDASH_TOUCH_ENABLE
+static void enqueue_touch_gesture(md_ui_touch_gesture_t gesture)
+{
+    if (!s_ui_event_queue) return;
+    const ui_event_t event = {
+        .type = UI_EVENT_TOUCH_GESTURE,
+        .source = MD_UI_INPUT_TOUCH,
+        .touch_gesture = gesture,
+    };
+    (void)xQueueSend(s_ui_event_queue, &event, 0);
+}
+
 static void touch_input_task(void *argument)
 {
     (void)argument;
@@ -168,32 +181,61 @@ static void touch_input_task(void *argument)
         return;
     }
     s_touch_ready = true;
-    ESP_LOGI(TAG, "Touch input ready; raw coordinates are not calibrated");
+    ESP_LOGI(TAG, "Touch input ready; full-screen gestures do not require coordinate calibration");
 
-    bool latched = false;
+    bool pressed = false;
+    bool long_press_sent = false;
+    bool pending_tap = false;
     uint8_t pressed_samples = 0;
-    uint32_t released_at = 0;
+    uint8_t released_samples = 0;
+    uint32_t pressed_at = 0;
+    uint32_t press_candidate_at = 0;
+    uint32_t pending_tap_at = 0;
     for (;;) {
         md_touch_sample_t sample = {0};
         if (md_xpt2046_read(&touch, &sample)) {
             const uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000);
             if (sample.pressed) {
+                if (pressed_samples == 0 && !pressed) press_candidate_at = now_ms;
                 pressed_samples = pressed_samples < 2 ? pressed_samples + 1U : 2U;
-                released_at = 0;
-                if (!latched && pressed_samples >= 2U) {
-                    latched = true;
-                    (void)md_display_app_dispatch(MD_UI_INPUT_TOUCH,
-                                                  MD_UI_ACTION_NEXT_SCREEN);
+                released_samples = 0;
+                if (!pressed && pressed_samples >= 2U) {
+                    pressed = true;
+                    pressed_at = press_candidate_at;
+                    long_press_sent = false;
+                }
+                if (pressed && !long_press_sent &&
+                    (uint32_t)(now_ms - pressed_at) >= 700U) {
+                    enqueue_touch_gesture(MD_UI_TOUCH_LONG_PRESS);
+                    long_press_sent = true;
                 }
             } else {
                 pressed_samples = 0;
-                if (latched) {
-                    if (released_at == 0) released_at = now_ms;
-                    else if ((uint32_t)(now_ms - released_at) >= 100U) {
-                        latched = false;
-                        released_at = 0;
+                if (pressed) {
+                    released_samples = released_samples < 2 ? released_samples + 1U : 2U;
+                    if (released_samples >= 2U) {
+                        pressed = false;
+                        released_samples = 0;
+                        if (!long_press_sent) {
+                            if (pending_tap &&
+                                (uint32_t)(press_candidate_at - pending_tap_at) <= 350U) {
+                                enqueue_touch_gesture(MD_UI_TOUCH_DOUBLE_TAP);
+                                pending_tap = false;
+                            } else {
+                                if (pending_tap) {
+                                    enqueue_touch_gesture(MD_UI_TOUCH_TAP);
+                                }
+                                pending_tap = true;
+                                pending_tap_at = now_ms;
+                            }
+                        }
                     }
                 }
+            }
+            if (pending_tap && !pressed && pressed_samples == 0 &&
+                (uint32_t)(now_ms - pending_tap_at) > 350U) {
+                enqueue_touch_gesture(MD_UI_TOUCH_TAP);
+                pending_tap = false;
             }
         }
         vTaskDelay(pdMS_TO_TICKS(UI_TOUCH_SAMPLE_PERIOD_MS));
@@ -307,14 +349,23 @@ static void apply_event(const ui_event_t *event,
         return;
     }
 
-    if (!md_ui_input_valid(event->source, event->action)) return;
+    md_ui_input_source_t source = event->source;
+    md_ui_action_t action = event->action;
+    if (event->type == UI_EVENT_TOUCH_GESTURE) {
+        source = MD_UI_INPUT_TOUCH;
+        if (!md_ui_touch_action(state->screen, state->sleeping,
+                                event->touch_gesture, &action)) return;
+    } else if (event->type != UI_EVENT_ACTION) {
+        return;
+    }
+    if (!md_ui_input_valid(source, action)) return;
     const md_ui_screen_t previous_screen = state->screen;
     const md_ui_dashboard_t previous_dashboard = settings->dashboard;
     const md_ui_theme_id_t previous_theme = settings->theme;
     const md_ui_day_night_t previous_day_night = settings->day_night;
     const uint8_t previous_brightness = settings->brightness_pct;
     const bool previous_sleeping = state->sleeping;
-    const bool changed = md_ui_state_dispatch(state, settings, event->action);
+    const bool changed = md_ui_state_dispatch(state, settings, action);
     if (!changed) return;
 
     if (previous_sleeping != state->sleeping && lvgl_port_lock(0)) {

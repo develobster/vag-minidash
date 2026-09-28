@@ -257,10 +257,10 @@ static void create_dashboard(screen_view_t *view, md_ui_dashboard_t dashboard,
                              const md_ui_settings_t *settings)
 {
     static const char *const footers[] = {
-        "TAP NEXT  |  SETTINGS: console 'settings'",
-        "TAP NEXT  |  SETTINGS: console 'settings'",
-        "TAP NEXT  |  SETTINGS: console 'settings'",
-        "CUSTOM LAYOUT  |  TAP NEXT",
+        "TAP NEXT  |  DOUBLE PREV  |  HOLD SETTINGS",
+        "TAP NEXT  |  DOUBLE PREV  |  HOLD SETTINGS",
+        "TAP NEXT  |  DOUBLE PREV  |  HOLD SETTINGS",
+        "CUSTOM  |  TAP NEXT  |  HOLD SETTINGS",
     };
     static const char *const titles[] = {"DRIVE", "SPORT", "MINIMAL", "CUSTOM"};
     style_root(view, titles[dashboard], footers[dashboard]);
@@ -354,7 +354,7 @@ static void create_settings_screen(void)
         "Dashboard", "Theme", "Day / night", "Speed units",
         "Temperature", "Brightness", "Warnings"};
     screen_view_t *view = &s_screens[MD_UI_SCREEN_SETTINGS];
-    style_root(view, "SETTINGS", "CONSOLE: UP / DOWN SELECT  |  PLUS / MINUS CHANGE  |  BACK");
+    style_root(view, "SETTINGS", "TOUCH: TAP ROW  |  DOUBLE CHANGE  |  HOLD BACK");
     for (unsigned i = 0; i < UI_SETTINGS_ROWS; ++i) {
         setting_row_view_t *row = &s_setting_rows[i];
         row->row = lv_obj_create(view->root);

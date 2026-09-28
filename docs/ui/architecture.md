@@ -67,10 +67,14 @@ Custom), performance, temperatures, drivetrain, service status and settings.
 Input arrives as semantic actions through `md_display_app_dispatch()`. The API
 accepts touch, button, steering-wheel, stalk, BLE or console sources, so hardware
 drivers do not need to know about screens or settings. At present only the
-console and raw XPT2046 touch reader are connected. Touch is debounced and
-dispatches next-screen; coordinate calibration and on-screen hit targets are not
-implemented. Buttons, steering controls and BLE input have no hardware adapters
-yet.
+console and raw XPT2046 touch reader are connected. The touch task recognizes
+debounced tap, double-tap and 700 ms hold gestures without interpreting raw
+coordinates; a double tap is recognized within 350 ms. On normal screens these
+mean next screen, previous screen and open settings. On the settings screen
+they mean next row, change the selected option and return. A touch while
+sleeping wakes the display. Coordinate calibration and location-based hit
+targets remain future work. Buttons, steering controls and BLE input have no
+hardware adapters yet.
 
 ## Settings and warnings
 

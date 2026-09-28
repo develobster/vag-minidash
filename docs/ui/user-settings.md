@@ -2,8 +2,20 @@
 
 ## Navigation
 
-The USB serial console accepts the same semantic actions used by the UI input
-controller:
+Touch gestures and the USB serial console both feed the same semantic actions
+used by the UI input controller. Anywhere on the screen is a gesture target:
+
+| Touch gesture | Normal screen | Settings screen |
+| --- | --- | --- |
+| Tap | Next screen | Next settings row |
+| Double-tap | Previous screen | Change selected option |
+| Hold for 700 ms | Open settings | Return to previous screen |
+
+Touch while the display is sleeping wakes it. Gesture navigation does not use
+touch coordinates, so it does not depend on the current uncalibrated XPT2046
+position mapping.
+
+The USB serial console accepts these commands:
 
 | Command | Action |
 | --- | --- |
@@ -15,9 +27,9 @@ controller:
 | `back` | Return from settings or go to the dashboard |
 | `sleep` / `wake` | Turn the display panel off or on |
 
-The XPT2046 touch input currently advances to the next screen. It has no
-coordinate calibration or on-screen button mapping yet. No physical buttons,
-stalk or steering-wheel controller is connected in this implementation.
+The XPT2046 touch input supports full-screen gestures. Coordinate calibration
+and location-based controls are still open. No physical buttons, stalk or
+steering-wheel controller is connected in this implementation.
 
 ## On-screen options
 
@@ -30,7 +42,7 @@ The settings screen offers:
 | Day / night | Auto, Day, Night |
 | Speed units | km/h, mph |
 | Temperature | °C, °F |
-| Brightness | 0–100%, in 10% steps |
+| Brightness | 0–100%, in cyclic 10% steps |
 | Warnings | Enabled or disabled |
 
 Auto day/night currently selects the night-safe palette because no ambient-light

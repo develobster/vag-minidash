@@ -51,9 +51,10 @@ partition for UI settings; use the same table when programming a device.
 The touch controller U1 is marked XPT2046. It shares SCLK=GPIO12 and MOSI=GPIO11
 with the panel, returns data on MISO=GPIO13, and uses its own CS=GPIO14; TFT CS
 remains GPIO10. T_IRQ is unconnected; firmware polls the controller at 1 MHz.
-A detected touch dispatches the next-screen semantic action. Raw coordinate
-calibration is not yet implemented; any accepted touch cycles the views. The
-component manager also pins `espressif/esp_lcd_ili9341` to
+A detected touch maps full-screen tap, double-tap and hold gestures to semantic
+navigation/settings actions. Gestures do not depend on raw coordinate
+calibration; location-based controls still require calibration. The component
+manager also pins `espressif/esp_lcd_ili9341` to
 v2.0.2 for the unsuccessful alternate panel-driver trial. Both panel backends
 implement `md_display_backend_t`, keeping signal projection independent of the
 panel driver. RAM offset and color inversion remain configurable.
@@ -143,12 +144,12 @@ alone as controller silicon identification.
    also provides a `ui-test` serial command; those firmware self-tests require a
    flashed target and have not been run as part of the source build.
 3. Flash and visually inspect the new production UI on USB power before using it
-   in a vehicle. Confirm the custom partition table is present. Enable the RGB/
+   in a vehicle. Program the custom partition table as part of the flash. Enable the RGB/
    black smoke option only when explicitly checking panel fills. To identify the
    TFT controller silicon independently, inspect its marking or wire TFT SDO to
    a verified ESP32-S3 input and add ID readback.
-4. Calibrate touch coordinates and verify `sleep`/backlight behavior on the
-   physical board; current raw touch maps to next view and the LED is always on.
+4. Verify touch gestures and `sleep`/backlight behavior on the physical board.
+   Calibrate coordinates before adding location-based targets; the LED is always on.
 5. Inspect the SN65HVD230 module for 120 Ω; remove/disable extra termination
    before connecting to the vehicle. Validate OBD cable continuity, fused supply,
    common ground and LM2596 output independently.
