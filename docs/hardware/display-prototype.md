@@ -12,9 +12,10 @@ in the normal path. Earlier DEMO screens and the host offline reference belong t
 preceding prototype. See [the UI architecture](../ui/architecture.md) and
 [settings guide](../ui/user-settings.md) for the current subsystem contract.
 
-The production UI implementation and ESP-IDF build have not been flashed or visually
-verified on the display. The bench results below record tests of the earlier display
-prototype and hardware setup only.
+The production UI has now been built and flashed to the display board. Current UI
+verification and open work are recorded in [the UI status note](../ui/status.md).
+The bench results below retain the history of the earlier display prototype and
+hardware setup; they should not be read as the latest UI verification state.
 
 For the panel smoke test, the initial ILI9341 trial did not produce a correct
 full-panel image. The current successful smoke image selects ESP-IDF v5.5.5's
@@ -132,8 +133,24 @@ alone as controller silicon identification.
   Coordinate-to-screen calibration remains open. The display's exact LCD
   controller silicon marking/ID remains unconfirmed; document the working
   software driver as ST7789, not as a positively identified silicon part.
-- Display readings remain synthetic and visibly marked `DEMO`. No CAN or vehicle
-  connection was used. The TFT LED pin is powered from 3.3 V continuously.
+- That earlier test used synthetic readings visibly marked `DEMO`. The current
+  production UI has no built-in demo publisher and shows unavailable values until
+  a provider publishes canonical samples. No CAN or vehicle connection was used.
+  The TFT LED pin is powered from 3.3 V continuously.
+
+## Production UI layout review (2026-09-29)
+
+- After the user reviewed the physical display, the card spacing, lower `NO DATA`
+  labels and footer were adjusted to keep text inside the 320x240 layout. The user
+  confirmed that the text now looks aligned.
+- Normal screen navigation was corrected so Settings is no longer included in the
+  next/previous screen cycle. Settings remains reachable by holding, and Back
+  returns to the screen that opened it.
+- The latest firmware build succeeded and was flashed to COM5. Serial boot output
+  confirmed `ST7789` at 320x240, rotation 2, and that the UI and touch input were
+  ready. The latest navigation change has not yet been confirmed with a physical
+  gesture after flashing.
+- CAN remained disabled; no vehicle connection or live telemetry was used.
 
 ## Offline and bench checks
 

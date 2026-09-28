@@ -99,5 +99,10 @@ provides 3 MiB for the factory app plus NVS and PHY-init partitions. The current
 
 Run `idf.py build` from `firmware/` with ESP-IDF 5.5.5. The six deterministic UI
 core checks are available on target with the serial command `ui-test`; a
-successful compile does not execute those checks. The new UI has not yet been
-flashed or visually verified on physical hardware.
+successful compile does not execute those checks. The production UI has been
+built and flashed to the ESP32-S3 board on COM5. Boot output confirmed the
+ST7789 backend at 320x240 with rotation 2, and reported both the UI and touch
+input ready. The user reviewed the physical layout and confirmed the text
+alignment looks correct. The latest navigation change was built and flashed;
+its behavior still needs a physical tap/hold confirmation. See
+[the current status and next steps](status.md) for verification details.

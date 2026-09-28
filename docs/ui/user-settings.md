@@ -27,6 +27,11 @@ The USB serial console accepts these commands:
 | `back` | Return from settings or go to the dashboard |
 | `sleep` / `wake` | Turn the display panel off or on |
 
+Normal screen navigation cycles through Dashboard, Performance, Temperatures,
+Drivetrain, Service Status and Custom, then returns to Dashboard. Settings is a
+separate menu opened with a hold; it is not part of that screen cycle. Holding
+on the Settings screen returns to the screen from which the menu was opened.
+
 The XPT2046 touch input supports full-screen gestures. Coordinate calibration
 and location-based controls are still open. No physical buttons, stalk or
 steering-wheel controller is connected in this implementation.
