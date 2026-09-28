@@ -479,6 +479,20 @@ static void state_set_screen(md_ui_state_t *state, md_ui_settings_t *settings,
     if (settings) settings->last_screen = (uint8_t)screen;
 }
 
+static md_ui_screen_t next_content_screen(md_ui_screen_t screen)
+{
+    return screen >= MD_UI_SCREEN_DASHBOARD && screen < MD_UI_SCREEN_CUSTOM
+        ? (md_ui_screen_t)(screen + 1)
+        : MD_UI_SCREEN_DASHBOARD;
+}
+
+static md_ui_screen_t previous_content_screen(md_ui_screen_t screen)
+{
+    return screen > MD_UI_SCREEN_DASHBOARD && screen <= MD_UI_SCREEN_CUSTOM
+        ? (md_ui_screen_t)(screen - 1)
+        : MD_UI_SCREEN_CUSTOM;
+}
+
 static bool adjust_setting(md_ui_state_t *state, md_ui_settings_t *settings,
                            int direction)
 {
@@ -530,15 +544,13 @@ bool md_ui_state_dispatch(md_ui_state_t *state,
 
     switch (action) {
     case MD_UI_ACTION_NEXT_SCREEN:
-        if (!state->sleeping) {
-            state_set_screen(state, settings,
-                (md_ui_screen_t)((state->screen + 1) % MD_UI_SCREEN_COUNT));
+        if (!state->sleeping && state->screen != MD_UI_SCREEN_SETTINGS) {
+            state_set_screen(state, settings, next_content_screen(state->screen));
         }
         break;
     case MD_UI_ACTION_PREVIOUS_SCREEN:
-        if (!state->sleeping) {
-            state_set_screen(state, settings,
-                (md_ui_screen_t)((state->screen + MD_UI_SCREEN_COUNT - 1) % MD_UI_SCREEN_COUNT));
+        if (!state->sleeping && state->screen != MD_UI_SCREEN_SETTINGS) {
+            state_set_screen(state, settings, previous_content_screen(state->screen));
         }
         break;
     case MD_UI_ACTION_OPEN_SETTINGS:

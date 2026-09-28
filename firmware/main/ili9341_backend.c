@@ -95,6 +95,8 @@ static bool open_panel(md_display_backend_t *backend,
         !pins_are_valid()) {
         return false;
     }
+    md_display_orientation_t orientation;
+    if (!md_display_orientation_select(profile, &orientation)) return false;
 
     context.width = profile->width;
     context.height = profile->height;
@@ -183,9 +185,9 @@ static bool open_panel(md_display_backend_t *backend,
         return false;
     }
 #endif
-    if (esp_lcd_panel_swap_xy(context.panel, profile->rotation % 2 != 0) != ESP_OK ||
-        esp_lcd_panel_mirror(context.panel, profile->rotation >= 2,
-                             profile->rotation == 1 || profile->rotation == 2) != ESP_OK ||
+    if (esp_lcd_panel_swap_xy(context.panel, orientation.swap_xy) != ESP_OK ||
+        esp_lcd_panel_mirror(context.panel, orientation.mirror_x,
+                             orientation.mirror_y) != ESP_OK ||
         esp_lcd_panel_disp_on_off(context.panel, true) != ESP_OK) {
         return false;
     }

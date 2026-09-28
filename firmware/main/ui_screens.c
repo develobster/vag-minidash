@@ -134,10 +134,11 @@ static void style_root(screen_view_t *view, const char *title,
     lv_obj_set_style_text_color(view->mode, color(s_palette.accent), 0);
     lv_obj_set_style_text_align(view->mode, LV_TEXT_ALIGN_RIGHT, 0);
 
-    lv_obj_set_pos(view->footer, xpx(10), ypx(220));
+    lv_obj_set_pos(view->footer, xpx(10), ypx(217));
     lv_obj_set_size(view->footer, xpx(300), ypx(16));
     lv_obj_set_style_text_font(view->footer, &lv_font_montserrat_10, 0);
     lv_obj_set_style_text_color(view->footer, color(s_palette.muted), 0);
+    lv_label_set_long_mode(view->footer, LV_LABEL_LONG_MODE_DOTS);
 }
 
 static field_view_t *create_field(screen_view_t *view, int x, int y,
@@ -169,7 +170,8 @@ static field_view_t *create_field(screen_view_t *view, int x, int y,
     lv_obj_set_style_border_color(field->card, color(s_palette.border), 0);
     lv_obj_set_style_border_width(field->card, 1, 0);
     lv_obj_set_style_radius(field->card, xpx(6), 0);
-    lv_obj_set_style_pad_all(field->card, xpx(7), 0);
+    /* Child positions below already include their own margins. */
+    lv_obj_set_style_pad_all(field->card, 0, 0);
 
     field->title = lv_label_create(field->card);
     field->value = lv_label_create(field->card);
@@ -187,9 +189,11 @@ static field_view_t *create_field(screen_view_t *view, int x, int y,
     lv_obj_set_size(field->title, xpx(wide_card ? width - 92 : width - 14), ypx(16));
     lv_obj_set_style_text_font(field->title, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(field->title, color(s_palette.muted), 0);
+    lv_label_set_long_mode(field->title, LV_LABEL_LONG_MODE_DOTS);
 
+    const int status_y = compact_card ? height - 19 : height - 23;
     lv_obj_set_pos(field->status, xpx(wide_card ? width - 82 : 7),
-                   ypx(wide_card ? 5 : height - 19));
+                   ypx(wide_card ? 5 : status_y));
     lv_obj_set_size(field->status,
                     xpx(wide_card ? 74 : width - 14), ypx(14));
     lv_obj_set_style_text_font(field->status, &lv_font_montserrat_10, 0);
@@ -260,7 +264,7 @@ static void create_dashboard(screen_view_t *view, md_ui_dashboard_t dashboard,
         "TAP NEXT  |  DOUBLE PREV  |  HOLD SETTINGS",
         "TAP NEXT  |  DOUBLE PREV  |  HOLD SETTINGS",
         "TAP NEXT  |  DOUBLE PREV  |  HOLD SETTINGS",
-        "CUSTOM  |  TAP NEXT  |  HOLD SETTINGS",
+        "CUSTOM  |  NEXT  |  HOLD SETTINGS",
     };
     static const char *const titles[] = {"DRIVE", "SPORT", "MINIMAL", "CUSTOM"};
     style_root(view, titles[dashboard], footers[dashboard]);
@@ -301,7 +305,7 @@ static void create_dashboard(screen_view_t *view, md_ui_dashboard_t dashboard,
 
 static void create_performance_screen(screen_view_t *view)
 {
-    style_root(view, "PERFORMANCE", "READ ONLY  |  VALUE AGE IS CHECKED BEFORE DISPLAY");
+    style_root(view, "PERFORMANCE", "READ ONLY  |  STALE VALUES HIDDEN");
     (void)create_field(view, 10, 39, 156, 105, "ENGINE SPEED", "engine.rpm", true);
     (void)create_field(view, 172, 39, 138, 78, "VEHICLE SPEED", "vehicle.speed", false);
     (void)create_field(view, 172, 123, 138, 84, "ENGINE LOAD", "engine.load", false);
@@ -310,7 +314,7 @@ static void create_performance_screen(screen_view_t *view)
 
 static void create_temperature_screen(screen_view_t *view)
 {
-    style_root(view, "TEMPERATURES", "MISSING VALUES STAY UNAVAILABLE; STALE VALUES ARE HIDDEN");
+    style_root(view, "TEMPERATURES", "MISSING / STALE VALUES HIDDEN");
     (void)create_field(view, 10, 39, 148, 78, "ENGINE OIL", "engine.oil_temperature", false);
     (void)create_field(view, 162, 39, 148, 78, "COOLANT", "engine.coolant_temperature", false);
     (void)create_field(view, 10, 123, 148, 78, "TRANSMISSION OIL", "transmission.oil_temperature", false);
@@ -319,7 +323,7 @@ static void create_temperature_screen(screen_view_t *view)
 
 static void create_drivetrain_screen(screen_view_t *view)
 {
-    style_root(view, "DRIVETRAIN", "VEHICLE AND ECU DEFINITIONS ARE OWNED BY KNOWLEDGE PROVIDERS");
+    style_root(view, "DRIVETRAIN", "READINGS REQUIRE A DATA PROVIDER");
     (void)create_field(view, 10, 39, 138, 128, "GEAR", "transmission.gear", true);
     (void)create_field(view, 154, 39, 156, 78, "TRANSMISSION OIL", "transmission.oil_temperature", false);
     (void)create_field(view, 154, 123, 156, 78, "AWD CLUTCH", "awd.clutch_temperature", false);
@@ -339,7 +343,7 @@ static void create_diagnostics_screen(screen_view_t *view)
         {"ECUS", DIAG_ECUS}, {"SAMPLES", DIAG_SIGNALS},
         {"STALE", DIAG_STALE}, {"ERRORS", DIAG_ERRORS},
     };
-    style_root(view, "SERVICE STATUS", "N/A MEANS FIRMWARE DOES NOT PROVIDE THAT SOURCE");
+    style_root(view, "SERVICE STATUS", "N/A = SOURCE NOT PROVIDED");
     for (unsigned i = 0; i < sizeof(rows) / sizeof(rows[0]); ++i) {
         const int column = (int)(i / UI_DIAG_ROWS);
         const int row = (int)(i % UI_DIAG_ROWS);
@@ -354,7 +358,7 @@ static void create_settings_screen(void)
         "Dashboard", "Theme", "Day / night", "Speed units",
         "Temperature", "Brightness", "Warnings"};
     screen_view_t *view = &s_screens[MD_UI_SCREEN_SETTINGS];
-    style_root(view, "SETTINGS", "TOUCH: TAP ROW  |  DOUBLE CHANGE  |  HOLD BACK");
+    style_root(view, "SETTINGS", "TAP ROW  |  DOUBLE TAP CHANGE  |  HOLD BACK");
     for (unsigned i = 0; i < UI_SETTINGS_ROWS; ++i) {
         setting_row_view_t *row = &s_setting_rows[i];
         row->row = lv_obj_create(view->root);

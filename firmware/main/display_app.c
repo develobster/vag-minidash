@@ -417,6 +417,13 @@ static void ui_task(void *argument)
     md_ui_palette_t palette = md_ui_theme_palette(settings.theme,
                                                    effective_day_mode(&settings));
 
+    md_display_orientation_t orientation;
+    if (!md_display_orientation_select(&profile, &orientation)) {
+        ESP_LOGE(TAG, "Unsupported display orientation");
+        vTaskDelete(NULL);
+        return;
+    }
+
     lvgl_port_cfg_t lvgl_config = ESP_LVGL_PORT_INIT_CONFIG();
     lvgl_config.task_priority = 4;
     lvgl_config.task_stack = 8192;
@@ -435,7 +442,9 @@ static void ui_task(void *argument)
         .hres = profile.width,
         .vres = profile.height,
         .monochrome = false,
-        .rotation = {.swap_xy = false, .mirror_x = false, .mirror_y = false},
+        .rotation = {.swap_xy = orientation.swap_xy,
+                     .mirror_x = orientation.mirror_x,
+                     .mirror_y = orientation.mirror_y},
         .flags = {.buff_dma = true, .swap_bytes = true},
         .color_format = LV_COLOR_FORMAT_RGB565,
     };

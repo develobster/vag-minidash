@@ -21,6 +21,12 @@ typedef struct {
     uint8_t color_depth;
 } md_display_profile_t;
 
+typedef struct {
+    bool swap_xy;
+    bool mirror_x;
+    bool mirror_y;
+} md_display_orientation_t;
+
 typedef struct md_display_backend md_display_backend_t;
 struct md_display_backend {
     void *context;
@@ -41,6 +47,8 @@ typedef struct {
 
 bool md_display_profile_select(md_driver_t driver, uint8_t rotation,
                                md_display_profile_t *profile);
+bool md_display_orientation_select(const md_display_profile_t *profile,
+                                   md_display_orientation_t *orientation);
 bool md_display_open(md_display_manager_t *manager, md_display_backend_t *backend,
                      const md_display_profile_t *profile, uint16_t *smoke_frame);
 esp_lcd_panel_handle_t md_display_panel(md_display_manager_t *manager);

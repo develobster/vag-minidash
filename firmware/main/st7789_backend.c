@@ -71,6 +71,8 @@ static bool open_panel(md_display_backend_t *backend, const md_display_profile_t
 {
     (void)backend;
     if (profile->driver != MD_DRIVER_ST7789 || profile->color_depth != 16 || !pins_confirmed()) return false;
+    md_display_orientation_t orientation;
+    if (!md_display_orientation_select(profile, &orientation)) return false;
     context.width = profile->width;
     context.height = profile->height;
 #if CONFIG_MINIDASH_DISPLAY_SMOKE_TEST
@@ -135,16 +137,9 @@ static bool open_panel(md_display_backend_t *backend, const md_display_profile_t
 #ifdef CONFIG_MINIDASH_LCD_INVERT
     if (esp_lcd_panel_invert_color(context.panel,true)!=ESP_OK) return false;
 #endif
-    bool mirror_x = profile->rotation >= 2;
-    bool mirror_y = profile->rotation == 1 || profile->rotation == 2;
-    // The supplied landscape module shows the rotation-2 frame upside down;
-    // exchange both mirror bits while keeping XY swapped and the same viewport.
-    if (profile->rotation == 2) {
-        mirror_x = false;
-        mirror_y = true;
-    }
-    if (esp_lcd_panel_swap_xy(context.panel,profile->rotation%2==0)!=ESP_OK ||
-        esp_lcd_panel_mirror(context.panel,mirror_x,mirror_y)!=ESP_OK) return false;
+    if (esp_lcd_panel_swap_xy(context.panel, orientation.swap_xy) != ESP_OK ||
+        esp_lcd_panel_mirror(context.panel, orientation.mirror_x,
+                             orientation.mirror_y) != ESP_OK) return false;
     if (esp_lcd_panel_disp_on_off(context.panel,true)!=ESP_OK) return false;
     context.powered = true;
 #if CONFIG_MINIDASH_LCD_PIN_BL >= 0

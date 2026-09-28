@@ -26,6 +26,33 @@ bool md_display_profile_select(md_driver_t driver, uint8_t rotation,
     return true;
 }
 
+bool md_display_orientation_select(const md_display_profile_t *profile,
+                                   md_display_orientation_t *orientation)
+{
+    if (!profile || !orientation || profile->rotation > 3) return false;
+
+    md_display_orientation_t selected = {0};
+    switch (profile->driver) {
+    case MD_DRIVER_ST7789:
+        selected.swap_xy = profile->rotation % 2 == 0;
+        selected.mirror_x = profile->rotation >= 2;
+        selected.mirror_y = profile->rotation == 1 || profile->rotation == 2;
+        /* This module's landscape profile uses the rotation-2 override. */
+        if (profile->rotation == 2) selected.mirror_x = false;
+        break;
+    case MD_DRIVER_ILI9341:
+        selected.swap_xy = profile->rotation % 2 != 0;
+        selected.mirror_x = profile->rotation >= 2;
+        selected.mirror_y = profile->rotation == 1 || profile->rotation == 2;
+        break;
+    default:
+        return false;
+    }
+
+    *orientation = selected;
+    return true;
+}
+
 bool md_display_open(md_display_manager_t *manager, md_display_backend_t *backend,
                      const md_display_profile_t *profile, uint16_t *frame)
 {
