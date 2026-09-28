@@ -4,13 +4,17 @@
 
 The existing Python host runtime owns transport, ISO-TP, UDS, discovery, identity,
 knowledge providers, acquisition planning, `SignalStore`, source arbitration and CLI.
-Python does not run inside this ESP32-S3 firmware. The ESP-IDF project keeps the
-MiniDash demo path embedded canonical signal samples → UI projection → display
-abstraction → ST7789 SPI backend. Its values are **synthetic**, never vehicle
-measurements, and both pages are marked `DEMO`. The host offline reference
-publishes through the Python `SignalStore` and `SourceArbitrator`; it checks shared
-canonical names, freshness and the page contract. A future embedded acquisition
-adapter will replace the demo publisher only after CAN/decoder parity is proven.
+Python does not run inside this ESP32-S3 firmware. The production firmware UI accepts
+canonical signal samples through a small publishing API and does not implement CAN,
+UDS, ECU discovery, or vehicle-specific decoding. Normal boot starts with unavailable
+values until a trusted provider publishes them; there is no synthetic signal producer
+in the normal path. Earlier DEMO screens and the host offline reference belong to the
+preceding prototype. See [the UI architecture](../ui/architecture.md) and
+[settings guide](../ui/user-settings.md) for the current subsystem contract.
+
+The production UI implementation and ESP-IDF build have not been flashed or visually
+verified on the display. The bench results below record tests of the earlier display
+prototype and hardware setup only.
 
 For the panel smoke test, the initial ILI9341 trial did not produce a correct
 full-panel image. The current successful smoke image selects ESP-IDF v5.5.5's
@@ -33,34 +37,36 @@ controller. The TFT controller marking has not been inspected. Do not feed raw C
 ## Software configuration
 
 `firmware/main/Kconfig.projbuild` and `sdkconfig.defaults` select the ST7789
-backend and normal two-page demo UI; the RGB/black boot smoke option is disabled
-after its successful initial test. The working profile is 320x240 landscape,
+backend and LVGL UI; the RGB/black boot smoke option is disabled after its
+successful initial test. The UI contains dashboard, performance, temperatures,
+drivetrain, diagnostics and settings views. The working profile is 320x240 landscape,
 logical rotation 2, with the board-specific MADCTL override `swap_xy=true`,
 `MX=false`, `MY=true`; the user confirmed this orientation is readable. Display
 pins are SCLK=GPIO12, MOSI=GPIO11, CS=GPIO10, DC=GPIO8 and RESET=GPIO9. The TFT
 LED/backlight pin is tied directly to 3.3 V, so software does not control it.
+LVGL and its ESP-IDF port are pinned in `firmware/main/idf_component.yml`. The
+custom partition table reserves 3 MiB for the application and a dedicated NVS
+partition for UI settings; use the same table when programming a device.
 
 The touch controller U1 is marked XPT2046. It shares SCLK=GPIO12 and MOSI=GPIO11
 with the panel, returns data on MISO=GPIO13, and uses its own CS=GPIO14; TFT CS
 remains GPIO10. T_IRQ is unconnected; firmware polls the controller at 1 MHz.
-A detected touch dispatches `MD_NAV_NEXT` and writes raw X/Y plus Z1/Z2/pressure
-to serial. Raw coordinate calibration is not yet implemented; any accepted touch
-cycles the pages. The component manager also pins `espressif/esp_lcd_ili9341` to
+A detected touch dispatches the next-screen semantic action. Raw coordinate
+calibration is not yet implemented; any accepted touch cycles the views. The
+component manager also pins `espressif/esp_lcd_ili9341` to
 v2.0.2 for the unsuccessful alternate panel-driver trial. Both panel backends
 implement `md_display_backend_t`, keeping signal projection independent of the
 panel driver. RAM offset and color inversion remain configurable.
 
-The current two pages show RPM/speed/boost/battery and oil/coolant/RPM. Boost is
-computed only when both `engine.charge_pressure_actual` and
-`engine.ambient_pressure` are fresh, in hPa. It is their difference divided by
-1000, shown in bar. Missing or stale values show `--`, not zero. The provisional
-`vehicle.battery_voltage` name is used only by the synthetic demo until a provider
-and measurement point are defined. Console `next`, `prev`, `sleep`, `wake` commands
-use the same InputManager actions intended for buttons, verified touch or steering
-controls. Sleep commands turn off the panel and, when a confirmed backlight switch
-GPIO exists, set that GPIO to its configured off level. If the backlight is tied
-directly to power, software cannot physically switch it off; measure and revise the
-circuit before claiming a low-power sleep state.
+Built-in dashboards and detail views display canonical samples supplied through
+the firmware UI API. `engine.boost` must be published by a provider; the UI does
+not derive it from charge and ambient pressure. Unsupported, unavailable, stale
+and invalid values are represented separately and never replaced with zero. The
+`vehicle.battery_voltage` name remains provisional until a provider and measurement
+point are defined. Console navigation and settings commands use semantic input
+actions shared with touch and future physical controls. Sleep turns off the panel;
+the current directly powered backlight remains on. The diagnostics view reports
+brightness as fixed on this wiring.
 
 ## Bench wiring
 
@@ -130,19 +136,21 @@ alone as controller silicon identification.
 
 ## Offline and bench checks
 
-1. Run `python -m unittest discover -s tests -v` to check the host runtime and
-   display reference, including profiles, rotation, page switching, freshness and
-   driver-independent UI rendering.
-2. Run `python -m minidash_live.runtime_demo` for the existing synthetic
-   CAN/UDS smoke test. With ESP-IDF available, run `idf.py build` in `firmware/`.
-3. Re-run the UI on USB power after a panel-driver or orientation change. The
-   default build now starts the normal two-page DEMO interface; enable the RGB/
+1. Run `python -m unittest discover -s tests -p test_display.py -v` for the host
+   display reference contract. Run the broader suite where the host supports its
+   platform-specific SocketCAN test.
+2. With ESP-IDF 5.5.5 available, run `idf.py build` in `firmware/`. The UI core
+   also provides a `ui-test` serial command; those firmware self-tests require a
+   flashed target and have not been run as part of the source build.
+3. Flash and visually inspect the new production UI on USB power before using it
+   in a vehicle. Confirm the custom partition table is present. Enable the RGB/
    black smoke option only when explicitly checking panel fills. To identify the
    TFT controller silicon independently, inspect its marking or wire TFT SDO to
    a verified ESP32-S3 input and add ID readback.
-4. Measure backlight off/on current and verify `sleep` truly extinguishes it.
+4. Calibrate touch coordinates and verify `sleep`/backlight behavior on the
+   physical board; current raw touch maps to next view and the LED is always on.
 5. Inspect the SN65HVD230 module for 120 Ω; remove/disable extra termination
    before connecting to the vehicle. Validate OBD cable continuity, fused supply,
    common ground and LM2596 output independently.
-6. Start vehicle CAN in listen-only mode. Capture evidence for actual signals
-   and their source quality before connecting embedded acquisition to the UI.
+6. Keep CAN disabled until the signal provider and vehicle wiring have their own
+   reviewed listen-only validation.
