@@ -58,9 +58,12 @@ static bool open_panel(md_display_backend_t *backend, const md_display_profile_t
     const spi_bus_config_t bus = {
         .sclk_io_num=CONFIG_MINIDASH_LCD_PIN_SCLK,
         .mosi_io_num=CONFIG_MINIDASH_LCD_PIN_MOSI,
-        .miso_io_num=-1, .quadwp_io_num=-1, .quadhd_io_num=-1,
+        .miso_io_num=CONFIG_MINIDASH_LCD_PIN_MISO,
+        .quadwp_io_num=-1, .quadhd_io_num=-1,
         .max_transfer_sz=profile->width*LINES_PER_TRANSFER*2+8
     };
+    if (CONFIG_MINIDASH_LCD_PIN_MISO >= 0 &&
+        !GPIO_IS_VALID_GPIO(CONFIG_MINIDASH_LCD_PIN_MISO)) return false;
     if (spi_bus_initialize(LCD_HOST,&bus,SPI_DMA_CH_AUTO)!=ESP_OK) return false;
     const esp_lcd_panel_io_spi_config_t io_config = {
         .dc_gpio_num=CONFIG_MINIDASH_LCD_PIN_DC,
@@ -93,9 +96,16 @@ static bool open_panel(md_display_backend_t *backend, const md_display_profile_t
 #ifdef CONFIG_MINIDASH_LCD_INVERT
     if (esp_lcd_panel_invert_color(context.panel,true)!=ESP_OK) return false;
 #endif
+    bool mirror_x = profile->rotation >= 2;
+    bool mirror_y = profile->rotation == 1 || profile->rotation == 2;
+    // The supplied landscape module shows the rotation-2 frame upside down;
+    // exchange both mirror bits while keeping XY swapped and the same viewport.
+    if (profile->rotation == 2) {
+        mirror_x = false;
+        mirror_y = true;
+    }
     if (esp_lcd_panel_swap_xy(context.panel,profile->rotation%2==0)!=ESP_OK ||
-        esp_lcd_panel_mirror(context.panel,profile->rotation>=2,
-                             profile->rotation==1 || profile->rotation==2)!=ESP_OK) return false;
+        esp_lcd_panel_mirror(context.panel,mirror_x,mirror_y)!=ESP_OK) return false;
     if (esp_lcd_panel_disp_on_off(context.panel,true)!=ESP_OK) return false;
     if (CONFIG_MINIDASH_LCD_PIN_BL>=0)
         gpio_set_level(CONFIG_MINIDASH_LCD_PIN_BL,CONFIG_MINIDASH_LCD_BL_ACTIVE_HIGH);

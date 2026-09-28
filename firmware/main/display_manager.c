@@ -5,10 +5,25 @@
 bool md_display_profile_select(md_driver_t driver, uint8_t rotation,
                                md_display_profile_t *profile)
 {
-    if (!profile || rotation > 3 || driver != MD_DRIVER_ST7789) return false;
-    *profile = (md_display_profile_t){driver,
-        rotation % 2 ? 240 : 320, rotation % 2 ? 320 : 240,
-        rotation, 16, MD_TOUCH_UNKNOWN, true};
+    if (!profile || rotation > 3) return false;
+
+    uint16_t width;
+    uint16_t height;
+    switch (driver) {
+    case MD_DRIVER_ST7789:
+        width = rotation % 2 ? 240 : 320;
+        height = rotation % 2 ? 320 : 240;
+        break;
+    case MD_DRIVER_ILI9341:
+        width = rotation % 2 ? 320 : 240;
+        height = rotation % 2 ? 240 : 320;
+        break;
+    default:
+        return false;
+    }
+
+    *profile = (md_display_profile_t){driver, width, height, rotation,
+                                      16, MD_TOUCH_UNKNOWN, true};
     return true;
 }
 
@@ -104,4 +119,29 @@ void md_display_render(md_display_manager_t *m, const md_ui_model_t *v)
 void md_display_power(md_display_manager_t *m, bool on)
 {
     if (m && m->ready && m->backend->power) m->backend->power(m->backend,on);
+}
+
+bool md_display_present_solid(md_display_manager_t *m, uint16_t rgb565)
+{
+    if (!m || !m->ready || !m->backend || !m->backend->present) return false;
+    const size_t pixels = (size_t)m->profile.width * m->profile.height;
+    for (size_t i = 0; i < pixels; ++i) m->frame[i] = rgb565;
+    return m->backend->present(m->backend, m->frame);
+}
+
+bool md_display_render_smoke_ok(md_display_manager_t *m)
+{
+    if (!m || !m->ready || !m->backend || !m->backend->present) return false;
+    const size_t pixels = (size_t)m->profile.width * m->profile.height;
+    for (size_t i = 0; i < pixels; ++i) m->frame[i] = 0x0000;
+
+    const int title_scale = 3;
+    const int subtitle_scale = 2;
+    const int title_width = (int)strlen("MINIDASH") * 6 * title_scale;
+    const int subtitle_width = (int)strlen("DISPLAY OK") * 6 * subtitle_scale;
+    label(m, (m->profile.width - title_width) / 2, m->profile.height / 2 - 27,
+          "MINIDASH", title_scale, 0xffff);
+    label(m, (m->profile.width - subtitle_width) / 2, m->profile.height / 2 + 10,
+          "DISPLAY OK", subtitle_scale, 0x07ff);
+    return m->backend->present(m->backend, m->frame);
 }

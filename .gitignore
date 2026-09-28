@@ -22,6 +22,7 @@ dist/
 # ESP-IDF generated local configuration
 /firmware/sdkconfig
 /firmware/sdkconfig.old
+/firmware/managed_components/
 
 # Local editor/OS files
 .DS_Store

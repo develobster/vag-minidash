@@ -36,3 +36,5 @@ bool md_display_open(md_display_manager_t *manager, md_display_backend_t *backen
                      const md_display_profile_t *profile, uint16_t *frame);
 void md_display_render(md_display_manager_t *manager, const md_ui_model_t *model);
 void md_display_power(md_display_manager_t *manager, bool on);
+bool md_display_present_solid(md_display_manager_t *manager, uint16_t rgb565);
+bool md_display_render_smoke_ok(md_display_manager_t *manager);
