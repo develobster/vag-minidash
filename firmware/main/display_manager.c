@@ -22,15 +22,14 @@ bool md_display_profile_select(md_driver_t driver, uint8_t rotation,
         return false;
     }
 
-    *profile = (md_display_profile_t){driver, width, height, rotation,
-                                      16, MD_TOUCH_UNKNOWN, true};
+    *profile = (md_display_profile_t){driver, width, height, rotation, 16};
     return true;
 }
 
 bool md_display_open(md_display_manager_t *manager, md_display_backend_t *backend,
                      const md_display_profile_t *profile, uint16_t *frame)
 {
-    if (!manager || !backend || !profile || !frame || !backend->open || !backend->present) return false;
+    if (!manager || !backend || !profile || !backend->open || !backend->present) return false;
     memset(manager, 0, sizeof(*manager));
     manager->profile = *profile;
     manager->backend = backend;
@@ -39,7 +38,7 @@ bool md_display_open(md_display_manager_t *manager, md_display_backend_t *backen
     return manager->ready;
 }
 
-/* Five-column uppercase glyphs. Rendering is deliberately independent of the panel driver. */
+/* The direct RGB565 path remains for the panel-only bench smoke test. */
 static const uint8_t font[][5] = {
     {0,0,0,0,0}, {0x7e,0x11,0x11,0x7e,0}, {0x7f,0x49,0x49,0x36,0},
     {0x3e,0x41,0x41,0x22,0}, {0x7f,0x41,0x41,0x3e,0},
@@ -88,42 +87,32 @@ static void label(md_display_manager_t *m, int x, int y, const char *s, int scal
                 for (int dy=0; dy<scale; ++dy) pixel(m,x+col*scale+dx,y+row*scale+dy,color);
     }
 }
-static void field(md_display_manager_t *m, int x, int y, const char *title,
-                  bool available, float value, const char *unit, int decimals)
-{
-    char text[32];
-    label(m,x,y,title,2,0x7bef);
-    if (available) snprintf(text,sizeof(text),decimals ? "%.1f %s" : "%.0f %s",value,unit);
-    else snprintf(text,sizeof(text),"-- %s",unit);
-    label(m,x,y+22,text,2,0xffff);
-}
-void md_display_render(md_display_manager_t *m, const md_ui_model_t *v)
-{
-    if (!m || !m->ready || v->sleeping) return;
-    for (unsigned i=0; i<(unsigned)m->profile.width*m->profile.height; ++i) m->frame[i]=0x0841;
-    const bool wide=m->profile.width>=320;
-    if (v->page==MD_PAGE_DRIVE) {
-        field(m,8,8,"RPM",v->available[MD_RPM],v->value[MD_RPM],"",0);
-        field(m,wide?170:8,wide?8:55,"SPEED",v->available[MD_SPEED],v->value[MD_SPEED],"KM/H",0);
-        field(m,8,wide?83:102,"BOOST",v->boost_available,v->boost_bar,"BAR",1);
-        field(m,wide?170:8,wide?83:149,"VOLT",v->available[MD_BATTERY_VOLTAGE],v->value[MD_BATTERY_VOLTAGE],"V",1);
-    } else {
-        field(m,8,8,"OIL",v->available[MD_OIL_TEMP],v->value[MD_OIL_TEMP],"C",0);
-        field(m,wide?170:8,wide?8:60,"COOLANT",v->available[MD_COOLANT_TEMP],v->value[MD_COOLANT_TEMP],"C",0);
-        field(m,8,wide?95:112,"RPM",v->available[MD_RPM],v->value[MD_RPM],"",0);
-    }
-    label(m,8,m->profile.height-22,v->page==MD_PAGE_DRIVE?"PAGE 1/2":"PAGE 2/2",2,0x07ff);
-    label(m,m->profile.width-62,m->profile.height-22,"DEMO",2,0xf800);
-    m->backend->present(m->backend,m->frame);
-}
 void md_display_power(md_display_manager_t *m, bool on)
 {
     if (m && m->ready && m->backend->power) m->backend->power(m->backend,on);
 }
 
+esp_lcd_panel_handle_t md_display_panel(md_display_manager_t *m)
+{
+    return m && m->ready && m->backend->panel_handle
+        ? m->backend->panel_handle(m->backend) : NULL;
+}
+
+esp_lcd_panel_io_handle_t md_display_io(md_display_manager_t *m)
+{
+    return m && m->ready && m->backend->io_handle
+        ? m->backend->io_handle(m->backend) : NULL;
+}
+
+bool md_display_set_brightness(md_display_manager_t *m, uint8_t brightness_pct)
+{
+    return m && m->ready && brightness_pct <= 100 && m->backend->set_brightness
+        ? m->backend->set_brightness(m->backend, brightness_pct) : false;
+}
+
 bool md_display_present_solid(md_display_manager_t *m, uint16_t rgb565)
 {
-    if (!m || !m->ready || !m->backend || !m->backend->present) return false;
+    if (!m || !m->ready || !m->frame || !m->backend || !m->backend->present) return false;
     const size_t pixels = (size_t)m->profile.width * m->profile.height;
     for (size_t i = 0; i < pixels; ++i) m->frame[i] = rgb565;
     return m->backend->present(m->backend, m->frame);
@@ -131,7 +120,7 @@ bool md_display_present_solid(md_display_manager_t *m, uint16_t rgb565)
 
 bool md_display_render_smoke_ok(md_display_manager_t *m)
 {
-    if (!m || !m->ready || !m->backend || !m->backend->present) return false;
+    if (!m || !m->ready || !m->frame || !m->backend || !m->backend->present) return false;
     const size_t pixels = (size_t)m->profile.width * m->profile.height;
     for (size_t i = 0; i < pixels; ++i) m->frame[i] = 0x0000;
 

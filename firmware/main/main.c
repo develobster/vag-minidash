@@ -20,6 +20,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "display_app.h"
+#include "ui_core_selftest.h"
 
 /* No CAN setup and no GPIO pin is driven: the board pinout is not known yet. */
 #define PSRAM_TEST_BYTES (6U * 1024U * 1024U)
@@ -380,7 +381,8 @@ static void run_self_test(void)
 
 static void print_ready(void)
 {
-    printf("MINIDASH_READY boot=%lu commands=run,reboot\n", (unsigned long)s_boot_count);
+    printf("MINIDASH_READY boot=%lu commands=run,ui-test,reboot,navigation\n",
+           (unsigned long)s_boot_count);
     fflush(stdout);
 }
 
@@ -415,13 +417,20 @@ void app_main(void)
                    (unsigned long)s_boot_count,
                    reset_reason_name(esp_reset_reason()), esp_get_idf_version());
             print_ready();
+        } else if (strcmp(line, "ui-test") == 0) {
+            (void)md_ui_core_selftest_run();
+            print_ready();
         } else if (strcmp(line, "reboot") == 0) {
             printf("MINIDASH_REBOOT_REQUESTED\n");
             fflush(stdout);
             vTaskDelay(pdMS_TO_TICKS(100));
             esp_restart();
         } else if (strcmp(line, "next") == 0 || strcmp(line, "prev") == 0 ||
-                   strcmp(line, "sleep") == 0 || strcmp(line, "wake") == 0) {
+                   strcmp(line, "select") == 0 || strcmp(line, "back") == 0 ||
+                   strcmp(line, "settings") == 0 || strcmp(line, "up") == 0 ||
+                   strcmp(line, "down") == 0 || strcmp(line, "plus") == 0 ||
+                   strcmp(line, "minus") == 0 || strcmp(line, "sleep") == 0 ||
+                   strcmp(line, "wake") == 0) {
             md_display_app_command(line);
         } else if (line[0] != '\0') {
             printf("MINIDASH_COMMAND unknown\n");

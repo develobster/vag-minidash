@@ -1,9 +1,10 @@
-menu "MiniDash display prototype"
+menu "MiniDash display and UI"
     config MINIDASH_DISPLAY_ENABLE
-        bool "Enable MiniDash SPI display"
+        bool "Enable MiniDash SPI display and production UI"
         default n
         help
             Enable the display only after checking the module voltage and wiring.
+            The normal build uses the LVGL UI and keeps vehicle acquisition external.
 
     choice MINIDASH_LCD_CONTROLLER
         prompt "SPI display controller"

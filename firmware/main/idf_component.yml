@@ -1,2 +1,6 @@
 dependencies:
   espressif/esp_lcd_ili9341: "==2.0.2"
+  espressif/esp_lvgl_port: "==2.9.0"
+  lvgl/lvgl:
+    version: "==9.5.0"
+    public: true
