@@ -3,6 +3,8 @@
 Первый дисплейный прототип ESP32-S3 (ST7789/ILI9341 backends), граница host/firmware и проверка
 проводки описаны в [display-prototype.md](docs/hardware/display-prototype.md). Текущий статус
 embedded UI и следующие шаги: [docs/ui/status.md](docs/ui/status.md).
+Опциональная передача канонических сигналов из host runtime в ESP32 описана в
+[docs/ui/host-bridge.md](docs/ui/host-bridge.md).
 
 ## Diagnostic data integration (feature branch)
 

@@ -21,6 +21,7 @@ from .discovery import (
     inventory,
     verify_discovered_identity,
 )
+from .display_bridge import UI_SIGNAL_NAMES, open_serial_display_bridge
 from .identity import EcuIdentity, VehicleIdentity
 from .knowledge import registry_from_providers
 from .pipeline import (
@@ -416,7 +417,12 @@ def run_watch(args):
         else:
             for definition in plan.passive:
                 availability.set(definition.id, "unavailable", "passive_bus_not_configured")
-        deadline, next_print = time.monotonic() + args.duration, 0
+        display_bridge = open_serial_display_bridge(args.display_port) \
+            if args.display_port else None
+        if display_bridge is not None:
+            resources.callback(display_bridge.close)
+        deadline, next_print, next_display = time.monotonic() + args.duration, 0, 0
+        display_error_reported = False
         emit({"kind": "discovery", **snapshot.as_dict(redact_sensitive=True)})
         emit({"kind": "plan", "requested": list(plan.requested),
               "definitions": [item.id for item in plan.definitions],
@@ -433,6 +439,12 @@ def run_watch(args):
                     engine.feed_message(message)
             engine.step()
             now = time.monotonic()
+            if display_bridge is not None and now >= next_display:
+                display_bridge.publish(engine.snapshot(), args.signal)
+                if display_bridge.error is not None and not display_error_reported:
+                    print(f"Display serial bridge stopped: {display_bridge.error}", file=sys.stderr)
+                    display_error_reported = True
+                next_display = now + args.display_interval
             if now >= next_print:
                 current = engine.snapshot()
                 if args.json:
@@ -571,6 +583,9 @@ def main(argv=None):
     watch.add_argument("--interval", type=float, default=1.0)
     watch.add_argument("--trace", help="New structured JSONL trace; never overwritten")
     watch.add_argument("--json", action="store_true")
+    watch.add_argument("--display-port", help="Optional USB Serial/JTAG port for the embedded display")
+    watch.add_argument("--display-interval", type=float, default=.1,
+                       help="Embedded display update interval in seconds (default: 0.1)")
     args = parser.parse_args(argv)
     try:
         if args.command == "doctor":
@@ -595,8 +610,13 @@ def main(argv=None):
         if args.command == "signals":
             return run_signals(args)
         if args.command == "watch":
-            if args.duration <= 0 or args.interval <= 0:
-                raise ValueError("duration and interval must be positive")
+            if args.duration <= 0 or args.interval <= 0 or args.display_interval <= 0:
+                raise ValueError("duration and output intervals must be positive")
+            if args.display_port:
+                unsupported = sorted(set(args.signal) - UI_SIGNAL_NAMES)
+                if unsupported:
+                    raise ValueError("Signals are not supported by embedded UI: " +
+                                     ", ".join(unsupported))
             return run_watch(args)
         return run_probe(args)
     except (ValueError, KeyError, TypeError, OSError, RuntimeError, json.JSONDecodeError) as exc:

@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "display_manager.h"
+#include "display_serial_protocol.h"
 #include "esp_app_desc.h"
 #include "esp_heap_caps.h"
 #include "esp_lvgl_port.h"
@@ -560,6 +561,14 @@ bool md_display_app_publish_signal(const char *canonical_signal, float value,
     }
     portEXIT_CRITICAL(&s_signal_mux);
     return published;
+}
+
+bool md_display_app_publish_serial_sample(const char *frame)
+{
+    md_display_serial_sample_t sample;
+    if (!md_display_serial_sample_decode(frame, &sample)) return false;
+    return md_display_app_publish_signal(sample.canonical_signal, sample.value,
+                                         sample.state, sample.ttl_ms, false);
 }
 
 bool md_display_app_set_warning(const char *canonical_signal, bool enabled,

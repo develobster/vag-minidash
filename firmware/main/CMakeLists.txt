@@ -1,6 +1,7 @@
 idf_component_register(
     SRCS "main.c" "display_manager.c" "st7789_backend.c"
          "ili9341_backend.c" "xpt2046_touch.c" "display_app.c"
+         "display_serial_protocol.c"
          "ui_core.c" "ui_core_selftest.c" "ui_theme.c" "ui_screens.c"
          "ui_settings_nvs.c"
     INCLUDE_DIRS "."

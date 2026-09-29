@@ -28,6 +28,9 @@ Hardware profile:
 - Semantic input actions shared by touch and the serial console. Touch uses
   full-screen tap, double-tap and hold gestures; location calibration is not
   needed for these gestures.
+- Optional host-to-device USB Serial/JTAG bridge from `minidash_live watch`.
+  It forwards only arbitrated canonical values with quality `valid`, and keeps
+  non-valid states and TTL explicit. See [the bridge contract](host-bridge.md).
 - OEM, Sport and Minimal themes, day/night setting, units, NVS persistence,
   validated custom-widget settings and configurable warning thresholds through
   the firmware API.
@@ -51,11 +54,18 @@ Hardware profile:
   still pending.
 - The navigation self-check covers the full content-screen cycle, verifies that
   next/previous do not leave Settings, and checks return to the originating
-  screen. The latest on-device `ui-test` run reported 6 passed and 0 failed.
+  screen. The latest bridge build succeeded and was flashed to COM5. On-device
+  `ui-test` reported 7 passed and 0 failed, including the serial frame parser.
+- A non-value `UNAVAILABLE` frame was accepted without a rejection report; a
+  `VALID` frame with `nan` was rejected.
+- Host bridge unit tests reported 5 passed, including stale/candidate mapping,
+  malformed-value rejection and replacing queued snapshots when serial writes
+  are slow.
 
 ## Known limits
 
-- No live signal provider is connected; all vehicle values remain unavailable.
+- No signal provider is currently streaming to the board. The host bridge can
+  forward values when `watch` is run with a configured and connected source.
 - CAN is disabled. No CAN bus or vehicle was connected during the UI work.
 - Custom widget bindings can be stored and validated, but there is no on-screen
   dashboard layout editor yet.
@@ -76,12 +86,14 @@ Hardware profile:
 1. Confirm the updated screen cycle on the physical display: Custom → Dashboard.
 2. Hold to open Settings from a content screen, then hold to verify it returns
    to that same screen.
+3. Exercise the bridge with an unavailable state on USB Serial/JTAG, then use a
+   configured replay transport before connecting a live vehicle source.
 
 ### Following work
 
-1. Define and connect a trusted read-only signal provider to the existing
-   canonical publishing API. Preserve the host/runtime and UI boundary; do not
-   put CAN/DID decoding in the display layer.
+1. Run the host `watch` command with a reviewed read-only provider and the
+   optional display port. Keep CAN/DID decoding and source arbitration in the
+   Python runtime.
 2. Measure free/minimum heap, PSRAM use, task stack headroom and LVGL refresh
    timing under representative signal updates.
 3. Add an on-screen custom-dashboard editor and per-signal warning-threshold

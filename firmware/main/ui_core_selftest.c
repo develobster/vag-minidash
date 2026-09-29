@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "ui_core.h"
+#include "display_serial_protocol.h"
 
 typedef struct {
     unsigned passed;
@@ -134,6 +135,30 @@ static bool test_navigation_and_console_mapping(void)
     return !md_ui_input_command("vehicle-specific-command", &source, &action);
 }
 
+static bool test_display_serial_protocol(void)
+{
+    md_display_serial_sample_t sample = {0};
+    if (!md_display_serial_sample_decode(
+            "MDS1|engine.rpm|VALID|1500|2450", &sample) ||
+        strcmp(sample.canonical_signal, "engine.rpm") != 0 ||
+        sample.state != MD_UI_SIGNAL_VALID || sample.ttl_ms != 1500 ||
+        sample.value != 2450.0f) return false;
+    if (!md_display_serial_sample_decode(
+            "MDS1|vehicle.speed|STALE|1000|-", &sample) ||
+        sample.state != MD_UI_SIGNAL_STALE || sample.value != 0.0f) return false;
+    if (md_display_serial_sample_decode(
+            "MDS1|engine.unknown|VALID|1000|1", &sample) ||
+        md_display_serial_sample_decode(
+            "MDS1|engine.rpm|VALID|0|1", &sample) ||
+        md_display_serial_sample_decode(
+            "MDS1|engine.rpm|UNAVAILABLE|1000|0", &sample) ||
+        md_display_serial_sample_decode(
+            "MDS1|engine.rpm|VALID|1000|nan", &sample) ||
+        md_display_serial_sample_decode(
+            "MDS1|engine.rpm|VALID|1000|1|extra", &sample)) return false;
+    return true;
+}
+
 static bool test_warning_configuration(void)
 {
     md_ui_settings_t settings;
@@ -158,6 +183,7 @@ bool md_ui_core_selftest_run(void)
     report(&totals, "invalid_sample_is_error", test_invalid_sample_is_error());
     report(&totals, "widget_bounds", test_widget_validation());
     report(&totals, "navigation_and_input_mapping", test_navigation_and_console_mapping());
+    report(&totals, "display_serial_protocol", test_display_serial_protocol());
     report(&totals, "warning_thresholds", test_warning_configuration());
     printf("MINIDASH_UI_TEST_SUMMARY pass=%u fail=%u\n", totals.passed, totals.failed);
     return totals.failed == 0;

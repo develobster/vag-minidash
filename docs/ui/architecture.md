@@ -8,6 +8,10 @@ arbitration. Python does not run in the ESP32-S3 firmware. The embedded UI does
 not contain CAN identifiers, diagnostic requests, ECU selection, DTC logic or
 vehicle-specific decoders. `can=disabled` remains the firmware boot state.
 
+The optional USB Serial/JTAG bridge from the host `watch` runtime to the
+firmware's canonical publishing API is described in
+[the host bridge contract](host-bridge.md).
+
 An embedded data source publishes an already-decoded canonical value with an
 explicit state and time-to-live. Until that source is integrated, values remain
 unavailable. The display layer does not synthesize vehicle data or infer values
@@ -97,12 +101,12 @@ The project pins LVGL 9.5.0 and `esp_lvgl_port` 2.9.0. `firmware/partitions.csv`
 provides 3 MiB for the factory app plus NVS and PHY-init partitions. The current
 16 MiB board profile has room for this layout.
 
-Run `idf.py build` from `firmware/` with ESP-IDF 5.5.5. The six deterministic UI
+Run `idf.py build` from `firmware/` with ESP-IDF 5.5.5. The seven deterministic UI
 core checks are available on target with the serial command `ui-test`; a
 successful compile does not execute those checks. The production UI has been
 built and flashed to the ESP32-S3 board on COM5. Boot output confirmed the
 ST7789 backend at 320x240 with rotation 2, and reported both the UI and touch
 input ready. The user reviewed the physical layout and confirmed the text
 alignment looks correct. The latest navigation change was built and flashed;
-its behavior still needs a physical tap/hold confirmation. See
+the state-machine check passed, and physical tap/hold confirmation remains open. See
 [the current status and next steps](status.md) for verification details.

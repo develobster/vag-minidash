@@ -400,7 +400,7 @@ void app_main(void)
     print_ready();
     md_display_app_start();
 
-    char line[32];
+    char line[128];
     for (;;) {
         if (fgets(line, sizeof(line), stdin) == NULL) {
             /* A non-blocking VFS may report temporary lack of input as EOF. */
@@ -408,8 +408,22 @@ void app_main(void)
             vTaskDelay(pdMS_TO_TICKS(20));
             continue;
         }
+        if (!strchr(line, '\n')) {
+            int ch;
+            do {
+                ch = getchar();
+            } while (ch != '\n' && ch != EOF);
+            printf("MINIDASH_COMMAND status=REJECTED reason=LINE_TOO_LONG\n");
+            fflush(stdout);
+            continue;
+        }
         line[strcspn(line, "\r\n")] = '\0';
-        if (strcmp(line, "run") == 0) {
+        if (strncmp(line, "MDS1|", 5) == 0) {
+            if (!md_display_app_publish_serial_sample(line)) {
+                printf("MINIDASH_SAMPLE status=REJECTED\n");
+                fflush(stdout);
+            }
+        } else if (strcmp(line, "run") == 0) {
             run_self_test();
             print_ready();
         } else if (strcmp(line, "status") == 0) {
