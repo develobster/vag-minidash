@@ -88,16 +88,36 @@ static bool test_navigation_and_console_mapping(void)
     md_ui_state_t state;
     md_ui_input_source_t source;
     md_ui_action_t action;
+    static const md_ui_screen_t next_screens[] = {
+        MD_UI_SCREEN_PERFORMANCE,
+        MD_UI_SCREEN_TEMPERATURES,
+        MD_UI_SCREEN_DRIVETRAIN,
+        MD_UI_SCREEN_DIAGNOSTICS,
+        MD_UI_SCREEN_CUSTOM,
+        MD_UI_SCREEN_DASHBOARD,
+    };
     md_ui_settings_defaults(&settings);
     md_ui_state_init(&state, &settings);
+
+    for (unsigned i = 0; i < sizeof(next_screens) / sizeof(next_screens[0]); ++i) {
+        if (!md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_NEXT_SCREEN) ||
+            state.screen != next_screens[i]) return false;
+    }
+    if (!md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_PREVIOUS_SCREEN) ||
+        state.screen != MD_UI_SCREEN_CUSTOM) return false;
+
     if (!md_ui_input_command("settings", &source, &action) ||
         source != MD_UI_INPUT_CONSOLE || action != MD_UI_ACTION_OPEN_SETTINGS ||
         !md_ui_state_dispatch(&state, &settings, action) ||
         state.screen != MD_UI_SCREEN_SETTINGS) return false;
+    if (md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_NEXT_SCREEN) ||
+        state.screen != MD_UI_SCREEN_SETTINGS ||
+        md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_PREVIOUS_SCREEN) ||
+        state.screen != MD_UI_SCREEN_SETTINGS) return false;
     if (!md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_NEXT_ITEM) ||
         state.selected_setting != 1U) return false;
     if (!md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_BACK) ||
-        state.screen != MD_UI_SCREEN_DASHBOARD) return false;
+        state.screen != MD_UI_SCREEN_CUSTOM) return false;
     if (!md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_SLEEP) ||
         !state.sleeping) return false;
     if (!md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_WAKE) ||

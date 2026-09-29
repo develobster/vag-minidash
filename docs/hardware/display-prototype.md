@@ -150,6 +150,9 @@ alone as controller silicon identification.
   confirmed `ST7789` at 320x240, rotation 2, and that the UI and touch input were
   ready. The latest navigation change has not yet been confirmed with a physical
   gesture after flashing.
+- After adding a navigation regression check, the on-device `ui-test` command
+  reported 6 passed and 0 failed. This checks the state machine; it does not
+  replace the pending physical tap/hold confirmation.
 - CAN remained disabled; no vehicle connection or live telemetry was used.
 
 ## Offline and bench checks

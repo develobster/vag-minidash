@@ -49,9 +49,9 @@ Hardware profile:
 - The user visually reviewed the prior layout update and reported that the text
   now looks aligned. Physical confirmation of the latest navigation behavior is
   still pending.
-- The on-device `ui-test` command reported 6 passed and 0 failed on the build
-  immediately before the navigation correction. It was not rerun after that
-  correction.
+- The navigation self-check covers the full content-screen cycle, verifies that
+  next/previous do not leave Settings, and checks return to the originating
+  screen. The latest on-device `ui-test` run reported 6 passed and 0 failed.
 
 ## Known limits
 
@@ -76,8 +76,6 @@ Hardware profile:
 1. Confirm the updated screen cycle on the physical display: Custom → Dashboard.
 2. Hold to open Settings from a content screen, then hold to verify it returns
    to that same screen.
-3. Add a navigation self-check for the content-screen cycle and Settings return
-   behavior, then rerun the on-device UI self-checks.
 
 ### Following work
 
