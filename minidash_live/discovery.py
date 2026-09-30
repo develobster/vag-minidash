@@ -106,7 +106,8 @@ class DiscoverySnapshot:
 
 
 def discover_endpoint(role, transport_factory, *, vehicle=None, identity=None,
-                      probes=DEFAULT_IDENTITY_PROBES, client_options=None, trace=lambda event: None):
+                      probes=DEFAULT_IDENTITY_PROBES, client_options=None, trace=lambda event: None,
+                      stop_on_error=False):
     """Read an endpoint's evidenced identity fields; NRC never invents a value."""
     vehicle_values = {item.name: getattr(vehicle or VehicleIdentity(), item.name)
                       for item in fields(VehicleIdentity) if getattr(vehicle or VehicleIdentity(), item.name)}
@@ -133,9 +134,13 @@ def discover_endpoint(role, transport_factory, *, vehicle=None, identity=None,
                 observed.append({"did": f"{probe.did:04X}", "target": probe.target,
                                  "value": value})
             except NegativeResponse as exc:
+                if stop_on_error:
+                    raise
                 errors.append({"did": f"{probe.did:04X}", "target": probe.target,
                                "nrc": f"{exc.code:02X}"})
             except ValueError as exc:
+                if stop_on_error:
+                    raise
                 errors.append({"did": f"{probe.did:04X}", "target": probe.target,
                                "error": str(exc)})
     finally:
