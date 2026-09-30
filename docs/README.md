@@ -14,7 +14,7 @@ Dates/test counts in historical delivery reports are not current acceptance.
 | Device architecture / portability | [UI architecture](ui/architecture.md), [targets](architecture/targets.md) |
 | Configuration / settings | [Configuration](ui/configuration.md), [settings](ui/user-settings.md), [USB bridge](ui/host-bridge.md) |
 | Hardware and display/touch | [ESP32 bring-up](hardware/esp32s3-bringup.md), [display prototype](hardware/display-prototype.md) |
-| First physical vehicle gate | [Tiguan first live](runtime/tiguan-first-live.md), [MQB validation](runtime/tiguan-mqb-live-validation.md), [manifest](runtime/tiguan-mqb-validation-manifest.json) |
+| First physical vehicle gate | [Current first-session runbook](validation/first-real-car-session.md), [preparation/readiness report](validation/real-car-preparation-2026-09-30.md); earlier [Tiguan first live](runtime/tiguan-first-live.md), [MQB validation](runtime/tiguan-mqb-live-validation.md), [manifest](runtime/tiguan-mqb-validation-manifest.json) |
 | Offline evidence processing | [CAN replay](runtime/can-replay.md), [artifacts](artifacts.md), [fixture notices](../tests/fixtures/README.md) |
 
 ## Research: preserve, check against code before implementation

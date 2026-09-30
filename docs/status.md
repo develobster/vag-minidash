@@ -5,6 +5,13 @@ Audited 2026-09-30 against integration base `22a346b`. See the
 acceptance results and actual delivery state. Historical hardware results below
 come from the UI delivery `6f436dd`; no new device/car test is claimed.
 
+The worktree subsequently synced cleanly to consolidation `3e5c6ca`; see the
+[real-car preparation report](validation/real-car-preparation-2026-09-30.md)
+for new strict recording/replay tools, tests and driver inspection. The current
+[first-session runbook](validation/first-real-car-session.md) reports **BLOCKED**:
+VW D-PDU x64 DLLs are installed, J2534 FunctionLibrary is not evidenced, Windows
+VNCI passive capture and exact identity probe layouts remain unavailable.
+
 Labels are independent: **IMPLEMENTED** describes code; **OFFLINE TESTED** is a
 synthetic/native contract; **HARDWARE TESTED** is a recorded bench delivery;
 **REAL-CAR VALIDATED** requires exact vehicle/ECU/source evidence. **PARTIAL**,
@@ -41,19 +48,19 @@ Registry confidence metadata alone does not grant a validation label.
 | Acquisition planner / scheduler | IMPLEMENTED; OFFLINE TESTED; PARTIAL product budget | `pipeline.py`, `runtime.py`; MQB/runtime/pipeline tests | Passive grace/fallback/cooldown/backoff; no measured bus-load budget or active-screen priority |
 | SignalStore | IMPLEMENTED; OFFLINE TESTED | `runtime.py`; runtime/registry/pipeline/replay tests | Quality/TTL and source provenance; host store distinct from embedded presentation store |
 | SourceArbitrator | IMPLEMENTED; OFFLINE TESTED | `arbitration.py`, `pipeline.py`; knowledge/pipeline/replay tests | Offline replay does not promote evidence or publish a live source |
-| Replay | IMPLEMENTED; OFFLINE TESTED | `replay.py`, `CanTraceReader`, CLI; `test_can_replay.py` | Existing decoder/store/arbitration; Classical CAN recorder JSONL, not BLF/ASC/FD; no transport/scheduler I/O |
+| Replay | IMPLEMENTED; OFFLINE TESTED | `replay.py`, `CanTraceReader`, CLI; `test_can_replay.py`, `test_real_car_validation.py` | CAN uses existing decoder/store/arbitration; recorded UDS also uses production discovery/planner/scheduler with offline Transport; no DLL/bus I/O; private complete trace required |
 | DTC read | NOT IMPLEMENTED live product; OFFLINE TESTED simulator | `diagnostics.py`, `transport_lab.py`; `test_diagnostics.py` | FakeECU lab only; no host production/MCU DTC inventory implementation |
 | DTC clear | NOT IMPLEMENTED live product | Simulator paths only | No 0x14 production workflow/confirmation/vehicle guard acceptance |
 | Coding/adaptation | RESEARCH ONLY / simulator groundwork | `core.py`, legacy profiles/journal tests | No live allowlist/write service; no Web endpoint |
 | CLI / doctor / trace | IMPLEMENTED; OFFLINE TESTED | `__main__.py`, `discovery.py`, `api.py`; live/preflight/probe/pipeline tests | Doctor does not open VCI; discover/signals/watch physical acceptance still needed |
 | Logging | IMPLEMENTED host; NOT IMPLEMENTED MCU recording | `__main__.py`, `can_capture.py`; CAN/probe/replay tests | JSONL metadata/errors/freshness; storage/SD backend and safe record-state UX absent on MCU |
-| Real-car evidence workflow | IMPLEMENTED documents/manifest; PARTIAL execution | `docs/runtime/tiguan-mqb-*`, identity/provenance code; evidence tests | New MQB candidates, timing corrections, car buttons and illumination need synchronized physical captures |
+| Real-car evidence workflow | IMPLEMENTED private one-shot UDS trace/preflight/markers/replay/reference tools; OFFLINE TESTED; BLOCKED physical VNCI | `validation.py`, `validation_session.py`, `tools/real_car_*.py`, `docs/validation/*`; new evidence tests | D-PDU and passive VNCI adapters missing; ECU identity layouts and synchronized physical captures needed; no auto promotion to validated |
 | ESP32 firmware | IMPLEMENTED UI/bring-up; prior HARDWARE TESTED | `firmware/main/`, IDF CMake/defaults/lock; UI/device record | Host USB bridge only optional source; not autonomous car monitoring yet |
 | Display abstraction / Lite | PARTIAL; OFFLINE TESTED shared core | `ui_platform.c`, `ui_model.c`, `core/CMakeLists.txt`; portable tests | No STM32 linked firmware, OLED driver/board/pins or complete RAM/flash fit evidence |
 
 ## Priorities
 
-**P0:** complete fresh consolidation acceptance and Git delivery; preserve local
+**P0:** consolidation acceptance/delivery and local sync completed; preserve local
 artifacts; bench accept RU, page wrap, picker/settings/persistence; establish
 MiniDash physical read-only VNCI/identity acceptance and passive capture visibility.
 

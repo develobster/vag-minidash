@@ -11,6 +11,8 @@ bench; autonomous vehicle acquisition on the MCU is not implemented yet.
 - [Current architecture](docs/architecture/overview.md)
 - [Documentation index: current, research and historical](docs/README.md)
 - [Repository consolidation audit and branch recommendations](docs/research/repository-consolidation-2026-09-30.md)
+- [First real-car session: commands and current VNCI blockers](docs/validation/first-real-car-session.md)
+- [Real-car preparation delivery and readiness matrix](docs/validation/real-car-preparation-2026-09-30.md)
 - [Project working instructions](AGENTS.md)
 
 ## Current capabilities
@@ -29,8 +31,19 @@ not product implementations. Backlight is powered from 3.3 V and shows FIXED.
 MQB/UDS candidates and synthetic replay are not vehicle validation. Only the
 documented F405 coolant decoder has exact Engine identity evidence from an
 ODIS/physical trace; MiniDash's physical VNCI route still needs its own acceptance.
-See [first-car procedure](docs/runtime/tiguan-first-live.md) and the
+See the current [first-car procedure](docs/validation/first-real-car-session.md) and the
 [MQB validation workflow](docs/runtime/tiguan-mqb-live-validation.md).
+
+The first-session tools record private sequential UDS evidence and replay it
+through production discovery/planning/decoding/store/arbitration. Windows VNCI
+remains blocked: locally installed D-PDU DLLs are not J2534 FunctionLibrary DLLs;
+MiniDash D-PDU and Windows passive CAN adapters are not implemented. Check offline:
+
+```sh
+python tools/real_car_preflight.py --config config/examples/tiguan-vnci-engine-read-only.template.json
+```
+
+Expected current result: `BLOCKED`, exit 1, explicit blockers. No vehicle I/O.
 
 ## Offline checks
 
