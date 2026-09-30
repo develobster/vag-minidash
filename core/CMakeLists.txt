@@ -5,7 +5,7 @@ set(CMAKE_C_STANDARD 11)
 set(MD_CORE_DIR ${CMAKE_CURRENT_LIST_DIR}/../firmware/main)
 add_library(minidash-core STATIC
     ${MD_CORE_DIR}/ui_core.c ${MD_CORE_DIR}/ui_theme.c
-    ${MD_CORE_DIR}/ui_i18n.c ${MD_CORE_DIR}/ui_model.c
+    ${MD_CORE_DIR}/ui_startup.c ${MD_CORE_DIR}/ui_i18n.c ${MD_CORE_DIR}/ui_model.c
     ${MD_CORE_DIR}/ui_platform.c ${MD_CORE_DIR}/ui_configuration.c
     ${MD_CORE_DIR}/ui_touch_map.c ${MD_CORE_DIR}/display_serial_protocol.c)
 target_include_directories(minidash-core PUBLIC ${MD_CORE_DIR})

@@ -28,6 +28,14 @@ const selectOf=id=>elements[id].children.flatMap(x=>x.children).find(x=>x.tagNam
 const change=(select,value)=>{select.value=String(value);select.onchange()};
 (async()=>{
     await tick();assert.equal(elements.message.textContent,'Соединение с устройством установлено');
+    assert.equal(selectOf('themes').children.length,9);
+    assert.equal(selectOf('themes').children[4].textContent,'Matrix');
+    change(selectOf('themes'),4);
+    assert.equal(elements.preview.children[0].style.borderRadius,'0px');
+    assert.match(elements.preview.children[0].style.backgroundImage,/repeating-linear-gradient/);
+    change(selectOf('themes'),8);
+    assert.equal(elements.preview.children[0].style.borderRadius,'10px');
+    change(selectOf('themes'),0);
     assert.equal(elements.widgets.children.length,4);assert.equal(elements.delete.disabled,true);
     elements.add.click();elements.add.click();elements.add.click();assert.equal(elements.add.disabled,true);
     assert.equal(selectOf('pages').children.length,4);

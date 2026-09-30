@@ -94,6 +94,7 @@ static esp_err_t get_handler(httpd_req_t *req)
             for (unsigned i=0;i<MD_UI_THEME_COUNT;++i) {
                 config->common.theme=i; config->common.palette=md_ui_theme_palette(i,false);
                 cJSON *o=md_configuration_json(config,revision);
+                md_ui_theme_json_metadata(o,i);
                 cJSON_AddItemToArray(root,o);
             }
         }

@@ -14,6 +14,14 @@ esp_err_t ledc_update_duty(int mode,int channel) { (void)mode;(void)channel; if(
 uint32_t ledc_get_duty(int mode,int channel) { (void)mode;(void)channel; return applied; }
 esp_err_t ledc_stop(int mode,int channel,uint32_t level) { (void)mode;(void)channel; assert(level==0); stopped=1; applied=0; return ESP_OK; }
 uint32_t ledc_get_freq(int mode,int timer) { (void)mode;(void)timer; return 5000; }
+static uint32_t fade_target;
+esp_err_t ledc_fade_func_install(int flags) { assert(flags==0); return ESP_OK; }
+esp_err_t ledc_set_fade_with_step(int mode,int channel,uint32_t duty,uint32_t scale,uint32_t cycles) {
+    (void)mode;(void)channel;assert(applied==0 && scale>0 && cycles>0 && cycles<=1023);fade_target=duty;return ESP_OK;
+}
+esp_err_t ledc_fade_start(int mode,int channel,int wait) {
+    (void)mode;(void)channel;assert(wait==LEDC_FADE_NO_WAIT);applied=fade_target;return ESP_OK;
+}
 int main(void)
 {
     assert(!md_backlight_set(80));
@@ -31,6 +39,16 @@ int main(void)
     assert(md_backlight_power(false));
     assert(md_backlight_set(50) && applied==0);
     assert(md_backlight_power(true) && applied==1024);
+    for(unsigned percent=10;percent<=100;percent+=10) {
+        const md_backlight_fade_plan_t plan=md_backlight_fade_plan(percent,2000);
+        const uint32_t actual_ms=(md_backlight_duty(percent)/plan.scale)*plan.cycles*1000/5000;
+        assert(actual_ms>=1900 && actual_ms<=2100);
+    }
+    assert(!md_backlight_startup_fade(0,2000));
+    assert(!md_backlight_startup_fade(70,0));
+    assert(md_backlight_startup_fade(70,2000) && applied==2007);
+    assert(md_backlight_power(false) && applied==0);
+    assert(md_backlight_power(true) && applied==2007);
     fail_update=1;
     assert(!md_backlight_set(80) && stopped && applied==0);
     assert(!md_backlight_set(100));

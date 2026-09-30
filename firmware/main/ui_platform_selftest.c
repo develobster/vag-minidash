@@ -1,3 +1,4 @@
+#include "ui_startup.h"
 #include "backlight_controller.h"
 #include "ui_platform_selftest.h"
 #include "ui_configuration.h"
@@ -120,7 +121,7 @@ bool md_ui_test_brightness(void)
         uint8_t record[MD_UI_SETTINGS_WIRE_SIZE];
         size_t written;
         md_ui_settings_defaults(&original);
-        if (original.brightness_pct != 80) return false;
+        if (original.brightness_pct != 70) return false;
         original.brightness_pct = levels[i];
         if (!md_ui_settings_encode(&original, record, sizeof(record), &written) ||
             !md_ui_settings_decode(record, written, &restored) ||
@@ -152,4 +153,38 @@ bool md_ui_test_target_capabilities(void)
     if (target.verified || target.display_width || md_target_feature_available(&target,MD_FEATURE_TELEMETRY)) return false;
     target.implemented_features=(1U<<MD_FEATURE_WEB_CONFIG)|(1U<<MD_FEATURE_DTC_READ);
     return !md_target_feature_available(&target,MD_FEATURE_WEB_CONFIG) && !md_target_feature_available(&target,MD_FEATURE_DTC_READ);
+}
+
+bool md_ui_test_themes_and_startup(void)
+{
+    md_ui_settings_t original,restored; uint8_t record[MD_UI_SETTINGS_WIRE_SIZE]; size_t written;
+    md_ui_settings_defaults(&original);
+    if(original.brightness_pct!=70 || MD_UI_THEME_OEM!=0 || MD_UI_THEME_SPORT!=1 || MD_UI_THEME_MINIMAL!=2) return false;
+    for(int theme=0;theme<MD_UI_THEME_COUNT;++theme) {
+        original.theme=theme;
+        if(!md_ui_settings_encode(&original,record,sizeof(record),&written) ||
+           !md_ui_settings_decode(record,written,&restored) || restored.theme!=theme ||
+           !md_ui_theme_name(theme)[0]) return false;
+        const md_ui_palette_t night=md_ui_theme_palette(theme,false), day=md_ui_theme_palette(theme,true);
+        if(night.text==night.background || day.text==day.background || night.warning==night.critical) return false;
+        if(!md_configuration_from_legacy(&a,&original,NULL)) return false;
+        if(!md_configuration_encode(&a,wire,sizeof(wire),&written) ||
+           !md_configuration_decode(wire,written,&b) || b.common.theme!=theme) return false;
+        for(int other=0;other<theme;++other) {
+            const md_ui_palette_t previous=md_ui_theme_palette(other,false);
+            if(!memcmp(&night,&previous,sizeof(night))) return false;
+        }
+    }
+    for(unsigned target=10;target<=100;target+=10) {
+        md_ui_startup_frame_t last=md_ui_startup_frame(0,320,240,target);
+        if(last.brightness!=0 || last.width!=4 || last.height!=2 || last.complete) return false;
+        for(unsigned ms=1;ms<=MD_UI_STARTUP_DURATION_MS;++ms) {
+            const md_ui_startup_frame_t f=md_ui_startup_frame(ms,320,240,target);
+            if(f.brightness<last.brightness || f.brightness>target || f.width<last.width ||
+               f.height<last.height || f.width>320 || f.height>240) return false;
+            last=f;
+        }
+        if(!last.complete || last.brightness!=target || last.width!=320 || last.height!=240 || last.glow_opacity) return false;
+    }
+    return md_ui_startup_frame(UINT32_MAX,320,240,70).brightness==70;
 }

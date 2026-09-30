@@ -4,6 +4,26 @@
 
 md_ui_palette_t md_ui_theme_palette(md_ui_theme_id_t theme, bool day_mode)
 {
+    /* Original palettes; retro presets keep a dark phosphor background in DAY. */
+    switch(theme) {
+    case MD_UI_THEME_TERMINAL:
+        return (md_ui_palette_t){.background=0x020b04,.surface=0x061509,.surface_alt=0x0a2310,.border=0x248844,.text=0xaaffbb,.muted=0x65ac77,.accent=0x45ff78,.normal=0x8bffac,.warning=0xffd76a,.critical=0xff6767,.unavailable=0x476d50};
+    case MD_UI_THEME_MATRIX:
+        return (md_ui_palette_t){.background=0x000500,.surface=0x020d03,.surface_alt=0x051905,.border=0x126c29,.text=0xa2ffb6,.muted=0x49a761,.accent=0x00ff66,.normal=0x47ef83,.warning=0xe4e86b,.critical=0xff6767,.unavailable=0x386747};
+    case MD_UI_THEME_FALLOUT:
+        return (md_ui_palette_t){.background=0x080c02,.surface=0x101b06,.surface_alt=0x1b2b09,.border=0x658936,.text=0xc3f68a,.muted=0x8aac60,.accent=0xa5f04d,.normal=0xb3e873,.warning=0xffc75c,.critical=0xff7854,.unavailable=0x637348};
+    case MD_UI_THEME_AMBER:
+        return (md_ui_palette_t){.background=0x100600,.surface=0x201003,.surface_alt=0x301a05,.border=0x99591d,.text=0xffd99a,.muted=0xc69558,.accent=0xffb340,.normal=0xffcb72,.warning=0xffed8c,.critical=0xff6852,.unavailable=0x8d7053};
+    case MD_UI_THEME_CYBERPUNK:
+        return (md_ui_palette_t){.background=0x0c061a,.surface=0x180f2b,.surface_alt=0x24143d,.border=0x753f8d,.text=0xf4e7ff,.muted=0xb79fcf,.accent=0xff50cc,.normal=0x4ce5ed,.warning=0xffdf63,.critical=0xff677c,.unavailable=0x796789};
+    case MD_UI_THEME_ARCTIC:
+        if (day_mode) return (md_ui_palette_t){
+            .background=0xeaf5ff,.surface=0xffffff,.surface_alt=0xdcedf9,.border=0x9dbad0,
+            .text=0x12334d,.muted=0x4b6d85,.accent=0x086fa0,.normal=0x247761,
+            .warning=0x955a00,.critical=0xb5263a,.unavailable=0x70899a};
+        return (md_ui_palette_t){.background=0x081623,.surface=0x13283b,.surface_alt=0x1e374d,.border=0x3b6080,.text=0xe6f6ff,.muted=0x9dbdd3,.accent=0x70d3ff,.normal=0x93e5d7,.warning=0xffd782,.critical=0xff848e,.unavailable=0x6c859a};
+    default: break;
+    }
     if (day_mode) {
         switch (theme) {
         case MD_UI_THEME_SPORT:
@@ -150,5 +170,25 @@ const char *md_ui_signal_state_label(md_ui_signal_state_t state)
     case MD_UI_SIGNAL_UNSUPPORTED: return "UNSUPPORTED";
     case MD_UI_SIGNAL_ERROR: return "ERROR";
     default: return "ERROR";
+    }
+}
+
+const char *md_ui_theme_name(md_ui_theme_id_t theme)
+{
+    static const char *const names[MD_UI_THEME_COUNT] = {
+        "OEM", "Sport", "Minimal", "Terminal", "Matrix", "Fallout", "Amber CRT", "Cyberpunk", "Arctic"
+    };
+    return theme >= 0 && theme < MD_UI_THEME_COUNT ? names[theme] : names[0];
+}
+md_ui_theme_style_t md_ui_theme_style(md_ui_theme_id_t theme)
+{
+    switch(theme) {
+    case MD_UI_THEME_TERMINAL: return (md_ui_theme_style_t){0,1,0,0,0,1};
+    case MD_UI_THEME_MATRIX: return (md_ui_theme_style_t){0,1,4,35,24,1};
+    case MD_UI_THEME_FALLOUT: return (md_ui_theme_style_t){2,2,2,24,14,1};
+    case MD_UI_THEME_AMBER: return (md_ui_theme_style_t){2,1,4,35,20,1};
+    case MD_UI_THEME_CYBERPUNK: return (md_ui_theme_style_t){0,2,5,48,0,0};
+    case MD_UI_THEME_ARCTIC: return (md_ui_theme_style_t){10,1,0,0,0,0};
+    default: return (md_ui_theme_style_t){6,1,0,0,0,0};
     }
 }

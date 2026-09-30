@@ -567,6 +567,7 @@ bool md_ui_core_selftest_run(void)
     report(&totals, "history_freshness_and_demo", md_ui_test_history());
     report(&totals, "button_debounce_long_repeat_lockout", md_ui_test_buttons());
     report(&totals, "brightness_capability_and_ramp", md_ui_test_brightness());
+    report(&totals, "theme_presets_and_crt_startup", md_ui_test_themes_and_startup());
     report(&totals, "target_capabilities", md_ui_test_target_capabilities());
     printf("MINIDASH_UI_TEST_SUMMARY pass=%u fail=%u\n", totals.passed, totals.failed);
     return totals.failed == 0;

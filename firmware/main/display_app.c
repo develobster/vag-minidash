@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "display_manager.h"
+#include "backlight_controller.h"
 #include "display_serial_protocol.h"
 #include "esp_app_desc.h"
 #include "esp_heap_caps.h"
@@ -24,6 +25,7 @@
 #include "ui_touch_map.h"
 #include "ui_touch_nvs.h"
 #include "ui_theme.h"
+#include "ui_startup.h"
 #include "xpt2046_touch.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -744,7 +746,7 @@ static void apply_event(const ui_event_t *event,
     if (previous_theme != settings->theme || previous_day_night != settings->day_night) {
         *palette = md_ui_theme_palette(settings->theme, effective_day_mode(settings));
         if (lvgl_port_lock(100)) {
-            md_ui_screens_retheme(palette);
+            md_ui_screens_retheme(palette, settings->theme);
             lvgl_port_unlock();
         }
     }
@@ -776,6 +778,41 @@ static void apply_event(const ui_event_t *event,
     }
     if (memcmp(settings, &previous_settings, sizeof(*settings)) != 0)
         enqueue_settings_save(settings);
+}
+
+static void startup_effect(md_display_manager_t *display, lv_display_t *lv_display, uint8_t target)
+{
+    bool visual=false;
+    (void)md_display_set_brightness(display,0);
+    if(lvgl_port_lock(0)) {
+        visual=md_ui_screens_startup_begin();
+        lv_refr_now(lv_display); /* Flush the dark masked frame before lighting it. */
+        lvgl_port_unlock();
+    }
+    const int64_t started=esp_timer_get_time();
+    const bool fade_ok=md_backlight_startup_fade(target,MD_UI_STARTUP_DURATION_MS);
+    uint8_t applied=0;
+    ESP_LOGI(TAG,"STARTUP begin duration_ms=%u target=%u visual=%s",
+             MD_UI_STARTUP_DURATION_MS,target,visual ? "CRT" : "fade_only");
+    for(;fade_ok;) {
+        const uint32_t elapsed=(uint32_t)((esp_timer_get_time()-started)/1000);
+        const md_ui_startup_frame_t frame=md_ui_startup_frame(elapsed,1,1,target);
+        if(visual && lvgl_port_lock(20)) {
+            md_ui_screens_startup_frame(elapsed);
+            lvgl_port_unlock();
+        }
+        if(frame.complete) {
+            if(md_display_set_brightness(display,target)) applied=target;
+            break;
+        }
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }
+    if(lvgl_port_lock(0)) {
+        md_ui_screens_startup_end();
+        lvgl_port_unlock();
+    }
+    ESP_LOGI(TAG,"STARTUP end elapsed_ms=%lu brightness=%u",
+             (unsigned long)((esp_timer_get_time()-started)/1000),applied);
 }
 
 static void ui_task(void *argument)
@@ -880,8 +917,8 @@ static void ui_task(void *argument)
         return;
     }
 
+    startup_effect(&display,lv_display,settings.brightness_pct);
     s_display_ready = true;
-    (void)md_display_set_brightness(&display, settings.brightness_pct);
     ESP_LOGI(TAG, "UI ready with %u x %u partial buffers and %u ms model refresh",
              profile.width, profile.height, UI_UPDATE_PERIOD_MS);
 
@@ -908,7 +945,7 @@ static void ui_task(void *argument)
                     md_ui_screens_configuration(visible_config);
                     palette=visible_config->common.custom_theme ? visible_config->common.palette :
                         md_ui_theme_palette(settings.theme,effective_day_mode(&settings));
-                    md_ui_screens_retheme(&palette); md_ui_screens_rebuild_custom(&settings);
+                    md_ui_screens_retheme(&palette, settings.theme); md_ui_screens_rebuild_custom(&settings);
                     md_ui_lvgl_renderer()->show(NULL,state.screen,&settings); seen_revision=s_config_revision; lvgl_port_unlock();
                 }
             }

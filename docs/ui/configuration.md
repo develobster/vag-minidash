@@ -1,5 +1,10 @@
 # Device configuration and local editor
 
+Theme/startup update (2026-09-30): nine presets including Terminal, Matrix,
+Fallout, Amber CRT, Cyberpunk and Arctic; boot-only CRT reveal with autonomous
+LEDC fade (~2 s) to saved brightness; new-settings default is now 70%.
+See [implementation and acceptance](themes-and-crt-startup-2026-09-30.md).
+
 Current backlight update (2026-09-30): GPIO4 is owner-confirmed and enabled for
 LEDC PWM (5 kHz, 12 bit, gamma 2.0), using the existing Brightness setting and
 NVS. Manual Settings control, 10% readable minimum, reboot persistence and cold

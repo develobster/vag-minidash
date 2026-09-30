@@ -199,3 +199,15 @@ bool md_ui_test_configuration_json(void)
     bool ok=first && second && test_json_inner(first,second);
     free(first); free(second); return ok;
 }
+
+void md_ui_theme_json_metadata(cJSON *preset, md_ui_theme_id_t theme)
+{
+    if(!preset) return;
+    cJSON_AddStringToObject(preset,"name",md_ui_theme_name(theme));
+    cJSON *style=cJSON_AddObjectToObject(preset,"style");
+    if(!style) return;
+    const md_ui_theme_style_t traits=md_ui_theme_style(theme);
+    number(style,"radius",traits.radius); number(style,"border_width",traits.border_width);
+    number(style,"glow_width",traits.glow_width); number(style,"glow_opacity",traits.glow_opacity);
+    number(style,"scanline_opacity",traits.scanline_opacity);
+}

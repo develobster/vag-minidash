@@ -42,10 +42,15 @@ void md_ui_screens_touch_feedback(md_ui_screen_t screen,
                                    const md_ui_settings_t *settings,
                                    int16_t x, int16_t y, bool pressed);
 void md_ui_screens_debug_touch(int16_t x, int16_t y);
-void md_ui_screens_retheme(const md_ui_palette_t *palette);
+void md_ui_screens_retheme(const md_ui_palette_t *palette, md_ui_theme_id_t theme);
 void md_ui_screens_update(md_ui_screen_t screen,
                           const md_ui_settings_t *settings,
                           const md_ui_state_t *state,
                           const md_ui_signal_store_t *signals,
                           uint32_t now_ms,
                           const md_ui_diagnostics_t *diagnostics);
+
+/* Call under the LVGL lock; overlay objects never receive input. */
+bool md_ui_screens_startup_begin(void);
+void md_ui_screens_startup_frame(uint32_t elapsed_ms);
+void md_ui_screens_startup_end(void);

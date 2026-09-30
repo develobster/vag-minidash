@@ -213,7 +213,7 @@ void md_ui_settings_defaults(md_ui_settings_t *settings)
     settings->units = MD_UI_UNITS_METRIC;
     settings->temperature_unit = MD_UI_TEMP_CELSIUS;
     settings->language = MD_UI_LANGUAGE_ENGLISH;
-    settings->brightness_pct = 80;
+    settings->brightness_pct = 70;
     settings->last_screen = MD_UI_SCREEN_DASHBOARD;
     settings->widget_count = 4;
     settings->warnings_enabled = false;

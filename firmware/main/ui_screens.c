@@ -1,4 +1,5 @@
 #include "ui_screens.h"
+#include "ui_startup.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -210,6 +211,35 @@ static lv_color_t color(uint32_t rgb)
     return lv_color_hex(rgb);
 }
 
+
+static md_ui_theme_style_t s_theme_style;
+static lv_obj_t *s_startup_masks[4];
+static lv_obj_t *s_startup_glow;
+
+static void themed_frame(lv_obj_t *object)
+{
+    if (!object) return;
+    lv_obj_set_style_radius(object, xpx(s_theme_style.radius), 0);
+    lv_obj_set_style_border_width(object, s_theme_style.border_width, 0);
+    lv_obj_set_style_shadow_width(object, xpx(s_theme_style.glow_width), 0);
+    lv_obj_set_style_shadow_color(object, color(s_palette.accent), 0);
+    lv_obj_set_style_shadow_opa(object, s_theme_style.glow_opacity, 0);
+}
+static void phosphor_scanlines(lv_event_t *event)
+{
+    if (!s_theme_style.scanline_opacity) return;
+    lv_obj_t *root = lv_event_get_target(event);
+    lv_area_t area; lv_obj_get_coords(root, &area);
+    lv_draw_line_dsc_t line; lv_draw_line_dsc_init(&line);
+    line.color = lv_color_black(); line.opa = s_theme_style.scanline_opacity;
+    line.width = 1;
+    line.p1.x = area.x1; line.p2.x = area.x2;
+    for (int y=area.y1+2; y<=area.y2; y+=4) {
+        line.p1.y = line.p2.y = y;
+        lv_draw_line(lv_event_get_layer(event), &line);
+    }
+}
+
 static void set_static_text(lv_obj_t *label, char *buffer, size_t capacity,
                             const char *text)
 {
@@ -237,6 +267,7 @@ static void style_root(screen_view_t *view, const char *title,
     lv_obj_clear_flag(view->root, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(view->root, color(s_palette.background), 0);
     lv_obj_set_style_bg_opa(view->root, LV_OPA_COVER, 0);
+    lv_obj_add_event_cb(view->root, phosphor_scanlines, LV_EVENT_DRAW_POST, NULL);
 
     view->title = lv_label_create(view->root);
     view->mode = lv_label_create(view->root);
@@ -254,6 +285,7 @@ static void style_root(screen_view_t *view, const char *title,
     lv_obj_set_size(view->title, xpx(205), ypx(20));
     set_ui_font(view->title, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(view->title, color(s_palette.text), 0);
+    lv_obj_set_style_text_letter_space(view->title,s_theme_style.letter_spacing,0);
     lv_obj_set_style_text_letter_space(view->title, 1, 0);
 
     lv_obj_set_pos(view->mode, xpx(224), ypx(8));
@@ -349,7 +381,7 @@ static field_view_t *create_field(screen_view_t *view, int x, int y,
     lv_obj_set_style_bg_opa(field->card, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(field->card, color(s_palette.border), 0);
     lv_obj_set_style_border_width(field->card, 1, 0);
-    lv_obj_set_style_radius(field->card, xpx(6), 0);
+    themed_frame(field->card);
     /* Child positions below already include their own margins. */
     lv_obj_set_style_pad_all(field->card, 0, 0);
 
@@ -437,7 +469,7 @@ static field_view_t *create_diagnostic_field(screen_view_t *view, int x, int y,
     lv_obj_set_size(field->card, xpx(width), ypx(height));
     lv_obj_set_style_bg_color(field->card, color(s_palette.surface), 0);
     lv_obj_set_style_bg_opa(field->card, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(field->card, xpx(4), 0);
+    themed_frame(field->card);
     lv_obj_set_style_pad_hor(field->card, xpx(6), 0);
     lv_obj_set_style_pad_ver(field->card, ypx(2), 0);
 
@@ -811,6 +843,7 @@ bool md_ui_screens_create(uint16_t width, uint16_t height,
     s_width = width;
     s_height = height;
     s_palette = *palette;
+    s_theme_style = md_ui_theme_style(settings->theme);
     s_language = settings->language;
 
     for (int i = 0; i < MD_UI_DASHBOARD_COUNT; ++i) {
@@ -857,6 +890,7 @@ bool md_ui_screens_create(uint16_t width, uint16_t height,
         if (!s_screens[i].root) return false;
     }
     s_created = true;
+    md_ui_screens_retheme(palette, settings->theme);
     return true;
 }
 
@@ -1111,7 +1145,7 @@ void md_ui_screens_touch_feedback(md_ui_screen_t screen,
             y < top + lv_obj_get_height(field->card);
         lv_obj_set_style_border_color(field->card,
             color(inside ? s_palette.accent : s_palette.border), 0);
-        lv_obj_set_style_border_width(field->card, inside ? 2 : 1, 0);
+        lv_obj_set_style_border_width(field->card, inside ? 2 : s_theme_style.border_width, 0);
     }
 }
 
@@ -1144,10 +1178,13 @@ static void retheme_view(screen_view_t *view)
     lv_obj_set_style_text_color(view->title, color(s_palette.text), 0);
     lv_obj_set_style_text_color(view->mode, color(s_palette.accent), 0);
     lv_obj_set_style_text_color(view->footer, color(s_palette.muted), 0);
+    lv_obj_set_style_text_letter_space(view->title, s_theme_style.letter_spacing, 0);
+    lv_obj_invalidate(view->root);
     if (view->previous_hint) lv_obj_set_style_text_color(view->previous_hint, color(s_palette.accent), 0);
     if (view->next_hint) lv_obj_set_style_text_color(view->next_hint, color(s_palette.accent), 0);
     for (unsigned i = 0; i < view->field_count; ++i) {
         field_view_t *field = &view->fields[i];
+        themed_frame(field->card);
         lv_obj_set_style_bg_color(field->card, color(s_palette.surface), 0);
         lv_obj_set_style_border_color(field->card, color(s_palette.border), 0);
         lv_obj_set_style_text_color(field->title, color(s_palette.muted), 0);
@@ -1162,10 +1199,11 @@ static void retheme_view(screen_view_t *view)
     }
 }
 
-void md_ui_screens_retheme(const md_ui_palette_t *palette)
+void md_ui_screens_retheme(const md_ui_palette_t *palette, md_ui_theme_id_t theme)
 {
     if (!palette || !s_created) return;
     s_palette = *palette;
+    s_theme_style = md_ui_theme_style(theme);
     for (unsigned i = 0; i < MD_UI_DASHBOARD_COUNT; ++i) retheme_view(&s_dashboards[i]);
     for (unsigned i = 1; i < MD_UI_SCREEN_COUNT; ++i) {
         if (i == MD_UI_SCREEN_CUSTOM) continue;
@@ -1174,6 +1212,7 @@ void md_ui_screens_retheme(const md_ui_palette_t *palette)
     for (unsigned i = 0; i < MD_UI_SETTINGS_ROWS; ++i) {
         setting_row_view_t *row = &s_setting_rows[i];
         if (!row->row) continue;
+        themed_frame(row->row);
         lv_obj_set_style_bg_color(row->row, color(s_palette.surface), 0);
         lv_obj_set_style_text_color(row->title, color(s_palette.text), 0);
         lv_obj_set_style_text_color(row->value, color(s_palette.accent), 0);
@@ -1182,11 +1221,13 @@ void md_ui_screens_retheme(const md_ui_palette_t *palette)
     for (unsigned i = 0; i < MD_SIGNAL_COUNT; ++i) {
         widget_picker_option_view_t *option = &s_widget_picker_options[i];
         if (!option->card || !option->label) continue;
+        themed_frame(option->card);
         lv_obj_set_style_bg_color(option->card, color(s_palette.surface), 0);
         lv_obj_set_style_border_color(option->card, color(s_palette.border), 0);
         lv_obj_set_style_text_color(option->label, color(s_palette.text), 0);
         option->selected = false;
     }
+    themed_frame(s_settings_action); themed_frame(s_settings_page); themed_frame(s_settings_previous);
     md_ui_screens_setting_action_pressed(false);
     md_ui_screens_setting_page_pressed(false);
     md_ui_screens_setting_previous_pressed(false);
@@ -1401,14 +1442,13 @@ static void settings_value(uint8_t index, const md_ui_settings_t *settings,
                            bool brightness_control, char *output, size_t capacity)
 {
     static const char *const dashboard[] = {"OEM", "SPORT", "MINIMAL", "CUSTOM"};
-    static const char *const theme[] = {"OEM", "SPORT", "MINIMAL"};
     static const char *const day_night[] = {"AUTO", "DAY", "NIGHT"};
     static const char *const speed[] = {"km/h", "mph"};
     static const char *const temperature[] = {"\xc2\xb0" "C", "\xc2\xb0" "F"};
     const char *value = "N/A";
     switch (index) {
     case 0: value = dashboard[settings->dashboard]; break;
-    case 1: value = theme[settings->theme]; break;
+    case 1: value = md_ui_theme_name(settings->theme); break;
     case 2: value = day_night[settings->day_night]; break;
     case 3: value = speed[settings->units]; break;
     case 4: value = temperature[settings->temperature_unit]; break;
@@ -1636,4 +1676,65 @@ const md_ui_renderer_t *md_ui_lvgl_renderer(void)
 {
     static const md_ui_renderer_t renderer = {.show = renderer_show, .update = renderer_update};
     return &renderer;
+}
+
+static lv_obj_t *startup_object(void)
+{
+    lv_obj_t *object = lv_obj_create(lv_layer_top());
+    if (!object) return NULL;
+    lv_obj_remove_style_all(object);
+    lv_obj_clear_flag(object, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(object, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(object, LV_OPA_COVER, 0);
+    return object;
+}
+void md_ui_screens_startup_end(void)
+{
+    for(unsigned i=0;i<4;++i) {
+        if(s_startup_masks[i]) lv_obj_delete(s_startup_masks[i]);
+        s_startup_masks[i]=NULL;
+    }
+    if(s_startup_glow) lv_obj_delete(s_startup_glow);
+    s_startup_glow=NULL;
+}
+bool md_ui_screens_startup_begin(void)
+{
+    if(!s_created) return false;
+    md_ui_screens_startup_end();
+    for(unsigned i=0;i<4;++i) {
+        s_startup_masks[i]=startup_object();
+        if(!s_startup_masks[i]) { md_ui_screens_startup_end(); return false; }
+    }
+    s_startup_glow=startup_object();
+    if(!s_startup_glow) { md_ui_screens_startup_end(); return false; }
+    lv_obj_set_style_bg_color(s_startup_glow, lv_color_hex(0xe8fff0), 0);
+    lv_obj_set_style_border_color(s_startup_glow, color(s_palette.accent), 0);
+    lv_obj_set_style_border_width(s_startup_glow, 2, 0);
+    lv_obj_set_style_shadow_color(s_startup_glow, color(s_palette.accent), 0);
+    lv_obj_set_style_shadow_width(s_startup_glow, 8, 0);
+    md_ui_screens_startup_frame(0);
+    return true;
+}
+static void startup_mask(unsigned index,int x,int y,int width,int height)
+{
+    lv_obj_t *object=s_startup_masks[index];
+    if(width<=0 || height<=0) { lv_obj_add_flag(object,LV_OBJ_FLAG_HIDDEN); return; }
+    lv_obj_clear_flag(object,LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_pos(object,x,y);lv_obj_set_size(object,width,height);
+}
+void md_ui_screens_startup_frame(uint32_t elapsed)
+{
+    if(!s_startup_glow) return;
+    const md_ui_startup_frame_t f=md_ui_startup_frame(elapsed,s_width,s_height,100);
+    const int left=(s_width-f.width)/2, top=(s_height-f.height)/2;
+    startup_mask(0,0,0,s_width,top);
+    startup_mask(1,0,top+f.height,s_width,s_height-top-f.height);
+    startup_mask(2,0,top,left,f.height);
+    startup_mask(3,left+f.width,top,s_width-left-f.width,f.height);
+    lv_obj_set_pos(s_startup_glow,left,top);
+    lv_obj_set_size(s_startup_glow,f.width,f.height);
+    lv_obj_set_style_bg_opa(s_startup_glow,elapsed<300 ? LV_OPA_COVER :
+                            (elapsed<800 ? (800-elapsed)*255/500 : 0),0);
+    lv_obj_set_style_border_opa(s_startup_glow,f.glow_opacity,0);
+    lv_obj_set_style_shadow_opa(s_startup_glow,f.glow_opacity,0);
 }

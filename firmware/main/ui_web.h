@@ -17,3 +17,6 @@ int md_display_configuration_apply(const md_device_configuration_t *config,
                                   uint32_t revision, bool save, bool cancel);
 
 bool md_display_configuration_begin(void);
+
+/* Display-only metadata, outside the persisted configuration schema. */
+void md_ui_theme_json_metadata(cJSON *preset, md_ui_theme_id_t theme);

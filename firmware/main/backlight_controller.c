@@ -6,6 +6,7 @@
 #if CONFIG_MINIDASH_LCD_PIN_BL >= 0
 static bool ready;
 static bool powered = true;
+static bool fade_installed;
 static uint8_t requested;
 static bool apply(void)
 {
@@ -92,5 +93,35 @@ void md_backlight_report(void)
              (unsigned long)ledc_get_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_0),
              (unsigned long)ledc_get_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0),
              MD_BACKLIGHT_MAX_DUTY);
+#endif
+}
+
+bool md_backlight_startup_fade(uint8_t percent, uint32_t duration_ms)
+{
+#if CONFIG_MINIDASH_LCD_PIN_BL >= 0
+    if(!ready || !powered || percent<10 || percent>100 || !duration_ms || duration_ms>10000) return false;
+    if(!md_backlight_set(0)) return false;
+    esp_err_t err=ESP_OK;
+    if(!fade_installed) {
+        err=ledc_fade_func_install(0);
+        if(err==ESP_OK) fade_installed=true;
+    }
+    const md_backlight_fade_plan_t plan=md_backlight_fade_plan(percent,duration_ms);
+    uint32_t duty=md_backlight_duty(percent);
+    if(!CONFIG_MINIDASH_LCD_BL_ACTIVE_HIGH) duty=MD_BACKLIGHT_MAX_DUTY-duty;
+    if(err==ESP_OK) err=ledc_set_fade_with_step(LEDC_LOW_SPEED_MODE,LEDC_CHANNEL_0,duty,plan.scale,plan.cycles);
+    if(err==ESP_OK) err=ledc_fade_start(LEDC_LOW_SPEED_MODE,LEDC_CHANNEL_0,LEDC_FADE_NO_WAIT);
+    if(err!=ESP_OK) {
+        ledc_stop(LEDC_LOW_SPEED_MODE,LEDC_CHANNEL_0,!CONFIG_MINIDASH_LCD_BL_ACTIVE_HIGH);
+        ready=false;
+        ESP_LOGE("md_backlight","Startup fade failed: %s; output stopped",esp_err_to_name(err));
+        return false;
+    }
+    requested=percent;
+    ESP_LOGI("md_backlight","FADE target=%u duty=%lu duration_ms=%lu scale=%lu cycles=%lu",
+             percent,(unsigned long)duty,(unsigned long)duration_ms,(unsigned long)plan.scale,(unsigned long)plan.cycles);
+    return true;
+#else
+    (void)percent; (void)duration_ms; return true;
 #endif
 }

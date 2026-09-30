@@ -2,7 +2,7 @@ idf_component_register(
     SRCS "main.c" "backlight_controller.c" "display_manager.c" "st7789_backend.c"
          "ili9341_backend.c" "xpt2046_touch.c" "display_app.c"
          "display_serial_protocol.c"
-         "ui_core.c" "ui_core_selftest.c" "ui_theme.c" "ui_i18n.c" "ui_screens.c"
+         "ui_core.c" "ui_core_selftest.c" "ui_theme.c" "ui_startup.c" "ui_i18n.c" "ui_screens.c"
          "ui_font_ru_10.c" "ui_font_ru_12.c" "ui_font_ru_14.c" "ui_font_ru_16.c"
          "ui_settings_nvs.c" "ui_platform.c" "ui_model.c"
          "ui_configuration.c" "ui_configuration_nvs.c" "ui_platform_selftest.c" "ui_configuration_json.c" "ui_web.c"
