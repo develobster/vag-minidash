@@ -1,3 +1,8 @@
+> Historical design/lab note retained for context. Current implementation and evidence:
+> [status](docs/status.md), [architecture](docs/architecture/overview.md),
+> [development](docs/development.md). Plans/simulator features below
+> are not proof of live device or vehicle support.
+
 # Архитектура и решения
 
 ## Слои

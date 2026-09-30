@@ -166,10 +166,11 @@ copyright restricted, so the default should be a local cache with hashes and a
 manifest, not a repository-wide generated dump.
 
 The current importer accepts the documented `mcd-diag-rs` top-level MWB array
-and only compiles one byte-aligned fixed numeric `VALUE` with `IDENTICAL` or a
-simple safe `LINEAR` formula. Every structure, mux, dynamic field, text table or
-unknown formula is returned in `unsupported`; it is never approximated. This is
-the foundation, not a complete MCD decoder.
+and compiles one byte-aligned fixed numeric `VALUE`: integer or IEEE754 FLOAT32
+with `IDENTICAL` or a simple safe `LINEAR` formula. Integer TEXTTABLE records
+require explicit bounded non-overlapping choices and no default. Structures,
+muxes, dynamic fields, unsupported text tables and unknown formulas are returned
+in `unsupported`; they are never approximated. This is not a complete MCD decoder.
 
 ### Variant binding
 
@@ -277,8 +278,8 @@ not silently resolved by load order.
   existing `SignalStore`;
 * normalized pinned MQB DBC mappings and separate metadata-only Octavia UDS candidates;
 * candidate Gen5 Haldex DID codecs, explicitly not marked vehicle-tested;
-* a conservative simple-scalar importer for locally generated
-  `mcd-diag-rs`-shape MWB JSON plus a rejection report;
+* a conservative single-leaf scalar importer for locally generated
+  `mcd-diag-rs`-shape MWB JSON, including FLOAT32/TEXTTABLE, plus a rejection report;
 * synthetic tests for DBC scaling, MCD scaling/invalid values, stale values,
   unknown DIDs, unsupported variants and definition conflicts.
 
@@ -288,13 +289,14 @@ not silently resolved by load order.
    IDs against a pinned `vw_mqb.dbc` revision.
 2. Capture one synchronized J492 cycle with complete UDS request/response,
    ODIS displayed values and exact identity; promote only matching codecs.
-3. Run a local MCD extraction for the four known ASAM variants. Store only a
-   manifest/hash and narrowly selected, legally reviewable generated artifacts.
-4. Extend the importer in order: multiple fixed parameters, bit fields,
-   `TEXTTABLE`, invalid constraints, then piecewise/rational formulas. Add a
-   fixture and rejection test for every new construct.
-5. Add DBC quality dependencies and source arbitration; only then assign final
-   production polling budgets from traces.
+3. Preserve the existing local-only MCD extraction/audit artifacts and review
+   variant binding, provenance and redistribution before importing new subsets.
+   Extend extraction to remaining variants only with an explicit manifest/hash.
+4. Extend the importer with separate record/field identity for multiple fixed
+   parameters, then bit fields and invalid ranges before complex formulas. The
+   bounded single-leaf FLOAT32/TEXTTABLE subset already has compatibility tests.
+5. Broaden verified DBC quality dependencies and measure source selection using
+   the existing arbitrator; assign production polling budgets from real traces.
 
 ## Reviewed local typed-scalar recovery (2026-09-30)
 

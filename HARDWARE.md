@@ -1,3 +1,8 @@
+> Historical design/lab note retained for context. Current implementation and evidence:
+> [status](docs/status.md), [architecture](docs/architecture/overview.md),
+> [development](docs/development.md). Plans/simulator features below
+> are not proof of live device or vehicle support.
+
 # Аппаратная база и стенд — 0.6
 
 Базовое решение пересмотрено в сторону стоимости и проверяемости. ESP32-P4 и узкий

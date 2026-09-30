@@ -1,6 +1,6 @@
 # MiniDash embedded UI status
 
-Updated: 2026-09-30. Work branch: `feature/ui-ux-touch-zones`, based on
+UI delivery record updated 2026-09-30. Original work branch: `feature/ui-ux-touch-zones`, based on
 `feature/production-ui` at `00c6317c08b055ae0f56791ed250225c14b4301e`.
 
 ## Current state
@@ -47,7 +47,9 @@ software dimming is unavailable and Settings now shows `FIXED`.
 - Optional USB Serial/JTAG host bridge from `minidash_live watch`; it forwards
   only canonical, arbitrated valid values and preserves quality/TTL states.
 
-## Verification
+## Historical UI delivery verification (6f436dd)
+
+Current integration acceptance and host counts: [repository report](../research/repository-consolidation-2026-09-30.md). The hardware results below belong to the prior UI delivery; consolidation does not flash the board.
 
 - Host suite: `python -m unittest discover -s tests -v` — 129 tests, 13 skipped,
   no failures.
