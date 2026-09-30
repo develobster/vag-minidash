@@ -31,3 +31,32 @@ dist/
 .vscode/
 
 core/build*/
+
+# Local acceptance output, caches and packaging
+.local/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+node_modules/
+.pio/
+*.log
+*.tmp
+*.bak
+Thumbs.db
+Desktop.ini
+
+# Hardware backups and proprietary/private extraction output stay local.
+# Do not use a global *.bin / *.json ignore: reviewed fixtures remain visible.
+/artifacts/hardware/
+/artifacts/odis-offline-audit/
+/artifacts/local/
+/firmware/*.bin
+/firmware/*.elf
+/firmware/*.map
+
+# Synthetic, reviewed fixtures may use capture/log extensions.
+!tests/fixtures/**/*.jsonl
+!tests/fixtures/**/*.log
+!tests/fixtures/**/*.bin
