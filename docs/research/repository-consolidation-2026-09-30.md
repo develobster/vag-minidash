@@ -3,7 +3,7 @@
 ## Executive summary and delivery state
 
 The verified integration base is `22a346bee87f82c12943fd7a3277ea219d698d03`.
-All eight current remote branches and all local branch tips are ancestors of it
+All eight remote branches inventoried before publication and all local branch tips are ancestors of it
 or equal to it. No newer/outside branch commit is missing. This conclusion uses
 Git merge-bases, actual diffs and authenticated GitHub branch/PR inventory.
 The product remains a bench UI plus host diagnostic runtime, not yet standalone
@@ -230,7 +230,8 @@ Published logical sequence:
 |---|---|
 | `bdf254135c055504dbdb3660f4a37faa42117fb8` | Artifact ignore guards and retention/privacy documentation |
 | `34aa05fa26e8b14cbbc21e1b6eebb888378881e5` | Repeatable offline runner, five fault tests and developer/build guide |
-| Documentation consolidation commit containing this report | README/index/current architecture/status/history and corrected importer/UI documentation |
+| `b1d38c19250dc61b4ccba7bb678385332e4053a4` | README/index/current architecture/status/history and corrected importer/UI documentation |
+| Delivery-record commit containing this final section | Verified publication, preservation and local synchronization limitation |
 
 The final documentation commit's SHA is obtained from the published branch head;
 a report cannot contain its own Git object hash. Exact final SHA, remote tree/ref
@@ -331,3 +332,23 @@ failed summary is retained alongside the final PASS summary. All 21 JSON files
 in data/profiles/config examples/test fixtures parse; all new documentation links
 resolve. All CLI help commands above exit 0. Original artifact and dirty-patch
 preservation checks pass. No runtime/UI/firmware source was changed by cleanup.
+
+## Verified publication receipt
+
+The first three task commits were published as normal descendants of `22a346b`
+on `feature/repository-consolidation` via the authenticated GitHub Git-data API.
+Verified implementation/documentation HEAD before this receipt commit:
+`b1d38c19250dc61b4ccba7bb678385332e4053a4`, tree
+`9da49f1147172314146629f961bcf1eebe88448c`.
+All 181 remote file blobs matched the expected baseline plus the 18 reviewed
+task paths; no extra/deleted source was found. All eight earlier branch refs
+were unchanged. The original dirty worktree patch and all 57 artifact hashes
+were unchanged. No main merge, PR change or branch deletion occurred.
+
+This delivery-record commit changes only this report. Its exact final SHA is
+returned in the final response and saved in the local delivery receipt; obtain
+the current remote HEAD from the branch rather than treating the previous
+verification SHA as the final receipt commit. The local worktree still contains
+the reviewed task files at base HEAD `22a346b`; it is not falsely reported clean
+or switched to consolidation. Shared Git directory write access is required for
+local synchronization, not for the already completed remote publication.
