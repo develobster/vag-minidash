@@ -8,6 +8,7 @@ import unittest
 import uuid
 from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 from minidash_live.__main__ import main
 from minidash_live.dbc import load_cantools_database
@@ -287,6 +288,29 @@ class PipelineIntegrationTests(unittest.TestCase):
 
 
 class FingerprintTests(unittest.TestCase):
+    def test_watch_duration_starts_after_catalog_setup(self):
+        now = [0.0]
+        def slow_catalog(*args, **kwargs):
+            now[0] += 1.0  # More setup time than the requested acquisition duration.
+            return []
+        def sleep(seconds):
+            now[0] += seconds
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'config.json').write_text('{"ecus":{}}', encoding='utf-8')
+            (root / 'identity.json').write_text(json.dumps({
+                'schema_version': 1, 'vehicle': {'platform': 'MQB'},
+                'ecus': [], 'unavailable': []}), encoding='utf-8')
+            output = io.StringIO()
+            with redirect_stdout(output), \
+                    patch('minidash_live.__main__.signal_catalog', side_effect=slow_catalog), \
+                    patch('minidash_live.__main__.time.monotonic', side_effect=lambda: now[0]), \
+                    patch('minidash_live.__main__.time.sleep', side_effect=sleep):
+                self.assertEqual(main(['watch', '--config', str(root / 'config.json'),
+                    '--identity-snapshot', str(root / 'identity.json'),
+                    '--duration', '.02', '--interval', '.01', 'engine.rpm']), 0)
+            self.assertIn('engine.rpm: unavailable', output.getvalue())
+
     def test_fingerprint_is_deterministic_and_omits_missing_fields(self):
         first = EcuIdentity(logical_role="engine", asam_id="EV_X", software_version="1")
         second = EcuIdentity(software_version="1", asam_id="EV_X", logical_role="engine")

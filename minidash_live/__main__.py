@@ -423,7 +423,7 @@ def run_watch(args):
             if args.display_port else None
         if display_bridge is not None:
             resources.callback(display_bridge.close)
-        deadline, next_print, next_display = time.monotonic() + args.duration, 0, 0
+        next_print, next_display = 0, 0
         display_error_reported = False
         emit({"kind": "discovery", **snapshot.as_dict(redact_sensitive=True)})
         emit({"kind": "plan", "requested": list(plan.requested),
@@ -434,6 +434,8 @@ def run_watch(args):
               "jobs": [{"definition_id": job.definition_id, "did": f"{job.did:04X}",
                         "period": job.period} for job in plan.jobs],
               "skipped": list(plan.skipped)})
+        # Setup/catalog tracing is not part of the requested acquisition duration.
+        deadline = time.monotonic() + args.duration
         while time.monotonic() < deadline:
             if bus:
                 message = bus.recv(.01)
