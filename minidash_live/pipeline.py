@@ -1,6 +1,7 @@
 """End-to-end orchestration using the existing registry, scheduler and store."""
 from dataclasses import asdict, dataclass
 from enum import Enum
+import math
 import time
 
 from .arbitration import SourceArbitrator
@@ -93,6 +94,9 @@ def signal_catalog(registry, vehicle, ecus, availability=None):
                                  "signal": item.source.signal},
                 "provenance_origin": item.provenance.origin,
                 "confidence": item.provenance.confidence,
+                "source_url": item.provenance.source_url,
+                "source_license": item.provenance.license,
+                "source_revision": item.provenance.source_revision,
                 "applicability": item.applicability.as_dict(),
                 "unit": item.unit, "ttl": item.ttl,
                 "expected_period": item.expected_period,
@@ -115,17 +119,24 @@ class AcquisitionPlan:
     jobs: list
     contexts: dict
     skipped: tuple
+    passive_deadlines: dict
 
 
 class AcquisitionPlanner:
-    def __init__(self, registry, vehicle, ecus, availability, *, poll_periods=None):
+    def __init__(self, registry, vehicle, ecus, availability, *, poll_periods=None,
+                 passive_grace=0.5):
         self.registry, self.vehicle, self.ecus = registry, vehicle, dict(ecus)
         self.availability = availability
         self.poll_periods = dict(poll_periods or {})
+        if isinstance(passive_grace, bool) or not isinstance(passive_grace, (int, float)) or \
+                not math.isfinite(passive_grace) or passive_grace < 0:
+            raise ValueError("Passive CAN grace must be a non-negative duration")
+        self.passive_grace = float(passive_grace)
 
     def build(self, requested):
         requested = tuple(dict.fromkeys(requested))
         definitions, passive, jobs, skipped, contexts = [], [], [], [], {}
+        passive_deadlines = {}
         for canonical_name in requested:
             implementations = applicable_implementations(
                 self.registry, canonical_name, self.vehicle, self.ecus)
@@ -135,6 +146,9 @@ class AcquisitionPlanner:
             can_ready = any(item.source.kind == "can" and
                             self.availability.get(item.id)["state"] == Availability.AVAILABLE.value
                             for item, _ in implementations)
+            has_can_route = any(item.source.kind == "can" for item, _ in implementations)
+            if has_can_route and not can_ready:
+                passive_deadlines[canonical_name] = self.availability.clock() + self.passive_grace
             for item, context in implementations:
                 definitions.append(item)
                 contexts[item.id] = context
@@ -158,19 +172,22 @@ class AcquisitionPlanner:
                     item.ecu, canonical_name, item.source.did, period, item.ttl, decoder,
                     definition_id=item.id, confidence=item.provenance.confidence,
                     active_cost=item.source.active_cost,
-                    expected_period=item.expected_period or period, enabled=not can_ready,
+                    expected_period=item.expected_period or period,
+                    enabled=not can_ready and canonical_name not in passive_deadlines,
                     require_verified=True))
         return AcquisitionPlan(requested, tuple(definitions), tuple(passive), jobs,
-                               contexts, tuple(skipped))
+                               contexts, tuple(skipped), passive_deadlines)
 
     def reconcile(self, plan, rows):
         """Poll UDS only while no usable passive implementation is live."""
+        now = self.availability.clock()
         for job in plan.jobs:
             can_live = any(row.get("signal") == job.signal and row.get("source") == "can" and
                            row.get("value") is not None and
                            row.get("quality") in ("valid", "candidate")
                            for row in rows)
-            job.enabled = not can_live and not job.blocked
+            still_listening = now < plan.passive_deadlines.get(job.signal, float("-inf"))
+            job.enabled = not can_live and not still_listening and not job.blocked
             if job.enabled and job.due == float("inf"):
                 job.due = 0
 

@@ -1,0 +1,1867 @@
+{
+  "schema_version": 1,
+  "provider_id": "vag",
+  "definitions": [
+    {
+      "id": "opendbc.vw_mqb.engine.throttle",
+      "canonical_name": "driver.throttle",
+      "ecu": "engine",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Motor_20",
+        "signal": "MO_Fahrpedalrohwert_01"
+      },
+      "unit": "%",
+      "ttl": 0.5,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "DBC sender is Motor_Diesel_MQB. Cross-variant candidate; CZPA sender/quality must be traced."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 12,
+          "length": 8,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 0.4,
+          "offset": 0,
+          "unit": "%",
+          "can_id": 289,
+          "can_id_hex": "0x121"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.engine.relative_manifold_pressure",
+      "canonical_name": "engine.manifold_pressure_relative",
+      "ecu": "engine",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Motor_20",
+        "signal": "MO_rel_Saugrohrdruck"
+      },
+      "unit": "mbar",
+      "ttl": 0.5,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "DBC packed 6-bit field, sender Motor_Diesel_MQB; confirm semantics, quality and unit on CZPA."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 30,
+          "length": 6,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 18,
+          "offset": 0,
+          "unit": "mbar",
+          "can_id": 289,
+          "can_id_hex": "0x121"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.transmission.target_gear",
+      "canonical_name": "transmission.target_gear_code",
+      "ecu": "transmission",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Getriebe_11",
+        "signal": "GE_Zielgang"
+      },
+      "unit": null,
+      "ttl": 0.5,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "Message sender is Getriebe_DQ_Hybrid_MQB; raw code only, not assigned to DQ500."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 60,
+          "length": 4,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 173,
+          "can_id_hex": "0x0AD"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.transmission.shift_sequence",
+      "canonical_name": "transmission.shift_sequence_code",
+      "ecu": "transmission",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Getriebe_11",
+        "signal": "GE_Schaltablauf"
+      },
+      "unit": null,
+      "ttl": 0.5,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "Message sender is Getriebe_DQ_Hybrid_MQB; enum and DQ500 applicability are unverified."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 47,
+          "length": 2,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 173,
+          "can_id_hex": "0x0AD"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.transmission.oil_sump_temperature",
+      "canonical_name": "transmission.sump_temperature",
+      "ecu": "transmission",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Getriebe_14",
+        "signal": "GE_Sumpftemperatur"
+      },
+      "unit": "degC",
+      "ttl": 2.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "DBC field is in a DQ-hybrid family message; not confirmed on DQ500."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 56,
+          "length": 8,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": -58,
+          "unit": "degC",
+          "can_id": 968,
+          "can_id_hex": "0x3C8"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.brake.pressed",
+      "canonical_name": "brake.pressed",
+      "ecu": "abs",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "ESP_05",
+        "signal": "ESP_Fahrer_bremst"
+      },
+      "unit": null,
+      "ttl": 0.5,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC definition only; no Tiguan II CZPA/DQ500 live validation. Signal visibility at the selected gateway/tap is unknown."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 26,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 262,
+          "can_id_hex": "0x106"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.brake.pressure",
+      "canonical_name": "brake.pressure",
+      "ecu": "abs",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "ESP_05",
+        "signal": "ESP_Bremsdruck"
+      },
+      "unit": "bar",
+      "ttl": 0.5,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC definition only; no Tiguan II CZPA/DQ500 live validation. Signal visibility at the selected gateway/tap is unknown."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 16,
+          "length": 10,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 0.3,
+          "offset": -30,
+          "unit": "bar",
+          "can_id": 262,
+          "can_id_hex": "0x106"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.steering.angle_magnitude",
+      "canonical_name": "steering.angle_magnitude",
+      "ecu": "gateway",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "LWI_01",
+        "signal": "LWI_Lenkradwinkel"
+      },
+      "unit": "deg",
+      "ttl": 0.5,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "Magnitude only. Separate sign bit and validity bits must be interpreted before forming signed angle."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 16,
+          "length": 13,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 0.1,
+          "offset": 0,
+          "unit": "deg",
+          "can_id": 134,
+          "can_id_hex": "0x086"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.steering.angle_sign",
+      "canonical_name": "steering.angle_sign",
+      "ecu": "gateway",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "LWI_01",
+        "signal": "LWI_VZ_Lenkradwinkel"
+      },
+      "unit": null,
+      "ttl": 0.5,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC definition only; no Tiguan II CZPA/DQ500 live validation. Signal visibility at the selected gateway/tap is unknown."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 29,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 134,
+          "can_id_hex": "0x086"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.steering.angle_validity",
+      "canonical_name": "steering.angle_validity",
+      "ecu": "gateway",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "LWI_01",
+        "signal": "LWI_QBit_Lenkradwinkel"
+      },
+      "unit": null,
+      "ttl": 0.5,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC definition only; no Tiguan II CZPA/DQ500 live validation. Signal visibility at the selected gateway/tap is unknown."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 15,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 134,
+          "can_id_hex": "0x086"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.vehicle.lateral_acceleration",
+      "canonical_name": "vehicle.lateral_acceleration",
+      "ecu": "abs",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "ESP_02",
+        "signal": "ESP_Querbeschleunigung"
+      },
+      "unit": "g",
+      "ttl": 0.5,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC definition only; no Tiguan II CZPA/DQ500 live validation. Signal visibility at the selected gateway/tap is unknown."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 0.01,
+          "offset": -1.27,
+          "unit": "g",
+          "can_id": 257,
+          "can_id_hex": "0x101"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.vehicle.longitudinal_acceleration",
+      "canonical_name": "vehicle.longitudinal_acceleration",
+      "ecu": "abs",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "ESP_02",
+        "signal": "ESP_Laengsbeschl"
+      },
+      "unit": "m/s^2",
+      "ttl": 0.5,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC definition only; no Tiguan II CZPA/DQ500 live validation. Signal visibility at the selected gateway/tap is unknown."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 24,
+          "length": 10,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 0.03125,
+          "offset": -16,
+          "unit": "m/s^2",
+          "can_id": 257,
+          "can_id_hex": "0x101"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.vehicle.yaw_rate_magnitude",
+      "canonical_name": "vehicle.yaw_rate_magnitude",
+      "ecu": "abs",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "ESP_02",
+        "signal": "ESP_Gierrate"
+      },
+      "unit": "deg/s",
+      "ttl": 0.5,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "Magnitude is unsigned in DBC; separate direction bit ESP_VZ_Gierrate is required."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 40,
+          "length": 14,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 0.01,
+          "offset": 0,
+          "unit": "deg/s",
+          "can_id": 257,
+          "can_id_hex": "0x101"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.vehicle.yaw_rate_sign",
+      "canonical_name": "vehicle.yaw_rate_sign",
+      "ecu": "abs",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "ESP_02",
+        "signal": "ESP_VZ_Gierrate"
+      },
+      "unit": null,
+      "ttl": 0.5,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC definition only; no Tiguan II CZPA/DQ500 live validation. Signal visibility at the selected gateway/tap is unknown."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 54,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 257,
+          "can_id_hex": "0x101"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.cruise.main_switch",
+      "canonical_name": "cruise.main_switch",
+      "ecu": "gateway",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "GRA_ACC_01",
+        "signal": "GRA_Hauptschalter"
+      },
+      "unit": null,
+      "ttl": 0.5,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC definition only; no Tiguan II CZPA/DQ500 live validation. Signal visibility at the selected gateway/tap is unknown."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 12,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 299,
+          "can_id_hex": "0x12B"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.cruise.cancel",
+      "canonical_name": "cruise.cancel",
+      "ecu": "gateway",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "GRA_ACC_01",
+        "signal": "GRA_Abbrechen"
+      },
+      "unit": null,
+      "ttl": 0.5,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC definition only; no Tiguan II CZPA/DQ500 live validation. Signal visibility at the selected gateway/tap is unknown."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 13,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 299,
+          "can_id_hex": "0x12B"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.cruise.set",
+      "canonical_name": "cruise.set",
+      "ecu": "gateway",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "GRA_ACC_01",
+        "signal": "GRA_Tip_Setzen"
+      },
+      "unit": null,
+      "ttl": 0.5,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC definition only; no Tiguan II CZPA/DQ500 live validation. Signal visibility at the selected gateway/tap is unknown."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 16,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 299,
+          "can_id_hex": "0x12B"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.cruise.accelerate",
+      "canonical_name": "cruise.accelerate",
+      "ecu": "gateway",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "GRA_ACC_01",
+        "signal": "GRA_Tip_Hoch"
+      },
+      "unit": null,
+      "ttl": 0.5,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC definition only; no Tiguan II CZPA/DQ500 live validation. Signal visibility at the selected gateway/tap is unknown."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 17,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 299,
+          "can_id_hex": "0x12B"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.engine.torque_actual",
+      "canonical_name": "engine.torque_actual",
+      "ecu": "engine",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Motor_11",
+        "signal": "MO_Mom_Ist_Summe"
+      },
+      "unit": "Nm",
+      "ttl": 0.5,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "DBC sender variant and MO_QBit_Motormomente quality bit (bit 63) need Tiguan trace; DQ500/CZPA not confirmed."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 22,
+          "length": 10,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": -509,
+          "unit": "Nm",
+          "can_id": 167,
+          "can_id_hex": "0x0A7"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.engine.torque_validity",
+      "canonical_name": "engine.torque_validity",
+      "ecu": "engine",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Motor_11",
+        "signal": "MO_QBit_Motormomente"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "Quality/validity bit paired with torque fields; do not trust torque while the bit is false."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 63,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 167,
+          "can_id_hex": "0x0A7"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.engine.rpm_validity",
+      "canonical_name": "engine.rpm_validity",
+      "ecu": "engine",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Motor_12",
+        "signal": "MO_QBit_Drehzahl_01"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "Quality bit paired with Motor_12 rpm; check before promoting candidate values."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 47,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 168,
+          "can_id_hex": "0x0A8"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.engine.oil_level",
+      "canonical_name": "engine.oil_level",
+      "ecu": "engine",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Motor_26",
+        "signal": "WIV_Oelstand"
+      },
+      "unit": "%",
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "Sender is Motor_Diesel_MQB; oil level representation and CZPA applicability unverified."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 16,
+          "length": 4,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 12.5,
+          "offset": 0,
+          "unit": "%",
+          "can_id": 967,
+          "can_id_hex": "0x3C7"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.engine.oil_level_sensor_error",
+      "canonical_name": "engine.oil_level_sensor_error",
+      "ecu": "engine",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Motor_26",
+        "signal": "WIV_Sensorfehler"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC field only; not validated on Tiguan II 2017 CZPA/DQ500. Frame presence and quality bits still require live capture."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 14,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 967,
+          "can_id_hex": "0x3C7"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.vehicle.ambient_temperature",
+      "canonical_name": "vehicle.ambient_temperature",
+      "ecu": "gateway",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Gateway_72",
+        "signal": "BCM1_Aussen_Temp_ungef"
+      },
+      "unit": "degC",
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC field only; not validated on Tiguan II 2017 CZPA/DQ500. Frame presence and quality bits still require live capture."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 56,
+          "length": 8,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 0.5,
+          "offset": -50,
+          "unit": "degC",
+          "can_id": 987,
+          "can_id_hex": "0x3DB"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.vehicle.odometer.cluster",
+      "canonical_name": "vehicle.odometer",
+      "ecu": "gateway",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Kombi_02",
+        "signal": "KBI_Kilometerstand"
+      },
+      "unit": "km",
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "DBC gateway/cluster odometer field; compare with instrument display, no applicability claim for Tiguan."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 0,
+          "length": 20,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": "km",
+          "can_id": 1719,
+          "can_id_hex": "0x6B7"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.vehicle.fuel_tank_content",
+      "canonical_name": "vehicle.fuel_tank_content",
+      "ecu": "gateway",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Kombi_02",
+        "signal": "KBI_Inhalt_Tank"
+      },
+      "unit": "L",
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC field only; not validated on Tiguan II 2017 CZPA/DQ500. Frame presence and quality bits still require live capture."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 40,
+          "length": 7,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": "L",
+          "can_id": 1719,
+          "can_id_hex": "0x6B7"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.vehicle.door.driver_open",
+      "canonical_name": "vehicle.door.driver_open",
+      "ecu": "abs",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "ESP_08",
+        "signal": "ESP_Tuerkontakt_Fahrertuer"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "Only the driver door contact is defined here; it is not a complete door mask."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 16,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 286,
+          "can_id_hex": "0x11E"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.vehicle.turn_signal.left",
+      "canonical_name": "vehicle.turn_signal.left",
+      "ecu": "gateway",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Gateway_72",
+        "signal": "BH_Blinker_li"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC field only; not validated on Tiguan II 2017 CZPA/DQ500. Frame presence and quality bits still require live capture."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 50,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 987,
+          "can_id_hex": "0x3DB"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.vehicle.turn_signal.right",
+      "canonical_name": "vehicle.turn_signal.right",
+      "ecu": "gateway",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Gateway_72",
+        "signal": "BH_Blinker_re"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "MQB DBC field only; not validated on Tiguan II 2017 CZPA/DQ500. Frame presence and quality bits still require live capture."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 51,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 987,
+          "can_id_hex": "0x3DB"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.vehicle.light.low_beam_request",
+      "canonical_name": "vehicle.light.low_beam_request",
+      "ecu": "gateway",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Licht_Anf_01",
+        "signal": "BCM1_Abblendlicht_Anf"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "BCM light request, not proof lamp output/current state."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 15,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 981,
+          "can_id_hex": "0x3D5"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.vehicle.light.high_beam_request",
+      "canonical_name": "vehicle.light.high_beam_request",
+      "ecu": "gateway",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Licht_Anf_01",
+        "signal": "BCM1_Fernlicht_Anf"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "BCM high-beam request, not proof lamp output/current state."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 16,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 981,
+          "can_id_hex": "0x3D5"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.transmission.selector_gear_code",
+      "canonical_name": "transmission.selector_gear_code",
+      "ecu": "transmission",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Gateway_73",
+        "signal": "GE_Fahrstufe"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "Gateway raw enum/code; P/R/N/D mapping and DQ500 match not asserted."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 40,
+          "length": 4,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 988,
+          "can_id_hex": "0x3DC",
+          "enum_mapping": {
+            "0": "intermediate",
+            "1": "init",
+            "5": "P",
+            "6": "R",
+            "7": "N",
+            "8": "D",
+            "9": "D",
+            "10": "E",
+            "13": "T",
+            "14": "T",
+            "15": "error"
+          }
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.transmission.powerflow_status",
+      "canonical_name": "transmission.powerflow_status",
+      "ecu": "transmission",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Getriebe_11",
+        "signal": "GE_Status_Kraftschluss"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "Raw power-transfer status code in Getriebe_DQ_Hybrid_MQB frame; enum/DQ500 semantics unverified."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "start_bit": 53,
+          "length": 3,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null,
+          "can_id": 173,
+          "can_id_hex": "0x0AD"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.driver.throttle_validity",
+      "canonical_name": "driver.throttle_validity",
+      "ecu": "engine",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Motor_20",
+        "signal": "MO_QBit_Fahrpedalwerte_01"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "DBC quality/status field only; relationship to the Tiguan value stream remains unvalidated."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "can_id": 289,
+          "can_id_hex": "0x121",
+          "start_bit": 20,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.engine.manifold_pressure_error",
+      "canonical_name": "engine.manifold_pressure_error",
+      "ecu": "engine",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Motor_20",
+        "signal": "MO_rel_Saugrohrdruck_gem_err"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "DBC signal-error flag for the packed relative-pressure field. No runtime validity dependency is inferred."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "can_id": 289,
+          "can_id_hex": "0x121",
+          "start_bit": 36,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.steering.angle_sensor_status",
+      "canonical_name": "steering.angle_sensor_status",
+      "ecu": "gateway",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "LWI_01",
+        "signal": "LWI_Sensorstatus"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "DBC quality/status field only; relationship to the Tiguan value stream remains unvalidated."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "can_id": 134,
+          "can_id_hex": "0x086",
+          "start_bit": 12,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.vehicle.speed_qualifier",
+      "canonical_name": "vehicle.speed_qualifier",
+      "ecu": "abs",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "ESP_21",
+        "signal": "ESC_v_Signal_Qualifier_High_Low"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "Raw DBC qualifier enumeration; MiniDash does not yet gate vehicle.speed on it."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "can_id": 253,
+          "can_id_hex": "0x0FD",
+          "start_bit": 25,
+          "length": 3,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.vehicle.lateral_acceleration_validity",
+      "canonical_name": "vehicle.lateral_acceleration_validity",
+      "ecu": "abs",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "ESP_02",
+        "signal": "ESP_QBit_Querb"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "DBC quality/status field only; relationship to the Tiguan value stream remains unvalidated."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "can_id": 257,
+          "can_id_hex": "0x101",
+          "start_bit": 14,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.vehicle.longitudinal_acceleration_validity",
+      "canonical_name": "vehicle.longitudinal_acceleration_validity",
+      "ecu": "abs",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "ESP_02",
+        "signal": "ESP_QBit_Laengsbeschl"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "DBC quality/status field only; relationship to the Tiguan value stream remains unvalidated."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "can_id": 257,
+          "can_id_hex": "0x101",
+          "start_bit": 13,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.vehicle.yaw_rate_validity",
+      "canonical_name": "vehicle.yaw_rate_validity",
+      "ecu": "abs",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "ESP_02",
+        "signal": "ESP_QBit_Gierrate"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "DBC quality/status field only; relationship to the Tiguan value stream remains unvalidated."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "can_id": 257,
+          "can_id_hex": "0x101",
+          "start_bit": 12,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.engine.oil_temperature_validity",
+      "canonical_name": "engine.oil_temperature_validity",
+      "ecu": "engine",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Motor_07",
+        "signal": "MO_QBit_Oel_Temp"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "DBC quality/status field only; relationship to the Tiguan value stream remains unvalidated."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "can_id": 1600,
+          "can_id_hex": "0x640",
+          "start_bit": 1,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.engine.coolant_temperature_validity",
+      "canonical_name": "engine.coolant_temperature_validity",
+      "ecu": "engine",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Motor_07",
+        "signal": "MO_QBit_Kuehlmittel_Temp"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "DBC quality/status field only; relationship to the Tiguan value stream remains unvalidated."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "can_id": 1600,
+          "can_id_hex": "0x640",
+          "start_bit": 2,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.engine.intake_air_temperature",
+      "canonical_name": "engine.intake_air_temperature",
+      "ecu": "engine",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Motor_07",
+        "signal": "MO_Ansaugluft_Temp"
+      },
+      "unit": "degC",
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "DBC quality/status field only; relationship to the Tiguan value stream remains unvalidated."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "can_id": 1600,
+          "can_id_hex": "0x640",
+          "start_bit": 8,
+          "length": 8,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 0.75,
+          "offset": -48,
+          "unit": "degC"
+        }
+      }
+    },
+    {
+      "id": "opendbc.vw_mqb.engine.intake_air_temperature_validity",
+      "canonical_name": "engine.intake_air_temperature_validity",
+      "ecu": "engine",
+      "source": {
+        "kind": "can",
+        "database": "opendbc/vw_mqb",
+        "message": "Motor_07",
+        "signal": "MO_QBit_Ansaugluft_Temp"
+      },
+      "unit": null,
+      "ttl": 1.0,
+      "expected_period": null,
+      "applicability": {
+        "platform": "MQB"
+      },
+      "provenance": {
+        "origin": "opendbc",
+        "confidence": "candidate",
+        "source_url": "https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc",
+        "vehicle_tested": false,
+        "verification_scope": "external_dbc_definition",
+        "license": "MIT",
+        "source_revision": "c4465696dc2ef0d1340ae188810ac982586999a4",
+        "notes": "DBC quality/status field only; relationship to the Tiguan value stream remains unvalidated."
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "layout": {
+          "can_id": 1600,
+          "can_id_hex": "0x640",
+          "start_bit": 0,
+          "length": 1,
+          "byte_order": "little",
+          "signed": false,
+          "factor": 1,
+          "offset": 0,
+          "unit": null
+        }
+      }
+    }
+  ]
+}

@@ -1,9 +1,12 @@
+import socket
 import tempfile
 import unittest
-import socket
 from pathlib import Path
 from unittest.mock import patch
-from can_capture import FRAME,decode_frame,capture,inspect
+
+from can_capture import FRAME, capture, decode_frame, inspect
+
+
 class CANTests(unittest.TestCase):
     def test_standard(self):
         r=decode_frame(FRAME.pack(0x123,2,b'\x10\x20'))
@@ -20,7 +23,7 @@ class CANTests(unittest.TestCase):
     def test_malformed(self):
         for b in [b'',bytes(72),FRAME.pack(1,9,b'')]:
             with self.assertRaises(ValueError): decode_frame(b)
-    @unittest.skipUnless(hasattr(socket,'AF_CAN'), 'SocketCAN requires Linux AF_CAN')
+    @unittest.skipUnless(hasattr(socket, 'AF_CAN'), 'Linux SocketCAN required')
     def test_capture(self):
         with tempfile.TemporaryDirectory() as d,patch('can_capture.socket.socket') as factory:
             bus=factory.return_value.__enter__.return_value

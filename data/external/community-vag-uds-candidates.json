@@ -1,0 +1,502 @@
+{
+  "schema_version": 1,
+  "provider_id": "vag",
+  "definitions": [
+    {
+      "id": "community.octavia_a5.cluster.f40c",
+      "canonical_name": "engine.rpm",
+      "ecu": "cluster",
+      "source": {
+        "kind": "uds",
+        "did": "F40C",
+        "active_cost": 1
+      },
+      "unit": "rpm",
+      "ttl": 2.0,
+      "expected_period": null,
+      "applicability": {
+        "manufacturer": "SKODA",
+        "model": "OCTAVIA A5",
+        "request_id": "714",
+        "response_id": "77E"
+      },
+      "provenance": {
+        "origin": "habr-project",
+        "confidence": "candidate",
+        "source_url": "https://habr.com/ru/articles/442184/",
+        "vehicle_tested": false,
+        "verification_scope": "external_vehicle_observation",
+        "license": "No license found for the blackCockpit source; no code copied",
+        "source_revision": null,
+        "notes": "u16 big-endian / 4; described by the author, no Tiguan validation Source project link: https://github.com/aivs/blackCockpit/blob/master/blackCockpit.py"
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "transport": {
+          "request_id": "0x714",
+          "response_id": "0x77E"
+        },
+        "decoder_status": "not_imported",
+        "read_only_rd_id_only": true,
+        "reported_request_period_ms": 10,
+        "poll_schedule_note": "Reported poll cadence in author code; this is request cadence, not observed ECU broadcast frequency."
+      }
+    },
+    {
+      "id": "community.octavia_a5.cluster.f40d",
+      "canonical_name": "vehicle.speed",
+      "ecu": "cluster",
+      "source": {
+        "kind": "uds",
+        "did": "F40D",
+        "active_cost": 1
+      },
+      "unit": "km/h",
+      "ttl": 2.0,
+      "expected_period": null,
+      "applicability": {
+        "manufacturer": "SKODA",
+        "model": "OCTAVIA A5",
+        "request_id": "714",
+        "response_id": "77E"
+      },
+      "provenance": {
+        "origin": "habr-project",
+        "confidence": "candidate",
+        "source_url": "https://habr.com/ru/articles/442184/",
+        "vehicle_tested": false,
+        "verification_scope": "external_vehicle_observation",
+        "license": "No license found for the blackCockpit source; no code copied",
+        "source_revision": null,
+        "notes": "The response byte interpretation is version-specific; no decoder imported. Source project link: https://github.com/aivs/blackCockpit/blob/master/blackCockpit.py"
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "transport": {
+          "request_id": "0x714",
+          "response_id": "0x77E"
+        },
+        "decoder_status": "not_imported",
+        "read_only_rd_id_only": true,
+        "reported_request_period_ms": 100,
+        "poll_schedule_note": "Reported poll cadence in author code; this is request cadence, not observed ECU broadcast frequency."
+      }
+    },
+    {
+      "id": "community.octavia_a5.cluster.f405",
+      "canonical_name": "engine.coolant_temperature",
+      "ecu": "cluster",
+      "source": {
+        "kind": "uds",
+        "did": "F405",
+        "active_cost": 1
+      },
+      "unit": "degC",
+      "ttl": 2.0,
+      "expected_period": null,
+      "applicability": {
+        "manufacturer": "SKODA",
+        "model": "OCTAVIA A5",
+        "request_id": "714",
+        "response_id": "77E"
+      },
+      "provenance": {
+        "origin": "habr-project",
+        "confidence": "candidate",
+        "source_url": "https://habr.com/ru/articles/442184/",
+        "vehicle_tested": false,
+        "verification_scope": "external_vehicle_observation",
+        "license": "No license found for the blackCockpit source; no code copied",
+        "source_revision": null,
+        "notes": "Article/script transformations differ by revision; keep raw candidate. Source project link: https://github.com/aivs/blackCockpit/blob/master/blackCockpit.py"
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "transport": {
+          "request_id": "0x714",
+          "response_id": "0x77E"
+        },
+        "decoder_status": "not_imported",
+        "read_only_rd_id_only": true,
+        "reported_request_period_ms": 100,
+        "poll_schedule_note": "Reported poll cadence in author code; this is request cadence, not observed ECU broadcast frequency."
+      }
+    },
+    {
+      "id": "community.octavia_a5.cluster.202f",
+      "canonical_name": "engine.oil_temperature",
+      "ecu": "cluster",
+      "source": {
+        "kind": "uds",
+        "did": "202F",
+        "active_cost": 1
+      },
+      "unit": "degC",
+      "ttl": 2.0,
+      "expected_period": null,
+      "applicability": {
+        "manufacturer": "SKODA",
+        "model": "OCTAVIA A5",
+        "request_id": "714",
+        "response_id": "77E"
+      },
+      "provenance": {
+        "origin": "habr-project",
+        "confidence": "candidate",
+        "source_url": "https://habr.com/ru/articles/442184/",
+        "vehicle_tested": false,
+        "verification_scope": "external_vehicle_observation",
+        "license": "No license found for the blackCockpit source; no code copied",
+        "source_revision": null,
+        "notes": "Also independently present as DID association in Tiguan CZPA profile; no community raw codec transfer. Source project link: https://github.com/aivs/blackCockpit/blob/master/blackCockpit.py"
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "transport": {
+          "request_id": "0x714",
+          "response_id": "0x77E"
+        },
+        "decoder_status": "not_imported",
+        "read_only_rd_id_only": true,
+        "reported_request_period_ms": 100,
+        "poll_schedule_note": "Reported poll cadence in author code; this is request cadence, not observed ECU broadcast frequency."
+      }
+    },
+    {
+      "id": "community.octavia_a5.cluster.220d",
+      "canonical_name": "vehicle.doors_mask",
+      "ecu": "cluster",
+      "source": {
+        "kind": "uds",
+        "did": "220D",
+        "active_cost": 1
+      },
+      "unit": null,
+      "ttl": 2.0,
+      "expected_period": null,
+      "applicability": {
+        "manufacturer": "SKODA",
+        "model": "OCTAVIA A5",
+        "request_id": "714",
+        "response_id": "77E"
+      },
+      "provenance": {
+        "origin": "habr-project",
+        "confidence": "candidate",
+        "source_url": "https://habr.com/ru/articles/442184/",
+        "vehicle_tested": false,
+        "verification_scope": "external_vehicle_observation",
+        "license": "No license found for the blackCockpit source; no code copied",
+        "source_revision": null,
+        "notes": "Article shows a bit-mask-like result; bit-to-door mapping not normalized. Source project link: https://github.com/aivs/blackCockpit/blob/master/blackCockpit.py"
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "transport": {
+          "request_id": "0x714",
+          "response_id": "0x77E"
+        },
+        "decoder_status": "not_imported",
+        "read_only_rd_id_only": true,
+        "reported_request_period_ms": 100,
+        "poll_schedule_note": "Reported poll cadence in author code; this is request cadence, not observed ECU broadcast frequency."
+      }
+    },
+    {
+      "id": "community.octavia_a5.cluster.229a",
+      "canonical_name": "vehicle.fuel_level",
+      "ecu": "cluster",
+      "source": {
+        "kind": "uds",
+        "did": "229A",
+        "active_cost": 1
+      },
+      "unit": null,
+      "ttl": 2.0,
+      "expected_period": null,
+      "applicability": {
+        "manufacturer": "SKODA",
+        "model": "OCTAVIA A5",
+        "request_id": "714",
+        "response_id": "77E"
+      },
+      "provenance": {
+        "origin": "habr-project",
+        "confidence": "candidate",
+        "source_url": "https://habr.com/ru/articles/442184/",
+        "vehicle_tested": false,
+        "verification_scope": "external_vehicle_observation",
+        "license": "No license found for the blackCockpit source; no code copied",
+        "source_revision": null,
+        "notes": "Community UDS observation; scaling is vehicle/cluster-specific. Source project link: https://github.com/aivs/blackCockpit/blob/master/blackCockpit.py"
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "transport": {
+          "request_id": "0x714",
+          "response_id": "0x77E"
+        },
+        "decoder_status": "not_imported",
+        "read_only_rd_id_only": true,
+        "reported_request_period_ms": 100,
+        "poll_schedule_note": "Reported poll cadence in author code; this is request cadence, not observed ECU broadcast frequency."
+      }
+    },
+    {
+      "id": "community.octavia_a5.cluster.2294",
+      "canonical_name": "vehicle.range",
+      "ecu": "cluster",
+      "source": {
+        "kind": "uds",
+        "did": "2294",
+        "active_cost": 1
+      },
+      "unit": "km",
+      "ttl": 2.0,
+      "expected_period": null,
+      "applicability": {
+        "manufacturer": "SKODA",
+        "model": "OCTAVIA A5",
+        "request_id": "714",
+        "response_id": "77E"
+      },
+      "provenance": {
+        "origin": "habr-project",
+        "confidence": "candidate",
+        "source_url": "https://habr.com/ru/articles/442184/",
+        "vehicle_tested": false,
+        "verification_scope": "external_vehicle_observation",
+        "license": "No license found for the blackCockpit source; no code copied",
+        "source_revision": null,
+        "notes": "Community UDS observation; no Tiguan response evidence. Source project link: https://github.com/aivs/blackCockpit/blob/master/blackCockpit.py"
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "transport": {
+          "request_id": "0x714",
+          "response_id": "0x77E"
+        },
+        "decoder_status": "not_imported",
+        "read_only_rd_id_only": true,
+        "reported_request_period_ms": 100,
+        "poll_schedule_note": "Reported poll cadence in author code; this is request cadence, not observed ECU broadcast frequency."
+      }
+    },
+    {
+      "id": "community.octavia_a5.cluster.2203",
+      "canonical_name": "vehicle.odometer",
+      "ecu": "cluster",
+      "source": {
+        "kind": "uds",
+        "did": "2203",
+        "active_cost": 1
+      },
+      "unit": "km",
+      "ttl": 2.0,
+      "expected_period": null,
+      "applicability": {
+        "manufacturer": "SKODA",
+        "model": "OCTAVIA A5",
+        "request_id": "714",
+        "response_id": "77E"
+      },
+      "provenance": {
+        "origin": "habr-project",
+        "confidence": "candidate",
+        "source_url": "https://habr.com/ru/articles/442184/",
+        "vehicle_tested": false,
+        "verification_scope": "external_vehicle_observation",
+        "license": "No license found for the blackCockpit source; no code copied",
+        "source_revision": null,
+        "notes": "Article reports raw times 10 km; not validated for Tiguan or a profile. Source project link: https://github.com/aivs/blackCockpit/blob/master/blackCockpit.py"
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "transport": {
+          "request_id": "0x714",
+          "response_id": "0x77E"
+        },
+        "decoder_status": "not_imported",
+        "read_only_rd_id_only": true,
+        "reported_request_period_ms": 100,
+        "poll_schedule_note": "Reported poll cadence in author code; this is request cadence, not observed ECU broadcast frequency."
+      }
+    },
+    {
+      "id": "community.octavia_a5.cluster.2299",
+      "canonical_name": "vehicle.average_fuel_consumption",
+      "ecu": "cluster",
+      "source": {
+        "kind": "uds",
+        "did": "2299",
+        "active_cost": 1
+      },
+      "unit": null,
+      "ttl": 2.0,
+      "expected_period": null,
+      "applicability": {
+        "manufacturer": "SKODA",
+        "model": "OCTAVIA A5",
+        "request_id": "714",
+        "response_id": "77E"
+      },
+      "provenance": {
+        "origin": "habr-project",
+        "confidence": "candidate",
+        "source_url": "https://habr.com/ru/articles/442184/",
+        "vehicle_tested": false,
+        "verification_scope": "external_vehicle_observation",
+        "license": "No license found for the blackCockpit source; no code copied",
+        "source_revision": null,
+        "notes": "Community UDS observation; display convention not normalized. Source project link: https://github.com/aivs/blackCockpit/blob/master/blackCockpit.py"
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "transport": {
+          "request_id": "0x714",
+          "response_id": "0x77E"
+        },
+        "decoder_status": "not_imported",
+        "read_only_rd_id_only": true,
+        "reported_request_period_ms": 100,
+        "poll_schedule_note": "Reported poll cadence in author code; this is request cadence, not observed ECU broadcast frequency."
+      }
+    },
+    {
+      "id": "community.octavia_a5.cluster.2216",
+      "canonical_name": "vehicle.time",
+      "ecu": "cluster",
+      "source": {
+        "kind": "uds",
+        "did": "2216",
+        "active_cost": 1
+      },
+      "unit": null,
+      "ttl": 2.0,
+      "expected_period": null,
+      "applicability": {
+        "manufacturer": "SKODA",
+        "model": "OCTAVIA A5",
+        "request_id": "714",
+        "response_id": "77E"
+      },
+      "provenance": {
+        "origin": "habr-project",
+        "confidence": "candidate",
+        "source_url": "https://habr.com/ru/articles/442184/",
+        "vehicle_tested": false,
+        "verification_scope": "external_vehicle_observation",
+        "license": "No license found for the blackCockpit source; no code copied",
+        "source_revision": null,
+        "notes": "Community cluster DID; raw fields not imported. Source project link: https://github.com/aivs/blackCockpit/blob/master/blackCockpit.py"
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "transport": {
+          "request_id": "0x714",
+          "response_id": "0x77E"
+        },
+        "decoder_status": "not_imported",
+        "read_only_rd_id_only": true,
+        "reported_request_period_ms": 100,
+        "poll_schedule_note": "Reported poll cadence in author code; this is request cadence, not observed ECU broadcast frequency."
+      }
+    },
+    {
+      "id": "community.octavia_a5.cluster.221b",
+      "canonical_name": "driver.stalk_buttons",
+      "ecu": "cluster",
+      "source": {
+        "kind": "uds",
+        "did": "221B",
+        "active_cost": 1
+      },
+      "unit": null,
+      "ttl": 2.0,
+      "expected_period": null,
+      "applicability": {
+        "manufacturer": "SKODA",
+        "model": "OCTAVIA A5",
+        "request_id": "714",
+        "response_id": "77E"
+      },
+      "provenance": {
+        "origin": "habr-project",
+        "confidence": "candidate",
+        "source_url": "https://habr.com/ru/articles/442184/",
+        "vehicle_tested": false,
+        "verification_scope": "external_vehicle_observation",
+        "license": "No license found for the blackCockpit source; no code copied",
+        "source_revision": null,
+        "notes": "Habr reports 0x80 idle, 0x81 up, 0x84 down; no Tiguan validation. Source project link: https://github.com/aivs/blackCockpit/blob/master/blackCockpit.py"
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "transport": {
+          "request_id": "0x714",
+          "response_id": "0x77E"
+        },
+        "decoder_status": "not_imported",
+        "read_only_rd_id_only": true,
+        "reported_raw_states": {
+          "0x80": "idle/no press",
+          "0x81": "up",
+          "0x84": "down"
+        },
+        "reported_request_period_ms": null
+      }
+    },
+    {
+      "id": "community.octavia_a5.cluster.1014",
+      "canonical_name": "vehicle.ambient_temperature",
+      "ecu": "cluster",
+      "source": {
+        "kind": "uds",
+        "did": "1014",
+        "active_cost": 1
+      },
+      "unit": "degC",
+      "ttl": 2.0,
+      "expected_period": null,
+      "applicability": {
+        "manufacturer": "SKODA",
+        "model": "OCTAVIA A5",
+        "request_id": "714",
+        "response_id": "77E"
+      },
+      "provenance": {
+        "origin": "habr-project",
+        "confidence": "candidate",
+        "source_url": "https://habr.com/ru/articles/442184/",
+        "vehicle_tested": false,
+        "verification_scope": "external_vehicle_observation",
+        "license": "No license found for blackCockpit source; no code copied",
+        "source_revision": null,
+        "notes": "The article/script reports outdoor temperature with a project-specific transform; no raw decoder imported. Source code reference https://github.com/aivs/blackCockpit/blob/master/blackCockpit.py"
+      },
+      "metadata": {
+        "applicability_status": "external_unverified",
+        "expected_frequency_hz": null,
+        "transport": {
+          "request_id": "0x714",
+          "response_id": "0x77E"
+        },
+        "decoder_status": "not_imported",
+        "read_only_rd_id_only": true,
+        "reported_request_period_ms": 100,
+        "poll_schedule_note": "Reported poll cadence in author code; this is request cadence, not observed ECU broadcast frequency."
+      }
+    }
+  ]
+}

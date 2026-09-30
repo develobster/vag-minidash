@@ -39,17 +39,26 @@ class SignalRegistryTests(unittest.TestCase):
 
     def test_provenance_and_applicability(self):
         registry = load_registry(self.haldex)
-        definition = registry.require_uds("awd", 0x028d,
-            {"platform": "MQB", "ecu_family": "0CQ_GEN5"})
+        context = {"manufacturer":"Volkswagen", "platform":"MQB",
+            "part_number":"0CQ907554H", "software_version":"7083",
+            "hardware_part_number":"0CQ525130", "hardware_version":"H52",
+            "asam_id":"EV_AllWheelContrHA1VW37X", "asam_version":"004013"}
+        definition = registry.require_uds("awd", 0x028d, context)
         self.assertEqual(definition.provenance.confidence, "candidate")
         self.assertFalse(definition.provenance.vehicle_tested)
         with self.assertRaises(UnsupportedVariant):
             registry.require_uds("awd", 0x028d,
-                {"platform": "MQB", "ecu_family": "UNKNOWN"})
+                {"manufacturer":"Volkswagen", "platform":"MQB",
+                 "part_number":"0CQ907554J", "software_version":"7083",
+                 "hardware_part_number":"0CQ525130", "hardware_version":"H52",
+                 "asam_id":"EV_AllWheelContrHA1VW37X", "asam_version":"004013"})
 
     def test_did_decode_unknown_and_invalid(self):
         registry = load_registry(self.haldex)
-        context = {"platform": "MQB", "ecu_family": "0CQ_GEN5"}
+        context = {"manufacturer":"Volkswagen", "platform":"MQB",
+            "part_number":"0CQ907554H", "software_version":"7083",
+            "hardware_part_number":"0CQ525130", "hardware_version":"H52",
+            "asam_id":"EV_AllWheelContrHA1VW37X", "asam_version":"004013"}
         decoded = registry.decode_uds("awd", 0x2bf1, bytes.fromhex("8563"), context)
         self.assertAlmostEqual(decoded["value"], 27.1)
         self.assertEqual(decoded["quality"], "candidate")

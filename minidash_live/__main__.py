@@ -391,7 +391,9 @@ def run_watch(args):
         ecus = {item.role: item.identity for item in snapshot.ecus}
         availability = SourceAvailability(registry.definitions)
         planner = AcquisitionPlanner(registry, snapshot.vehicle, ecus, availability,
-                                     poll_periods=config.get("poll_periods", {}))
+                                     poll_periods=config.get("poll_periods", {}),
+                                     passive_grace=config.get("passive_can_grace", 0.5)
+                                     if config.get("passive_can") else 0)
         plan = planner.build(args.signal)
         endpoint_configs = {
             item["role"]: item for item in _runtime_endpoints(config_path, config, emit)}

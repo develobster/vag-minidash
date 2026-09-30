@@ -1,6 +1,6 @@
 # VAG/MQB diagnostic knowledge sources
 
-Research snapshot: 2026-09-21. This document separates facts present in an
+Research snapshot: 2026-09-25. This document separates facts present in an
 upstream project from assumptions that still need a trace from the MiniDash
 test vehicle.
 
@@ -29,7 +29,9 @@ replace `EcuSession`, `Scheduler`, `SignalStore`, ECU profiles, `can-isotp` or
 
 | Source | License | Useful content | Reliability / decision |
 |---|---|---|---|
-| [commaai/opendbc](https://github.com/commaai/opendbc) | MIT | `vw_mqb.dbc`, frame layouts, scaling, units, enums, counters and checksum fields; active Volkswagen consumers in openpilot | Best current passive MQB baseline. Consume via `cantools`; validate visibility and signal quality on the Tiguan tap point. |
+| [commaai/opendbc](https://github.com/commaai/opendbc) ([DBC](https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc), [carstate.py](https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/car/volkswagen/carstate.py), [values.py](https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/car/volkswagen/values.py)) | MIT | DBC layouts/scaling plus active Volkswagen parser and platform routing | Best passive MQB baseline. Parser use confirms those messages are used on selected MQB configurations, not their presence on this Tiguan bus. Load with `cantools`; validate visibility and signal quality at the actual tap. |
+| [aivs/blackCockpit](https://github.com/aivs/blackCockpit) and [Habr 442184](https://habr.com/ru/articles/442184/) | No repository license found | Octavia A5 UDS observations: `F40C`, `F40D`, `F405`, `202F`, `221B`, range/fuel/odometer and doors; historical passive RPM observation at `0x35B` | Metadata-only candidates. No code copied. Bindings are scoped to the reported Skoda/cluster route and do not resolve for the Tiguan. |
+| [Habr 589653](https://habr.com/ru/companies/ruvds/articles/589653/) | Article; no separate code license | VAG diagnostic-dashboard architecture and VCDS observation context | Background, not proof that Octavia IDs or formulas apply to Tiguan. |
 | [ODIS-project-explorer](https://github.com/kartoffelpflanze/ODIS-project-explorer) | No license found | `dumpMWB.py`/`parseMWB.py`, traversal of MCD DOPs, structures, units, constraints and compu methods | Strong proof that automatic extraction is practical. No license means its code must not be copied or redistributed without permission. ODIS data is not included. |
 | [bri3d/mcd-diag-rs](https://github.com/bri3d/mcd-diag-rs) | BSD-3-Clause | Flattened MCD schema, base/ECU-variant overlay, routing, ECU discovery, J2534/SocketCAN/DoIP, tolerant decoding | Most useful reference for a local MCD-derived database. Import its documented JSON shape; do not transplant its write/flash capabilities into MiniDash. |
 | [ConnorHowell/vag-uds-ids](https://github.com/ConnorHowell/vag-uds-ids) | No license found | Candidate VAG physical request/response IDs for Engine, TCU, ABS, AWD, ACC, Airbag, Cluster, Gateway and Steering | Candidate routing evidence only. No blind defaults and no vendoring. Confirm each pair on the actual bus/gateway. |
@@ -50,23 +52,29 @@ wire may be recorded with their own MiniDash trace provenance.
 
 ## openDBC `vw_mqb.dbc`
 
-The researched revision contains 113 messages and 1,346 signals. Relevant
-examples include:
+The pinned revision is `c4465696dc2ef0d1340ae188810ac982586999a4` (MIT). The
+normalized definitions in `data/external/opendbc-vw-mqb-map.json` and
+`data/external/opendbc-vw-mqb-candidates.json` record that exact source revision,
+license, CAN identifier, DBC message/signal, known bit layout, scaling, units,
+applicability status and unknown transmission period. The DBC itself remains
+external and is loaded with optional `cantools`.
+
+Relevant examples include:
 
 | Normalized signal | DBC message / signal | DBC conversion |
 |---|---|---|
-| `engine.rpm` | `Motor_12 / MO_Drehzahl_01` | 16-bit LE, `0.25 rpm/bit` |
-| `vehicle.speed` | `ESP_21 / ESP_v_Signal` | 16-bit LE, `0.01 km/h/bit` |
-| four wheel speeds | `ESP_19 / ESP_*_Radgeschw_02` | 16-bit LE, `0.0075 km/h/bit` |
-| `engine.oil_temperature` | `Motor_07 / MO_Oel_Temp` | byte, `raw - 60 °C` |
-| `engine.coolant_temperature` | `Motor_07 / MO_Kuehlmittel_Temp` | byte, `0.75*raw - 48 °C` |
+| `engine.rpm` | `Motor_12 / MO_Drehzahl_01`, CAN `0x0A8` | bits 48–63, 16-bit LE, `0.25 rpm/bit`; separate quality bit |
+| `vehicle.speed` | `ESP_21 / ESP_v_Signal`, CAN `0x0FD` | bits 32–47, `0.01 km/h/bit` |
+| four wheel speeds | `ESP_19 / ESP_*_Radgeschw_02`, CAN `0x0B2` | 16-bit LE, `0.0075 km/h/bit`; no direct validity dependency imported |
+| `engine.oil_temperature` | `Motor_07 / MO_Oel_Temp`, CAN `0x640` | bits 16–23, byte, `raw - 60 °C` |
+| `engine.coolant_temperature` | `Motor_07 / MO_Kuehlmittel_Temp`, CAN `0x640` | bits 24–31, byte, `0.75*raw - 48 °C` |
 | intake-air temperature | `Motor_07 / MO_Ansaugluft_Temp` | byte, `0.75*raw - 48 °C` |
 | relative manifold pressure | `Motor_20` | documented in DBC, including CRC/counter |
 | displayed/selected gear | `Getriebe_11 / GE_Fahrstufe` and related fields | enum/raw value in DBC |
-| steering angle/rate | `LWI_01` | packed bit fields plus sign/quality |
+| steering angle/rate | `LWI_01`, CAN `0x086` | 13-bit magnitude, `0.1°/bit`; sign and quality are separate bits |
 | steering torque | `LH_EPS_03` | packed field plus sign/quality |
-| brake pressure | `ESP_05` | `0.3*raw - 30 bar` |
-| accelerator position | `Motor_20` | `0.4 %/bit` |
+| brake pressure | `ESP_05`, CAN `0x106` | 10-bit `0.3*raw - 30 bar`; brake switch is separate |
+| accelerator position | `Motor_20`, CAN `0x121` | 8-bit `0.4 %/bit`; Diesel sender, so CZPA remains candidate |
 | ACC state/targets | `ACC_*` messages | multiple status and target fields |
 
 The DBC also describes message counters, CRC fields and quality bits. Merely
@@ -79,10 +87,53 @@ at that connection point. Before choosing the final hardware/tap, record an
 ignition-on drive trace and inventory observable IDs. Do not inject copied
 broadcast frames just to “make” values visible.
 
-This branch stores only a normalized mapping in
-`data/external/opendbc-vw-mqb-map.json`; it does not vendor the DBC. Pin the
-upstream DBC revision in deployment configuration and retain its MIT notice if
-it is ever distributed with the product.
+The wider candidate table also records `ESP_02` acceleration/yaw, `GRA_ACC_01`
+controls, DQ-hybrid-family gear/shift fields, `Motor_11` torque and its quality
+bit, oil level, cluster odometer/fuel/ambient temperature, driver-door contact,
+light requests and turn indicators. Relative manifold pressure from `Motor_20`
+is a packed 6-bit field scaled by 18 mbar/bit. If a DBC definition does not
+state a transmission period, MiniDash keeps it unknown; the rate must be
+measured from capture.
+
+This branch stores normalized signal mappings, not the DBC. Retain the upstream
+DBC MIT notice if it is ever distributed with the product.
+
+### Candidate status and user-requested cross-checks
+
+The MQB DBC is a network-family definition, not a Tiguan II 2017 CZPA/DQ500
+capture. Every imported DBC definition is `candidate`, `vehicle_tested=false`
+and `external_unverified`. DBC decoding therefore remains candidate quality
+until exact-vehicle validation evidence is recorded. Several message senders
+are named Diesel or DQ Hybrid in the DBC; this is not proof of equivalent ECU
+software or gateway visibility.
+
+* `ESP_21/ESP_v_Signal`, `Motor_20` throttle/manifold pressure, `ESP_05` brake,
+  `LWI_01`, `ESP_02`, and `GRA_ACC_01` have exact IDs/layouts in the normalized
+  table; all still need a Tiguan trace.
+* `Getriebe_11` (`0x0AD`) is sent by `Getriebe_DQ_Hybrid_MQB`. Actual gear,
+  target gear and shift-sequence codes are stored raw. DQ500 semantics are not
+  assigned from this hybrid-family node.
+* `0x35B` passive RPM comes from the author's older Octavia capture, not the
+  pinned openDBC DBC. The cantools CAN route cannot safely interpret that
+  standalone observation as a DBC signal, so it remains a validation clue.
+* Habr/blackCockpit DIDs are in
+  `data/external/community-vag-uds-candidates.json` with `SKODA/OCTAVIA A5`,
+  request `0x714`, response `0x77E`, no imported decoder and unknown polling
+  frequency. That applicability does not resolve for the Tiguan. Habr reports
+  `221B` button results `0x80` idle, `0x81` up, `0x84` down; these are raw
+  observations, not a Tiguan enum.
+* Community `F40C`, `F40D`, `F405`, `202F`, `1014`, `220D`, `2294`,
+  `229A`, `2203`, `2299`, and `2216` transforms are not universal codecs.
+  `11BD` is in the exact Tiguan CZPA profile; it was not found in the inspected
+  blackCockpit source. `202F` is present in the older Octavia code, but that
+  does not transfer its raw decoder to Tiguan.
+* OpenHaldex remains a Gen5-family candidate from hardware `0CQ 554C/554D`; the
+  Tiguan ECU is `0CQ907554H`. Provenance includes a pinned revision and MIT
+  notice, including its third-party portions note.
+* DTC records use UDS service `0x19`, not a DID. MiniDash's live client remains
+  allowlisted to ReadDataByIdentifier and does not send DTC requests. Compare a
+  read-only ODIS/VCDS DTC report during vehicle validation; do not clear codes.
+  Service `0x19` needs a separately reviewed read-only capability.
 
 ## ODIS/MCD extraction feasibility
 
@@ -224,7 +275,7 @@ not silently resolved by load order.
 * provenance/confidence/verification-scope metadata;
 * optional `cantools` adapter publishing decoded passive values into the
   existing `SignalStore`;
-* a nine-signal `vw_mqb.dbc` normalized mapping proof of concept;
+* normalized pinned MQB DBC mappings and separate metadata-only Octavia UDS candidates;
 * candidate Gen5 Haldex DID codecs, explicitly not marked vehicle-tested;
 * a conservative simple-scalar importer for locally generated
   `mcd-diag-rs`-shape MWB JSON plus a rejection report;
