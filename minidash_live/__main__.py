@@ -38,6 +38,7 @@ from .profiles import (
     resolve_signal,
 )
 from .runtime import EcuSession
+from .replay import ReplayClock, replay_can
 from .uds import NegativeResponse, ReadClient, pdu_log_fields
 from .vag import VagKnowledgeProvider
 
@@ -468,6 +469,44 @@ def run_watch(args):
         return 0
 
 
+def run_can_replay(args):
+    """Offline passive decoding. Connection fields are never opened or queried."""
+    from .registry import SignalRegistry
+    config_path = Path(args.config).resolve()
+    config = _read_json(config_path)
+    snapshot = _load_discovery(args.identity_snapshot)  # Required; no discovery fallback.
+    registry = SignalRegistry(item for item in _registry().definitions
+                              if item.source.kind == 'can')
+    clock = ReplayClock()
+    availability = SourceAvailability(registry.definitions, clock=clock)
+    ecus = {item.role: item.identity for item in snapshot.ecus}
+    planner = AcquisitionPlanner(registry, snapshot.vehicle, ecus, availability)
+    plan = planner.build(args.signal)
+    databases = {name: load_cantools_database(
+                    (config_path.parent / path).resolve()
+                    if not Path(path).is_absolute() else path)
+                 for name, path in config.get('dbc_databases', {}).items()}
+    engine = RuntimeEngine(plan, planner, {}, databases, clock=clock)
+    with ExitStack() as resources:
+        output = resources.enter_context(open(args.output, 'x', encoding='utf-8')) \
+            if args.output else None
+        def emit(record):
+            if output:
+                output.write(json.dumps(record, ensure_ascii=False, allow_nan=False) + '\n')
+        emit({'kind': 'replay_metadata', 'schema': 1, 'offline': True,
+              'vehicle_validation': False, 'requested': list(plan.requested)})
+        try:
+            result = replay_can(args.trace, engine, clock, max_frames=args.max_frames,
+                                final_age=args.final_age, on_snapshot=emit)
+        except (ValueError, OSError) as exc:
+            emit({'kind': 'replay_error', 'offline': True, 'vehicle_validation': False,
+                  'message': str(exc)})
+            raise
+        emit(result)
+        print(json.dumps(result, ensure_ascii=False, allow_nan=False))
+    return 0
+
+
 def run_probe(args):
     if not 1 <= args.rounds <= 10000:
         raise ValueError("rounds must be 1..10000")
@@ -590,6 +629,17 @@ def main(argv=None):
     watch.add_argument("--display-port", help="Optional USB Serial/JTAG port for the embedded display")
     watch.add_argument("--display-interval", type=float, default=.1,
                        help="Embedded display update interval in seconds (default: 0.1)")
+    replay = commands.add_parser('replay-can',
+        help='Decode a recorded CAN log offline; never opens buses/ECUs or sends PDUs')
+    replay.add_argument('signal', nargs='+', help='Canonical signal name(s)')
+    replay.add_argument('--config', required=True, help='Config containing external DBC paths')
+    replay.add_argument('--identity-snapshot', required=True,
+                        help='Existing identity context, not new vehicle validation')
+    replay.add_argument('--trace', required=True, help='can_capture schema-1 JSONL input')
+    replay.add_argument('--output', help='New offline decoded JSONL file; never overwritten')
+    replay.add_argument('--max-frames', type=int, default=100000)
+    replay.add_argument('--final-age', type=float, default=0.0,
+                        help='Advance virtual time after last frame to test TTL expiry')
     args = parser.parse_args(argv)
     try:
         if args.command == "doctor":
@@ -622,6 +672,8 @@ def main(argv=None):
                     raise ValueError("Signals are not supported by embedded UI: " +
                                      ", ".join(unsupported))
             return run_watch(args)
+        if args.command == 'replay-can':
+            return run_can_replay(args)
         return run_probe(args)
     except (ValueError, KeyError, TypeError, OSError, RuntimeError, json.JSONDecodeError) as exc:
         parser.error(str(exc))

@@ -9,6 +9,105 @@ from collections import Counter
 from pathlib import Path
 FRAME = struct.Struct('=IB3x8s')
 
+
+def _unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f'Duplicate trace key: {key}')
+        result[key] = value
+    return result
+
+
+def _finite_time(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError('Trace timestamp must be finite and non-negative')
+    try:
+        value = float(value)
+    except OverflowError as exc:
+        raise ValueError('Trace timestamp exceeds finite range') from exc
+    if not math.isfinite(value) or value < 0:
+        raise ValueError('Trace timestamp must be finite and non-negative')
+    return value
+
+
+def _invalid_constant(value):
+    raise ValueError(f'Invalid JSON constant: {value}')
+
+
+class CanTraceReader:
+    """Bounded, receive-only reader for the recorder's schema-1 Classical CAN log.
+
+    Metadata and timestamps describe capture conditions, not vehicle validation.
+    An interrupted log without an end record is replayable but marked incomplete.
+    Malformed records, decreasing time and inconsistent end counts fail closed.
+    """
+    MAX_LINE = 8192
+
+    def __init__(self, path, *, max_frames=100000):
+        if type(max_frames) is not int or max_frames <= 0:
+            raise ValueError('Positive integer frame limit required')
+        self.path, self.max_frames = Path(path), max_frames
+        self.metadata, self.complete, self.frames = None, False, 0
+
+    def __iter__(self):
+        self.metadata, self.complete, self.frames = None, False, 0
+        previous = None
+        with self.path.open(encoding='utf-8') as source:
+            while True:
+                line = source.readline(self.MAX_LINE + 1)
+                if not line:
+                    break
+                if len(line) > self.MAX_LINE:
+                    raise ValueError('CAN trace line exceeds 8192 characters')
+                row = json.loads(line, object_pairs_hook=_unique_object,
+                                 parse_constant=_invalid_constant)
+                if not isinstance(row, dict):
+                    raise ValueError('Trace record must be an object')
+                if self.complete:
+                    raise ValueError('Record after CAN trace end')
+                if self.metadata is None:
+                    if row.get('type') != 'metadata' or type(row.get('schema')) is not int \
+                            or row['schema'] != 1 or \
+                            row.get('timestamp_kind') != 'userspace_receive':
+                        raise ValueError('Expected schema-1 userspace_receive metadata')
+                    self.metadata = row
+                    continue
+                if row.get('type') == 'end':
+                    if type(row.get('frames')) is not int or row['frames'] != self.frames:
+                        raise ValueError('Trace end frame count mismatch')
+                    self.complete = True
+                    continue
+                if row.get('type') != 'frame':
+                    raise ValueError('Unknown CAN trace record')
+                if self.frames >= self.max_frames:
+                    raise ValueError('CAN trace frame limit exceeded')
+                for flag in ('extended', 'remote', 'error'):
+                    if type(row.get(flag)) is not bool:
+                        raise ValueError(f'Trace flag {flag} must be boolean')
+                limit = 0x1fffffff if row['extended'] or row['error'] else 0x7ff
+                if type(row.get('id')) is not int or not 0 <= row['id'] <= limit:
+                    raise ValueError('CAN trace identifier out of range')
+                if type(row.get('length')) is not int or not 0 <= row['length'] <= 8:
+                    raise ValueError('Expected Classical CAN DLC 0..8')
+                data = row.get('data')
+                if not isinstance(data, str) or any(c not in '0123456789abcdefABCDEF' for c in data):
+                    raise ValueError('CAN trace data must be unseparated hexadecimal')
+                expected = 0 if row['remote'] else row['length'] * 2
+                if len(data) != expected:
+                    raise ValueError('CAN trace data length does not match DLC')
+                timestamp = _finite_time(row.get('monotonic'))
+                if 'wall_time' in row:
+                    _finite_time(row['wall_time'])
+                if previous is not None and timestamp < previous:
+                    raise ValueError('Decreasing CAN trace monotonic timestamp')
+                previous = timestamp
+                row['monotonic'] = timestamp
+                self.frames += 1
+                yield row
+        if self.metadata is None:
+            raise ValueError('Empty CAN trace')
+
 def decode_frame(raw):
     if len(raw) != 16: raise ValueError('Expected Classical CAN frame (16 bytes)')
     cid, size, data = FRAME.unpack(raw)

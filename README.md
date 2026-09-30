@@ -6,6 +6,14 @@ embedded UI и следующие шаги: [docs/ui/status.md](docs/ui/status.m
 Опциональная передача канонических сигналов из host runtime в ESP32 описана в
 [docs/ui/host-bridge.md](docs/ui/host-bridge.md).
 
+## Research integration and offline CAN replay
+
+Актуальная UI-ветка объединена с существующей MQB knowledge-веткой без замены UI.
+Исследование и ограничения источников: [ecosystem-2026-09-30.md](docs/research/ecosystem-2026-09-30.md).
+Записи `can_capture.py` теперь воспроизводятся через существующий decoder/store/arbitrator
+командой `python -m minidash_live replay-can`; никаких CAN/VCI/UDS соединений
+она не открывает. Контракт и примеры: [can-replay.md](docs/runtime/can-replay.md).
+
 ## Diagnostic data integration (feature branch)
 
 Добавлен минимальный data-driven Signal Registry, optional `cantools` adapter
