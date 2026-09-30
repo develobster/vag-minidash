@@ -45,7 +45,9 @@ bool md_ui_settings_storage_load(md_ui_settings_t *settings)
         return true;
     }
     uint8_t wire[MD_UI_SETTINGS_WIRE_SIZE];
-    if (err == ESP_OK && size == sizeof(wire)) {
+    if (err == ESP_OK && (size == MD_UI_SETTINGS_V1_WIRE_SIZE ||
+                          size == MD_UI_SETTINGS_V2_WIRE_SIZE ||
+                          size == sizeof(wire))) {
         err = nvs_get_blob(handle, UI_SETTINGS_KEY, wire, &size);
     } else if (err == ESP_OK) {
         err = ESP_ERR_INVALID_SIZE;
@@ -55,6 +57,9 @@ bool md_ui_settings_storage_load(md_ui_settings_t *settings)
         md_ui_settings_defaults(settings);
         ESP_LOGW(TAG, "Stored settings are invalid; using defaults");
         return false;
+    }
+    if (wire[4] < 3U && !md_ui_settings_storage_save(settings)) {
+        ESP_LOGW(TAG, "Older settings loaded but version-3 migration could not be saved");
     }
     return true;
 }

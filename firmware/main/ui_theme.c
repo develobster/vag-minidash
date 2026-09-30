@@ -75,10 +75,10 @@ uint32_t md_ui_theme_signal_color(const md_ui_palette_t *palette,
     }
 }
 
-void md_ui_format_signal(const md_ui_signal_definition_t *definition,
+void md_ui_format_signal_precision(const md_ui_signal_definition_t *definition,
                          const md_ui_signal_snapshot_t *snapshot,
                          const md_ui_settings_t *settings,
-                         char *value, size_t value_size,
+                         uint8_t precision, char *value, size_t value_size,
                          char *unit, size_t unit_size)
 {
     if (!value || value_size == 0 || !unit || unit_size == 0) return;
@@ -129,8 +129,16 @@ void md_ui_format_signal(const md_ui_signal_definition_t *definition,
         break;
     }
 
-    (void)snprintf(value, value_size, "%.*f", definition->decimals, display_value);
+    (void)snprintf(value, value_size, "%.*f", precision<=3 ? precision : 3, display_value);
     (void)snprintf(unit, unit_size, "%s", display_unit ? display_unit : "");
+}
+
+void md_ui_format_signal(const md_ui_signal_definition_t *definition,
+    const md_ui_signal_snapshot_t *snapshot, const md_ui_settings_t *settings,
+    char *value, size_t value_size, char *unit, size_t unit_size)
+{
+    md_ui_format_signal_precision(definition,snapshot,settings,definition ? definition->decimals : 0,
+        value,value_size,unit,unit_size);
 }
 
 const char *md_ui_signal_state_label(md_ui_signal_state_t state)

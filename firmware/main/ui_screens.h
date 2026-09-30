@@ -5,30 +5,43 @@
 #include <stdint.h>
 #include "ui_core.h"
 #include "ui_theme.h"
+#include "ui_configuration.h"
 
-typedef struct {
-    char firmware_version[32];
-    uint32_t uptime_seconds;
-    size_t free_heap_bytes;
-    size_t minimum_free_heap_bytes;
-    uint32_t refreshes_per_second;
-    uint32_t average_render_ms;
-    bool render_metrics_available;
-    bool display_ready;
-    bool touch_ready;
-    bool brightness_control;
-    bool transport_available;
-    char transport_state[16];
-    bool ecu_count_available;
-    uint16_t ecu_count;
-    md_ui_signal_summary_t signal_summary;
-} md_ui_diagnostics_t;
+
 
 bool md_ui_screens_create(uint16_t width, uint16_t height,
                           const md_ui_settings_t *settings,
                           const md_ui_palette_t *palette);
+void md_ui_screens_rebuild_custom(const md_ui_settings_t *settings);
+void md_ui_screens_configuration(const md_device_configuration_t *config);
+void md_ui_screens_config_credentials(const char *ssid, const char *password);
+const md_ui_renderer_t *md_ui_lvgl_renderer(void);
 void md_ui_screens_show(md_ui_screen_t screen,
                         const md_ui_settings_t *settings);
+void md_ui_screens_set_calibrated(bool calibrated);
+void md_ui_screens_focus_signal(md_ui_signal_id_t signal);
+int md_ui_screens_signal_at(md_ui_screen_t screen,
+                            const md_ui_settings_t *settings,
+                            int16_t x, int16_t y);
+int md_ui_screens_widget_slot_at(md_ui_screen_t screen,
+                                 const md_ui_settings_t *settings,
+                                 int16_t x, int16_t y);
+int md_ui_screens_widget_picker_signal_at(int16_t x, int16_t y);
+int md_ui_screens_setting_at(uint8_t selected_setting, int16_t x, int16_t y);
+bool md_ui_screens_setting_action_at(int16_t x, int16_t y);
+void md_ui_screens_setting_action_pressed(bool pressed);
+bool md_ui_screens_setting_page_at(int16_t x, int16_t y);
+void md_ui_screens_setting_page_pressed(bool pressed);
+bool md_ui_screens_setting_previous_at(int16_t x, int16_t y);
+void md_ui_screens_setting_previous_pressed(bool pressed);
+void md_ui_screens_calibration_step(uint8_t step);
+void md_ui_screens_nav_pressed(md_ui_screen_t screen,
+                                const md_ui_settings_t *settings,
+                                int direction);
+void md_ui_screens_touch_feedback(md_ui_screen_t screen,
+                                   const md_ui_settings_t *settings,
+                                   int16_t x, int16_t y, bool pressed);
+void md_ui_screens_debug_touch(int16_t x, int16_t y);
 void md_ui_screens_retheme(const md_ui_palette_t *palette);
 void md_ui_screens_update(md_ui_screen_t screen,
                           const md_ui_settings_t *settings,

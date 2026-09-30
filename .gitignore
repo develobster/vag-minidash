@@ -16,6 +16,7 @@ artifacts/first-live/*
 
 # Build output
 build/
+/firmware/build*/
 dist/
 *.egg-info/
 
@@ -28,3 +29,5 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+
+core/build*/

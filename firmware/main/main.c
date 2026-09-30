@@ -20,6 +20,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "display_app.h"
+#include "ui_web.h"
 #include "ui_core_selftest.h"
 
 /* No CAN setup and no GPIO pin is driven: the board pinout is not known yet. */
@@ -381,7 +382,7 @@ static void run_self_test(void)
 
 static void print_ready(void)
 {
-    printf("MINIDASH_READY boot=%lu commands=run,ui-test,reboot,navigation\n",
+    printf("MINIDASH_READY boot=%lu commands=run,ui-test,web-test,config,config-export,reboot,navigation\n",
            (unsigned long)s_boot_count);
     fflush(stdout);
 }
@@ -424,13 +425,23 @@ void app_main(void)
                 fflush(stdout);
             }
         } else if (strcmp(line, "run") == 0) {
-            run_self_test();
+            if (!md_ui_web_active()) run_self_test();
+            else printf("MINIDASH_TEST_REJECTED config_mode_active\n");
             print_ready();
         } else if (strcmp(line, "status") == 0) {
             printf("MINIDASH_BOOT count=%lu reset=%s idf=%s\n",
                    (unsigned long)s_boot_count,
                    reset_reason_name(esp_reset_reason()), esp_get_idf_version());
             print_ready();
+        } else if (strcmp(line, "config-legacy") == 0) {
+            printf("MINIDASH_CONFIG_RECOVERY status=%s\n",md_display_app_restore_legacy()?"SAVED":"REJECTED");
+            fflush(stdout);
+        } else if (strcmp(line, "config-export") == 0) {
+            md_display_app_configuration_dump();
+        } else if (strcmp(line, "config") == 0) {
+            md_display_app_config_mode();
+        } else if (strcmp(line, "web-test") == 0) {
+            md_ui_web_selftest();
         } else if (strcmp(line, "ui-test") == 0) {
             (void)md_ui_core_selftest_run();
             print_ready();
@@ -441,6 +452,7 @@ void app_main(void)
             esp_restart();
         } else if (strcmp(line, "next") == 0 || strcmp(line, "prev") == 0 ||
                    strcmp(line, "select") == 0 || strcmp(line, "back") == 0 ||
+                   strcmp(line, "home") == 0 ||
                    strcmp(line, "settings") == 0 || strcmp(line, "up") == 0 ||
                    strcmp(line, "down") == 0 || strcmp(line, "plus") == 0 ||
                    strcmp(line, "minus") == 0 || strcmp(line, "sleep") == 0 ||

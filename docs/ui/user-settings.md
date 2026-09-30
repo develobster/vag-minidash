@@ -2,81 +2,78 @@
 
 ## Navigation
 
-Touch gestures and the USB serial console both feed the same semantic actions
-used by the UI input controller. Anywhere on the screen is a gesture target:
+The XPT2046 touch reader feeds the same semantic UI actions as the console and
+future button adapters. After calibration, normal screens use broad left/right
+edge zones for previous/next, a tap on a telemetry card for Focus View, and a
+swipe as an additional navigation path. Touch coordinates are calibrated into
+the current 320x240 landscape orientation before hit testing. Without a valid
+calibration, full-screen tap/double-tap/hold navigation remains available.
 
-| Touch gesture | Normal screen | Settings screen |
-| --- | --- | --- |
-| Tap | Next screen | Next settings row |
-| Double-tap | Previous screen | Change selected option |
-| Hold for 700 ms | Open settings | Return to previous screen |
+On calibrated Settings pages, tapping a row only selects it. `CHANGE` applies
+the selected setting; `START` launches touch calibration. `MORE` and `PREV`
+move between pages. A page indicator shows the current page. The control must
+be pressed and released inside the same hit target.
 
-Touch while the display is sleeping wakes it. Gesture navigation does not use
-touch coordinates, so it does not depend on the current uncalibrated XPT2046
-position mapping.
-
-The USB serial console accepts these commands:
-
-| Command | Action |
-| --- | --- |
-| `next` / `prev` | Move between screens |
-| `settings` | Open settings |
-| `up` / `down` | Move the selected settings row |
-| `plus` / `minus` | Change the selected setting |
-| `select` | Increase the selected setting |
-| `back` | Return from settings or go to the dashboard |
-| `sleep` / `wake` | Turn the display panel off or on |
-
-Normal screen navigation cycles through Dashboard, Performance, Temperatures,
-Drivetrain, Service Status and Custom, then returns to Dashboard. Settings is a
-separate menu opened with a hold; it is not part of that screen cycle. Holding
-on the Settings screen returns to the screen from which the menu was opened.
-
-The XPT2046 touch input supports full-screen gestures. Coordinate calibration
-and location-based controls are still open. No physical buttons, stalk or
-steering-wheel controller is connected in this implementation.
+The USB serial console accepts `next`, `prev`, `settings`, `up`, `down`,
+`plus`, `minus`, `select`, `back`, `home`, `sleep` and `wake`. These map to
+semantic actions and do not contain GPIO or vehicle bus identifiers.
 
 ## On-screen options
 
-The settings screen offers:
+Settings has 23 rows across six pages (four rows per page; the final page has
+three). The Language row switches between English and Russian. It sits before
+the Custom widget selectors, which now occupy rows 15–22. The page control
+continues through each page with one MORE tap.
 
-| Option | Values |
-| --- | --- |
-| Dashboard | OEM, Sport, Minimal, Custom |
-| Theme | OEM, Sport, Minimal |
-| Day / night | Auto, Day, Night |
-| Speed units | km/h, mph |
-| Temperature | °C, °F |
-| Brightness | 0–100%, in cyclic 10% steps |
-| Warnings | Enabled or disabled |
+The other rows include Dashboard, Theme, Day/night, speed units, Temperature,
+Brightness, global and per-signal warning switches, touch calibration and a
+dashboard layout selector.
 
-Auto day/night currently selects the night-safe palette because no ambient-light
-or vehicle-context provider is connected. Brightness is persisted, but the
-current board backlight is wired directly to 3.3 V, so the diagnostics screen
-reports fixed brightness and software cannot dim or extinguish the LED.
+Dashboard choices are OEM, Sport, Minimal and Custom. Themes are OEM, Sport and
+Minimal. Day/night choices are Auto, Day and Night; Auto currently selects the
+night-safe palette because no ambient-light or vehicle illumination source is
+connected. Brightness displays `FIXED` on this board and cannot be changed in
+the UI: the backlight is wired directly to 3.3 V, and software cannot dim or
+extinguish the LED. The firmware does not connect the LED load directly to a
+GPIO.
 
-Warnings are off by default. Turning them on only enables warning thresholds
-that have also been configured. The firmware API accepts threshold values in
-thousandths of each signal's canonical unit. For example, a coolant threshold
-of 105 °C is `105000` when calling `md_display_app_set_warning()`. Thresholds
-are evaluated only for fresh valid samples; stale or invalid values do not
-raise a warning.
+Warnings are off by default. The four per-signal rows only enable existing
+firmware threshold presets. Thresholds are not editable on screen and have not
+been validated on a vehicle. They apply only to fresh valid samples.
 
-## Custom dashboard
+## Custom dashboard layouts
 
-The custom dashboard can render up to six value widgets on a 12-column by
-8-row grid. Widgets must be at least 4 columns by 4 rows and cannot overlap.
-They bind to the supported canonical signal names documented in
-[the UI architecture](architecture.md). The default custom layout uses four
-equal tiles for RPM, speed, coolant temperature and engine oil temperature.
+The Custom dashboard supports 1, 2, 4, 6 or 8 widgets, plus mixed layouts with
+1 large and 2 small, 1 large and 4 small, or 2 large and 4 small widgets. The
+layout controls geometry; separate slot settings bind each active widget to a
+canonical signal. The selector uses only signals in the firmware vocabulary.
+Values without a provider remain unavailable; layout selection does not
+simulate them.
 
-There is no on-screen editor for changing widget positions or bindings yet.
-The settings model and persistence format validate custom bindings, but the
-current screen only selects the Custom dashboard preset.
+Press and hold any telemetry card on OEM, Sport, Minimal, Performance,
+Temperatures, Drivetrain or Custom to open a signal picker for that card. Tap a
+signal to replace its binding; BACK or a long press cancels. Fixed screens keep
+separate per-card overrides; Custom keeps its existing widget bindings. The
+choice is stored in NVS. A normal card tap still opens Focus View. Rebinding
+changes only the UI signal and does not send anything to the vehicle.
 
-## Persistence and reset behavior
+Russian localization covers screen headings, dashboard labels, setting names
+and values, card statuses, picker options and calibration instructions. The
+firmware includes Cyrillic font subsets at four sizes. Their glyph bitmaps are
+uncompressed to match this LVGL build, where compressed-font support is off;
+the firmware self-test checks glyph coverage and format.
 
-Settings are stored in NVS after 1.5 seconds without another settings change.
-They survive reboot. Missing or invalid records use defaults; invalid records
-are not erased automatically. The NVS partition is declared in
-`firmware/partitions.csv` alongside the larger 3 MiB factory app partition.
+The layouts use a 12-column by 8-row grid. Eight widgets use two columns and
+four rows of compact cards; six use a compact 2-by-3 grid; mixed 2-large/4-small
+uses 80-pixel-wide lower cards. Narrow cards use short one-line signal aliases
+such as `RPM`, `SPD` and `LOAD`; Focus View retains the full signal name. These
+layouts pass geometry and NVS checks, but their readability and touch accuracy
+on the real panel have not yet been confirmed. Numeric, bar, quality-status and short-history graph renderers are implemented. Up to four Custom pages can be composed with the local Web editor. Dial/gauge widgets remain future work. Wi-Fi configuration is row 23 on page 6; select it then CHANGE. Preview switches to Custom, while Save/Cancel restores the previous view. See [configuration](configuration.md).
+
+## Persistence
+
+Settings are validated and stored in a bounded schema-1 CRC configuration under minidash_ui/configuration. Legacy 393-byte v1, 503-byte v2 and 528-byte v3 records remain readable and retained; touch calibration is independent. Writes are deferred until 1.5 seconds after the
+latest edit. Invalid records fall back to defaults without automatic erase.
+The NVS partition is declared in `firmware/partitions.csv`.
+
+The Web editor also changes numeric warning thresholds, colors, labels, precision, ranges and widget types. Warnings use fresh samples only and are not vehicle-validated safety limits. Local setting changes are locked while the editor AP is active; navigation remains available.

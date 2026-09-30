@@ -4,12 +4,20 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define MD_UI_MAX_WIDGETS 6
+#define MD_UI_MAX_WIDGETS 8
 #define MD_UI_SIGNAL_NAME_LEN 48
 #define MD_UI_MAX_WARNING_THRESHOLDS 4
+#define MD_UI_SETTINGS_ROWS 23U
+#define MD_UI_SETTINGS_ROWS_PER_PAGE 4U
 #define MD_UI_GRID_COLUMNS 12
 #define MD_UI_GRID_ROWS 8
-#define MD_UI_SETTINGS_WIRE_SIZE 393
+#define MD_UI_SETTINGS_V1_WIRE_SIZE 393U
+#define MD_UI_SETTINGS_V2_WIRE_SIZE 503U
+#define MD_UI_CARD_GROUP_COUNT 6U
+#define MD_UI_CARD_SLOTS_PER_GROUP 4U
+#define MD_UI_FIXED_CARD_OVERRIDES_COUNT \
+    (MD_UI_CARD_GROUP_COUNT * MD_UI_CARD_SLOTS_PER_GROUP)
+#define MD_UI_SETTINGS_WIRE_SIZE 528U
 
 typedef enum {
     MD_UI_SIGNAL_VALID = 0,
@@ -93,6 +101,10 @@ typedef struct {
 
 typedef enum {
     MD_UI_WIDGET_VALUE = 0,
+    MD_UI_WIDGET_BAR,
+    MD_UI_WIDGET_STATUS,
+    MD_UI_WIDGET_GRAPH,
+    MD_UI_WIDGET_COUNT,
 } md_ui_widget_type_t;
 
 typedef struct {
@@ -104,6 +116,19 @@ typedef struct {
     uint8_t rows;
     char canonical_signal[MD_UI_SIGNAL_NAME_LEN];
 } md_ui_widget_binding_t;
+
+typedef enum {
+    MD_UI_LAYOUT_CUSTOM = 0,
+    MD_UI_LAYOUT_SINGLE,
+    MD_UI_LAYOUT_DUAL,
+    MD_UI_LAYOUT_QUAD,
+    MD_UI_LAYOUT_SIX,
+    MD_UI_LAYOUT_EIGHT,
+    MD_UI_LAYOUT_MIXED_1_PLUS_2,
+    MD_UI_LAYOUT_MIXED_1_PLUS_4,
+    MD_UI_LAYOUT_MIXED_2_PLUS_4,
+    MD_UI_LAYOUT_COUNT,
+} md_ui_layout_t;
 
 typedef enum {
     MD_UI_DASHBOARD_OEM = 0,
@@ -140,12 +165,30 @@ typedef enum {
 } md_ui_temperature_unit_t;
 
 typedef enum {
+    MD_UI_LANGUAGE_ENGLISH = 0,
+    MD_UI_LANGUAGE_RUSSIAN,
+    MD_UI_LANGUAGE_COUNT,
+} md_ui_language_t;
+
+typedef enum {
+    MD_UI_CARD_GROUP_DASHBOARD_OEM = 0,
+    MD_UI_CARD_GROUP_DASHBOARD_SPORT,
+    MD_UI_CARD_GROUP_DASHBOARD_MINIMAL,
+    MD_UI_CARD_GROUP_PERFORMANCE,
+    MD_UI_CARD_GROUP_TEMPERATURES,
+    MD_UI_CARD_GROUP_DRIVETRAIN,
+    MD_UI_CARD_GROUP_CUSTOM = MD_UI_CARD_GROUP_COUNT,
+    MD_UI_CARD_GROUP_NONE = 0xff,
+} md_ui_card_group_t;
+
+typedef enum {
     MD_UI_THRESHOLD_HIGH = 0,
     MD_UI_THRESHOLD_LOW,
 } md_ui_threshold_direction_t;
 
 typedef enum {
     MD_UI_SEVERITY_NORMAL = 0,
+    MD_UI_SEVERITY_INFO,
     MD_UI_SEVERITY_WARNING,
     MD_UI_SEVERITY_CRITICAL,
 } md_ui_severity_t;
@@ -160,16 +203,19 @@ typedef struct {
 
 typedef struct {
     md_ui_dashboard_t dashboard;
+    md_ui_layout_t layout;
     md_ui_theme_id_t theme;
     md_ui_day_night_t day_night;
     md_ui_unit_system_t units;
     md_ui_temperature_unit_t temperature_unit;
+    md_ui_language_t language;
     uint8_t brightness_pct;
     uint8_t last_screen;
     uint8_t widget_count;
     bool warnings_enabled;
     md_ui_widget_binding_t widgets[MD_UI_MAX_WIDGETS];
     md_ui_warning_threshold_t warnings[MD_UI_MAX_WARNING_THRESHOLDS];
+    uint8_t fixed_card_overrides[MD_UI_FIXED_CARD_OVERRIDES_COUNT];
 } md_ui_settings_t;
 
 typedef enum {
@@ -180,6 +226,10 @@ typedef enum {
     MD_UI_SCREEN_DIAGNOSTICS,
     MD_UI_SCREEN_CUSTOM,
     MD_UI_SCREEN_SETTINGS,
+    MD_UI_SCREEN_FOCUS,
+    MD_UI_SCREEN_WIDGET_PICKER,
+    MD_UI_SCREEN_CALIBRATION,
+    MD_UI_SCREEN_CONFIG_MODE,
     MD_UI_SCREEN_COUNT,
 } md_ui_screen_t;
 
@@ -195,6 +245,8 @@ typedef enum {
     MD_UI_ACTION_DECREMENT,
     MD_UI_ACTION_SLEEP,
     MD_UI_ACTION_WAKE,
+    MD_UI_ACTION_HOME,
+    MD_UI_ACTION_OPEN_DETAILS,
 } md_ui_action_t;
 
 typedef enum {
@@ -214,11 +266,24 @@ typedef enum {
     MD_UI_INPUT_SOURCE_COUNT,
 } md_ui_input_source_t;
 
+typedef enum {
+    MD_UI_CONTEXT_UNKNOWN = 0,
+    MD_UI_CONTEXT_PARKED,
+    MD_UI_CONTEXT_DRIVING,
+} md_ui_context_t;
+
 typedef struct {
     md_ui_screen_t screen;
     md_ui_screen_t settings_return_screen;
+    md_ui_screen_t focus_return_screen;
+    md_ui_screen_t widget_picker_return_screen;
+    md_ui_signal_id_t focused_signal;
+    md_ui_signal_id_t widget_picker_signal;
+    md_ui_card_group_t widget_picker_group;
     uint8_t selected_setting;
+    uint8_t widget_picker_slot;
     bool sleeping;
+    md_ui_context_t context;
 } md_ui_state_t;
 
 extern const md_ui_signal_definition_t md_ui_signal_definitions[MD_SIGNAL_COUNT];
@@ -245,6 +310,21 @@ md_ui_severity_t md_ui_signal_severity(const md_ui_settings_t *settings,
 
 void md_ui_settings_defaults(md_ui_settings_t *settings);
 bool md_ui_settings_validate(const md_ui_settings_t *settings);
+bool md_ui_settings_set_layout(md_ui_settings_t *settings,
+                               md_ui_layout_t layout);
+bool md_ui_settings_set_widget_signal(md_ui_settings_t *settings,
+                                      uint8_t widget_index, int direction);
+bool md_ui_settings_bind_widget_signal(md_ui_settings_t *settings,
+                                       uint8_t widget_index,
+                                       md_ui_signal_id_t signal);
+md_ui_signal_id_t md_ui_settings_card_signal(const md_ui_settings_t *settings,
+                                             md_ui_card_group_t group,
+                                             uint8_t slot);
+bool md_ui_settings_bind_card_signal(md_ui_settings_t *settings,
+                                     md_ui_card_group_t group, uint8_t slot,
+                                     md_ui_signal_id_t signal);
+md_ui_card_group_t md_ui_card_group_for_screen(md_ui_screen_t screen,
+                                               const md_ui_settings_t *settings);
 bool md_ui_settings_encode(const md_ui_settings_t *settings, uint8_t *output,
                            size_t output_size, size_t *written);
 bool md_ui_settings_decode(const uint8_t *input, size_t input_size,
@@ -258,9 +338,23 @@ bool md_ui_settings_set_warning(md_ui_settings_t *settings,
 
 void md_ui_state_init(md_ui_state_t *state,
                       const md_ui_settings_t *settings);
+bool md_ui_state_select_setting(md_ui_state_t *state, uint8_t row);
+bool md_ui_state_settings_page(md_ui_state_t *state, int direction);
 bool md_ui_state_dispatch(md_ui_state_t *state,
                           md_ui_settings_t *settings,
                           md_ui_action_t action);
+bool md_ui_state_open_details(md_ui_state_t *state,
+                              md_ui_settings_t *settings,
+                              md_ui_signal_id_t signal);
+bool md_ui_state_open_widget_picker(md_ui_state_t *state,
+                                    const md_ui_settings_t *settings,
+                                    uint8_t widget_index);
+bool md_ui_state_widget_picker_set_signal(md_ui_state_t *state,
+                                          md_ui_signal_id_t signal);
+bool md_ui_action_repeatable(md_ui_action_t action);
+bool md_ui_state_set_context(md_ui_state_t *state,
+                             md_ui_settings_t *settings,
+                             md_ui_context_t context, bool verified);
 bool md_ui_input_command(const char *command,
                          md_ui_input_source_t *source,
                          md_ui_action_t *action);

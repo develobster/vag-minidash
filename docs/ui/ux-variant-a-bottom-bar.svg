@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240" viewBox="0 0 320 240">
+  <rect width="320" height="240" fill="#10171e"/>
+  <text x="12" y="22" fill="#e4edf1" font-family="sans-serif" font-size="15" font-weight="bold">DASHBOARD</text>
+  <rect x="10" y="35" width="174" height="100" rx="6" fill="#1b2a34" stroke="#3a5361"/>
+  <text x="20" y="54" fill="#9cb0bb" font-family="sans-serif" font-size="11">ENGINE SPEED</text>
+  <text x="20" y="111" fill="#e4edf1" font-family="sans-serif" font-size="45">2450</text>
+  <rect x="190" y="35" width="120" height="48" rx="6" fill="#1b2a34" stroke="#3a5361"/>
+  <text x="199" y="52" fill="#9cb0bb" font-family="sans-serif" font-size="10">SPEED</text>
+  <text x="199" y="75" fill="#e4edf1" font-family="sans-serif" font-size="23">42</text>
+  <rect x="190" y="89" width="120" height="46" rx="6" fill="#1b2a34" stroke="#3a5361"/>
+  <text x="199" y="106" fill="#9cb0bb" font-family="sans-serif" font-size="10">COOLANT</text>
+  <text x="199" y="129" fill="#e4edf1" font-family="sans-serif" font-size="23">94°C</text>
+  <rect x="10" y="141" width="300" height="43" rx="6" fill="#1b2a34" stroke="#3a5361"/>
+  <text x="20" y="158" fill="#9cb0bb" font-family="sans-serif" font-size="10">BOOST</text>
+  <text x="20" y="178" fill="#e4edf1" font-family="sans-serif" font-size="22">0.72 bar</text>
+  <rect x="0" y="196" width="320" height="44" fill="#243742"/>
+  <text x="34" y="225" fill="#cfe9e4" font-family="sans-serif" font-size="17">PREV</text>
+  <text x="134" y="225" fill="#cfe9e4" font-family="sans-serif" font-size="17">HOME</text>
+  <text x="247" y="225" fill="#cfe9e4" font-family="sans-serif" font-size="17">NEXT</text>
+</svg>

@@ -62,38 +62,56 @@ The display controller owns the LVGL screens and polls a fixed-size signal-store
 snapshot every 100 ms. Signal publication writes to that fixed store; it does not
 depend on display rendering. LVGL uses the ESP LVGL port with two DMA-capable
 partial buffers, each 16 rows high. Text and severity colors are updated only
-when their rendered values change. Screens and labels are created once at UI
-startup; the telemetry refresh path uses fixed snapshots and static label
-buffers. Upstream LVGL examples and demos are disabled in the firmware
-configuration. Views include four dashboard choices (OEM, Sport, Minimal and
-Custom), performance, temperatures, drivetrain, service status and settings.
+when their rendered values change. Stable screens are created at startup; the
+custom dashboard is rebuilt only when its layout or signal bindings change.
+Fixed telemetry cards resolve their persisted per-dashboard signal overrides
+against the same canonical signal store.
+The telemetry refresh path uses fixed snapshots and static label buffers.
+Upstream LVGL examples and demos are disabled in the firmware configuration.
+Views include four dashboard choices (OEM, Sport, Minimal and Custom),
+performance, temperatures, drivetrain, service status and settings.
 
 Input arrives as semantic actions through `md_display_app_dispatch()`. The API
 accepts touch, button, steering-wheel, stalk, BLE or console sources, so hardware
 drivers do not need to know about screens or settings. At present only the
-console and raw XPT2046 touch reader are connected. The touch task recognizes
-debounced tap, double-tap and 700 ms hold gestures without interpreting raw
-coordinates; a double tap is recognized within 350 ms. On normal screens these
-mean next screen, previous screen and open settings. On the settings screen
-they mean next row, change the selected option and return. A touch while
-sleeping wakes the display. Coordinate calibration and location-based hit
-targets remain future work. Buttons, steering controls and BLE input have no
+console and XPT2046 touch reader are connected. The touch task filters and
+calibrates raw coordinates into the verified 320x240 landscape orientation.
+Large side zones navigate between screens, central card taps open the generic
+Focus View, and swipes remain available. Settings rows select without changing
+their values; explicit CHANGE, MORE and PREV controls apply actions. Before
+calibration, full-screen gestures remain available. A touch while sleeping
+wakes the display. GPIO buttons, steering controls and BLE input have no
 hardware adapters yet.
 
 ## Settings and warnings
 
-Settings are validated before use, encoded in a versioned fixed-width 393-byte
-format with CRC32, and stored as a single NVS value under namespace `minidash_ui`.
-Writes are deferred until 1.5 seconds after the latest edit. Invalid or missing
-stored settings fall back to defaults without erasing NVS. The custom dashboard
-accepts up to six validated, non-overlapping value widgets on a 12 by 8 grid.
-Only value widgets are implemented. The settings screen does not yet include a
-layout editor; custom bindings use the stored settings model.
+The shared schema-1 configuration validates up to four pages of eight widgets,
+logical geometry, bindings, types, ranges/precision, colors and warnings.
+Its bounded explicit little-endian CRC blob is committed to NVS before publication.
+Legacy v1/v2/v3 records are retained; touch calibration has an independent key.
+Local writes are deferred 1.5 seconds and are blocked during preview/editor sessions.
+Revision checks prevent stale edits. Invalid records are retained without erase.
+See [configuration](configuration.md) for Preview/Save/Cancel and HTTP contracts.
+
+Long press opens the signal picker for cards on OEM, Sport and Minimal
+dashboards, Performance, Temperatures, Drivetrain and Custom. The first six
+groups persist fixed-card overrides separately; Custom keeps its existing
+widget bindings. Picker changes affect only UI signal selection and never
+send a vehicle request.
+
+The Custom dashboard supports eight value bindings on a 12 by 8 grid. Built-in
+layout presets include 1, 2, 4, 6 and 8 widgets plus 1-large/2-small,
+1-large/4-small and 2-large/4-small mixed arrangements. Layout geometry is
+stored independently from canonical signal names. Settings provides a six-page
+layout and per-slot signal selector. Numeric, bar, quality-status and graph widgets render in LVGL. Four Custom pages support validated free logical geometry and a local mobile Web editor. Gauge widgets are not implemented. The 8-widget layout has not
+yet passed a physical readability review.
 
 Warnings are disabled by default and apply only to fresh valid values. Thresholds
 are configurable through `md_display_app_set_warning()` for the four supported
-warning slots. The settings screen exposes the global warning enable switch;
-per-signal threshold editing is not yet available in the screen.
+warning slots. Settings exposes the global warning switch and per-signal enable
+switches; numeric threshold values are editable through the Web editor and are not validated on a vehicle. Brightness is shown as FIXED and its control is locked on the
+current board because the backlight is wired directly to 3.3 V. No GPIO drives
+the LED load.
 
 ## Build and verification
 
@@ -101,12 +119,12 @@ The project pins LVGL 9.5.0 and `esp_lvgl_port` 2.9.0. `firmware/partitions.csv`
 provides 3 MiB for the factory app plus NVS and PHY-init partitions. The current
 16 MiB board profile has room for this layout.
 
-Run `idf.py build` from `firmware/` with ESP-IDF 5.5.5. The seven deterministic UI
+Run `idf.py build` from `firmware/` with ESP-IDF 5.5.5. The deterministic UI
 core checks are available on target with the serial command `ui-test`; a
-successful compile does not execute those checks. The production UI has been
-built and flashed to the ESP32-S3 board on COM5. Boot output confirmed the
-ST7789 backend at 320x240 with rotation 2, and reported both the UI and touch
-input ready. The user reviewed the physical layout and confirmed the text
-alignment looks correct. The latest navigation change was built and flashed;
-the state-machine check passed, and physical tap/hold confirmation remains open. See
-[the current status and next steps](status.md) for verification details.
+successful compile does not execute those checks. The 2026-09-30 build succeeded
+and the app-only image was flashed to COM5 at 0x10000, preserving NVS. On-device
+`ui-test` reported 25 passed and 0 failed; four consecutive real AP/HTTP test cycles reported 24 passed and 0 failed each. Layout readability and touch
+navigation still require a person to inspect the real panel. See
+[the current status and next steps](status.md) for details.
+
+Custom rebuilds bind static LVGL label text to permanent screen storage. A new root is loaded before deleting the previous root under the LVGL lock. The renderer contract and signal/history model are in the portable C core; ESP storage, AP/HTTP and LVGL adapters remain platform-specific.

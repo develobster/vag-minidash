@@ -81,4 +81,8 @@ menu "MiniDash display and UI"
         range -1 48
         depends on MINIDASH_TOUCH_ENABLE
         default -1
+    config MINIDASH_TOUCH_DEBUG_OVERLAY
+        bool "Show touch zones and mapped coordinates (development only)"
+        depends on MINIDASH_TOUCH_ENABLE
+        default n
 endmenu
