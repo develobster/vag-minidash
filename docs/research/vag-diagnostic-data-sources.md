@@ -295,3 +295,15 @@ not silently resolved by load order.
    fixture and rejection test for every new construct.
 5. Add DBC quality dependencies and source arbitration; only then assign final
    production polling budgets from traces.
+
+## Reviewed local typed-scalar recovery (2026-09-30)
+
+The original uncommitted MCD importer work was recovered into the isolated
+research integration branch. Single fixed IEEE754 FLOAT32 (both byte orders)
+and non-overlapping bounded TEXTTABLE choices now use the shared scalar codec
+validator; signed invalid sentinels are retained. Unknown byte order, float
+encoding, overlapping/default enum choices and non-finite values fail closed.
+Legacy profiles without `signed` retain their unsigned default. Local fixtures
+are synthetic and all new imported definitions remain candidate/database-only
+until exact on-wire validation. This does not make the entire proprietary MWB
+structure grammar supported and does not add vehicle-specific raw codecs.

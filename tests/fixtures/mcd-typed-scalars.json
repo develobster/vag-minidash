@@ -1,0 +1,68 @@
+[
+  {
+    "did": 8705,
+    "long_name": "Pressure coefficient",
+    "structure": {"type": "STRUCTURE", "byte_size": 4, "parameters": [{
+      "parameter_type": "VALUE", "byte_position": 0, "bit_position": 0,
+      "long_name": "Pressure coefficient",
+      "dop": {"type": "DOP", "diag_coded_type": "STANDARD-LENGTH-TYPE",
+        "coded_base_data_type": "A_FLOAT32", "bit_length": 32, "encoding": "IEEE754",
+        "endianness": "big", "compu_category": "IDENTICAL",
+        "units": {"display_name": "bar"}}
+    }]}
+  },
+  {
+    "did": 8706,
+    "long_name": "Little endian coefficient",
+    "structure": {"type": "STRUCTURE", "byte_size": 4, "parameters": [{
+      "parameter_type": "VALUE", "byte_position": 0, "bit_position": 0,
+      "long_name": "Little endian coefficient",
+      "dop": {"type": "DOP", "diag_coded_type": "STANDARD-LENGTH-TYPE",
+        "coded_base_data_type": "A_FLOAT32", "bit_length": 32, "encoding": "IEEE754",
+        "endianness": "little", "compu_category": "LINEAR",
+        "compu_scale": {"formula": "(0.0 + (x * 2.0)) / 1.0"}}
+    }]}
+  },
+  {
+    "did": 8707,
+    "long_name": "Displayed gear",
+    "structure": {"type": "STRUCTURE", "byte_size": 1, "parameters": [{
+      "parameter_type": "VALUE", "byte_position": 0, "bit_position": 0,
+      "long_name": "Displayed gear",
+      "dop": {"type": "DOP", "diag_coded_type": "STANDARD-LENGTH-TYPE",
+        "coded_base_data_type": "A_UINT32", "bit_length": 8, "endianness": "big",
+        "compu_category": "TEXTTABLE", "compu_scales": [
+          {"lower_limit": 0, "upper_limit": 0, "long_name": "NO_GEAR"},
+          {"lower_limit": 2, "upper_limit": 2, "long_name": "GEAR_1"},
+          {"lower_limit": 12, "upper_limit": 12, "long_name": "REVERSE"}
+        ], "internal_constraint": {"scale_constraints": [{
+          "lower_limit": {"type": "CLOSED", "value": 255},
+          "upper_limit": {"type": "CLOSED", "value": 255},
+          "validity": "NOT-AVAILABLE"
+        }]}}
+    }]}
+  },
+  {
+    "did": 8708,
+    "long_name": "Ambiguous states",
+    "structure": {"type": "STRUCTURE", "byte_size": 1, "parameters": [{
+      "parameter_type": "VALUE", "byte_position": 0, "bit_position": 0,
+      "dop": {"type": "DOP", "diag_coded_type": "STANDARD-LENGTH-TYPE",
+        "coded_base_data_type": "A_UINT32", "bit_length": 8, "endianness": "big",
+        "compu_category": "TEXTTABLE", "compu_scales": [
+          {"lower_limit": 1, "upper_limit": 3, "long_name": "FIRST"},
+          {"lower_limit": 3, "upper_limit": 4, "long_name": "SECOND"}
+        ]}
+    }]}
+  },
+  {
+    "did": 8709,
+    "long_name": "Ambiguous float",
+    "structure": {"type": "STRUCTURE", "byte_size": 4, "parameters": [{
+      "parameter_type": "VALUE", "byte_position": 0, "bit_position": 0,
+      "dop": {"type": "DOP", "diag_coded_type": "STANDARD-LENGTH-TYPE",
+        "coded_base_data_type": "A_FLOAT32", "bit_length": 32, "encoding": "NONE",
+        "endianness": "big", "compu_category": "IDENTICAL"}
+    }]}
+  }
+]

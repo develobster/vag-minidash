@@ -13,7 +13,7 @@ import re
 from types import MappingProxyType
 
 from .identity import Applicability, IdentityContext
-from .profiles import decode as decode_scalar
+from .profiles import decode as decode_scalar, validate_codec
 
 
 CONFIDENCE = {"confirmed", "documented", "candidate", "guessed"}
@@ -164,7 +164,7 @@ class SignalDefinition:
                 not math.isfinite(self.expected_period) or self.expected_period <= 0):
             raise ValueError("Expected period must be positive and finite")
         if self.source.kind == "uds" and self.decoder is not None:
-            _validate_decoder(self.decoder)
+            validate_codec(self.decoder)
         if not isinstance(self.metadata, Mapping):
             raise ValueError("Definition metadata must be an object")
         object.__setattr__(self, "applicability", Applicability(self.applicability))
@@ -181,19 +181,6 @@ class SignalDefinition:
 
     def selector_key(self):
         return (self.ecu, self.source.key(), self.applicability)
-
-
-def _validate_decoder(codec):
-    required = {"length", "byteorder", "signed", "scale", "offset", "source"}
-    if not isinstance(codec, Mapping) or not required <= codec.keys():
-        raise ValueError("Incomplete scalar decoder")
-    if type(codec["length"]) is not int or not 1 <= codec["length"] <= 8:
-        raise ValueError("Invalid decoder length")
-    if codec["byteorder"] not in ("big", "little") or type(codec["signed"]) is not bool:
-        raise ValueError("Invalid decoder representation")
-    if not codec["source"] or not all(isinstance(codec[x], (int, float)) and
-            not isinstance(codec[x], bool) and math.isfinite(codec[x]) for x in ("scale", "offset")):
-        raise ValueError("Invalid decoder scaling/evidence")
 
 
 class SignalRegistry:

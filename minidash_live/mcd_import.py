@@ -1,4 +1,4 @@
-"""Conservative importer for the simple subset of mcd-diag-rs MWB JSON.
+"""Conservative importer for single-value mcd-diag-rs MWB JSON.
 
 Complex structures are reported, never approximated.  The input is a local
 artifact produced by the operator; proprietary ODIS/MCD databases are not
@@ -71,7 +71,7 @@ def _slug(value):
 
 
 def _linear(dop):
-    category = dop.get("compu_category", "IDENTICAL").upper()
+    category = str(dop.get("compu_category") or "IDENTICAL").upper()
     if category == "IDENTICAL":
         return 1.0, 0.0
     if category not in ("LINEAR", "SCALE-LINEAR") or not dop.get("compu_scale"):
@@ -86,7 +86,7 @@ def _linear(dop):
     return factor / divisor, bias / divisor
 
 
-def _invalid_raw(dop, length, byteorder):
+def _invalid_raw(dop, length, byteorder, signed=False):
     result = []
     constraint = dop.get("internal_constraint") or {}
     for item in constraint.get("scale_constraints") or []:
@@ -95,9 +95,35 @@ def _invalid_raw(dop, length, byteorder):
         lower, upper = item.get("lower_limit") or {}, item.get("upper_limit") or {}
         if lower.get("type") == upper.get("type") == "CLOSED" and lower.get("value") == upper.get("value"):
             value = lower["value"]
-            if isinstance(value, int) and 0 <= value < 1 << (length * 8):
-                result.append(value.to_bytes(length, byteorder).hex())
+            lower_bound = -(1 << (length * 8 - 1)) if signed else 0
+            upper_bound = (1 << (length * 8 - (1 if signed else 0))) - 1
+            if type(value) is int and lower_bound <= value <= upper_bound:
+                result.append(value.to_bytes(length, byteorder, signed=signed).hex())
     return result
+
+
+def _texttable(dop, bits, signed):
+    if dop.get("compu_default_value") is not None:
+        raise ValueError("TEXTTABLE default value is unsupported")
+    scales = dop.get("compu_scales") or []
+    if not isinstance(scales, (list, tuple)) or not scales:
+        raise ValueError("TEXTTABLE has no choices")
+    minimum = -(1 << (bits - 1)) if signed else 0
+    maximum = (1 << (bits - (1 if signed else 0))) - 1
+    choices = []
+    for scale in scales:
+        if not isinstance(scale, dict):
+            raise ValueError("invalid TEXTTABLE choice")
+        lower, upper, label = (scale.get("lower_limit"), scale.get("upper_limit"),
+                               scale.get("long_name"))
+        if type(lower) is not int or type(upper) is not int or not isinstance(label, str) \
+                or not label.strip() or not minimum <= lower <= upper <= maximum:
+            raise ValueError("invalid TEXTTABLE choice")
+        choices.append({"lower": lower, "upper": upper, "label": label})
+    choices.sort(key=lambda item: item["lower"])
+    if any(left["upper"] >= right["lower"] for left, right in zip(choices, choices[1:])):
+        raise ValueError("overlapping TEXTTABLE choices")
+    return choices
 
 
 def _convert(record, *, ecu, applicability, provenance, provider_id,
@@ -123,10 +149,27 @@ def _convert(record, *, ecu, applicability, provenance, provider_id,
     if structure.get("byte_size") not in (None, length):
         raise ValueError("structure size does not match the scalar")
     base = dop.get("coded_base_data_type")
-    if base not in ("A_UINT32", "A_INT32", "A_BITFIELD"):
+    if base not in ("A_UINT32", "A_INT32", "A_BITFIELD", "A_FLOAT32"):
         raise ValueError(f"unsupported coded type {base}")
-    byteorder = "little" if str(dop.get("endianness", "big")).lower() in ("little", "lsb") else "big"
-    scale, offset = _linear(dop)
+    order = str(dop.get("endianness") or "big").lower()
+    if order not in ("big", "msb", "little", "lsb"):
+        raise ValueError("unsupported scalar endianness")
+    byteorder = "little" if order in ("little", "lsb") else "big"
+    signed = base == "A_INT32" or dop.get("encoding") == "2C"
+    representation = "integer"
+    if base == "A_FLOAT32":
+        if bits != 32 or dop.get("encoding") != "IEEE754":
+            raise ValueError("unsupported A_FLOAT32 encoding")
+        representation = "float32"
+        signed = False
+    if str(dop.get("compu_category", "IDENTICAL")).upper() == "TEXTTABLE":
+        if representation != "integer":
+            raise ValueError("TEXTTABLE requires an integer coded type")
+        representation = "texttable"
+        choices = _texttable(dop, bits, signed)
+        scale, offset = 1.0, 0.0
+    else:
+        scale, offset = _linear(dop)
     units = dop.get("units") or {}
     unit = units.get("display_name") or units.get("long_name")
     name = (param.get("translated_name") or param.get("long_name") or
@@ -135,10 +178,14 @@ def _convert(record, *, ecu, applicability, provenance, provider_id,
               canonical_map.get(name))
     canonical_name = mapped or f"raw.{_slug(provider_id)}.{_slug(ecu)}.{did:04x}.{_slug(name)}"
     codec = {"length": length, "byteorder": byteorder,
-             "signed": base == "A_INT32" or dop.get("encoding") == "2C",
+             "signed": signed,
              "scale": scale, "offset": offset,
-             "invalid_raw": _invalid_raw(dop, length, byteorder),
+             "invalid_raw": _invalid_raw(dop, length, byteorder, signed),
              "source": provenance.source_url}
+    if representation != "integer":
+        codec["representation"] = representation
+    if representation == "texttable":
+        codec["choices"] = choices
     return SignalDefinition(
         id=f"mcd.{_slug(provider_id)}.{_slug(ecu)}.{did:04x}.{_slug(name)}",
         canonical_name=canonical_name,

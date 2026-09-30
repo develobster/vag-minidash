@@ -87,7 +87,7 @@ to authoritative vehicle knowledge. Claims below are paraphrased, not copied cod
 | [python-can log readers](https://python-can.readthedocs.io/en/stable/file_io.html) | ASC/BLF/CSV/candump readers exist; future format adapter should call these, not write new BLF parser | [LGPL-3.0](https://github.com/hardbyte/python-can/blob/main/LICENSE.txt); existing optional dependency, no vendoring |
 | [can-utils](https://github.com/linux-can/can-utils) | candump/canplayer/canbusload and ASC conversion; external tools for measurement | Per-file licensing must be checked; no code copied |
 | [cantools](https://github.com/cantools/cantools) | Existing decoder already covers DBC/multiplexing; improve tests and provenance, no second parser | MIT in project metadata; existing pinned optional dependency |
-| [can-isotp rate limiter](https://github.com/pylessard/python-can-isotp/blob/v2.x/doc/source/isotp/implementation.rst) | Sliding-window transmit limiter is distinct from job frequency; don't equate scheduler cooldown with full bus budget | License path lookup failed; do not vendor without confirming actual package license |
+| [can-isotp rate limiter](https://github.com/pylessard/python-can-isotp/blob/v2.x/doc/source/isotp/implementation.rst) | Sliding-window transmit limiter is distinct from job frequency; don't equate scheduler cooldown with full bus budget | Installed pinned can-isotp 2.0.7 metadata confirms MIT (LICENSE.txt); no vendoring |
 | [udsoncan](https://udsoncan.readthedocs.io/en/latest/udsoncan/connection.html) | Layered connections and read-DTC services are references; retain current small ReadClient allowlist | MIT verified in upstream LICENSE.txt; no automatic replacement/dependency expansion |
 | [odxtools](https://github.com/mercedes-benz/odxtools/blob/main/README.md) | Variant-aware ODX/PDX exploration for future legal offline importer | MIT tool; OEM database rights are separate |
 | [OpenXC](https://vi-firmware.openxcplatform.com/en/master/) | Canonical semantic data independent of hardware and presentation | Upstream BSD-style notice checked; no Ford definitions imported |
@@ -157,3 +157,19 @@ G = improve existing; H = reject. Categories may overlap.
 This is a selected safe A/G batch, not a claim to implement every researched
 feature. Larger B/C/D items have explicit gates above. Final execution/results
 are recorded separately so the pre-code decision remains distinguishable.
+
+## Additional reviewed local-only recovery decision (before import)
+
+After the first replay batch, the preserved original dirty patch was reviewed.
+Its typed scalar import is a compatible A/G improvement: explicit IEEE754
+FLOAT32 and bounded non-overlapping TEXTTABLE choices, signed invalid sentinels,
+and one shared scalar validator for profiles/registry. It retains single leaf
+DOP restrictions and candidate/evidence gates; it adds no proprietary database
+or actual vehicle decoder claim. The five-record fixture is synthetic. Import
+only mcd_import.py/profiles.py/registry.py/test_signal_registry.py hunks plus
+that fixture into a separate logical commit, retain the remote provenance fields,
+add validation/identity regressions and reject unknown byte order. Original
+checkout/dirty files/artifacts must remain byte-for-byte untouched. Original
+research notes are reference input rather than wholesale replacements for the
+newer merged research document. This is recovery of existing local work, not a
+new parallel importer. Tests must establish compatibility before committing.

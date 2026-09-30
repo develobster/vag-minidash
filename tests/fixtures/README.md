@@ -29,3 +29,11 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## Typed MCD scalar fixture
+
+`mcd-typed-scalars.json` is the preserved synthetic local-only fixture recovered
+from the original checkout. Its illustrative 0x2201/0x2202/0x2203 values test
+IEEE754 byte order and TEXTTABLE rejection; they are not vehicle DIDs or route
+evidence. It contains no proprietary ODIS database. The importer still accepts
+only byte-aligned single leaf values and retains candidate/provenance gates.

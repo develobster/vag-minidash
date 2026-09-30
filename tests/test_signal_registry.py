@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import struct
 import tempfile
 import unittest
 from pathlib import Path
@@ -114,6 +115,29 @@ class SignalRegistryTests(unittest.TestCase):
         invalid = registry.decode_uds("fixture", 0x1234, bytes.fromhex("ffff"),
             {"asam_id": "EV_FIXTURE", "asam_version": "001001"})
         self.assertEqual(invalid["quality"], "invalid")
+
+    def test_mcd_float_and_texttable_decode_rejects_unknown_values(self):
+        report = import_mcd_mwb(ROOT / "tests/fixtures/mcd-typed-scalars.json",
+                                ecu="fixture", provider_id="fixture")
+        self.assertEqual((len(report.definitions), len(report.unsupported)), (3, 2))
+        self.assertIn("overlapping TEXTTABLE", report.unsupported[0]["reason"])
+        self.assertIn("unsupported A_FLOAT32 encoding", report.unsupported[1]["reason"])
+        self.assertTrue(all(not item.provenance.vehicle_tested for item in report.definitions))
+        registry = SignalRegistry(report.definitions)
+        big_float = registry.decode_uds("fixture", 0x2201, struct.pack(">f", 12.5), {})
+        self.assertEqual((big_float["value"], big_float["unit"], big_float["quality"]),
+                         (12.5, "bar", "candidate"))
+        little_float = registry.decode_uds("fixture", 0x2202, struct.pack("<f", 4.25), {})
+        self.assertEqual(little_float["value"], 8.5)
+        self.assertEqual(registry.decode_uds("fixture", 0x2201,
+            struct.pack(">f", float("nan")), {})["quality"], "invalid")
+        gear = registry.decode_uds("fixture", 0x2203, b"\x02", {})
+        self.assertEqual((gear["value"], gear["coded_value"], gear["quality"]),
+                         ("GEAR_1", 2, "candidate"))
+        self.assertEqual(registry.decode_uds("fixture", 0x2203, b"\x09", {})["quality"],
+                         "invalid")
+        self.assertEqual(registry.decode_uds("fixture", 0x2203, b"\xff", {})["quality"],
+                         "invalid")
 
     def test_bad_registry_schema(self):
         with tempfile.TemporaryDirectory() as directory:
