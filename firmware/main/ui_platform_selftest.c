@@ -1,4 +1,5 @@
 #include "ui_startup.h"
+#include "ui_touch_map.h"
 #include "backlight_controller.h"
 #include "ui_platform_selftest.h"
 #include "ui_configuration.h"
@@ -175,6 +176,10 @@ bool md_ui_test_themes_and_startup(void)
             if(!memcmp(&night,&previous,sizeof(night))) return false;
         }
     }
+    if(MD_UI_THEME_VOLKSWAGEN!=9 || MD_UI_THEME_PORSCHE!=10 ||
+       md_ui_theme_style(MD_UI_THEME_MATRIX).font_family!=1 ||
+       md_ui_theme_style(MD_UI_THEME_VOLKSWAGEN).font_family!=2 ||
+       !md_ui_theme_style(MD_UI_THEME_PORSCHE).gauge_style) return false;
     for(unsigned target=10;target<=100;target+=10) {
         md_ui_startup_frame_t last=md_ui_startup_frame(0,320,240,target);
         if(last.brightness!=0 || last.width!=4 || last.height!=2 || last.complete) return false;
@@ -187,4 +192,90 @@ bool md_ui_test_themes_and_startup(void)
         if(!last.complete || last.brightness!=target || last.width!=320 || last.height!=240 || last.glow_opacity) return false;
     }
     return md_ui_startup_frame(UINT32_MAX,320,240,70).brightness==70;
+}
+
+static uint32_t rotation_test_crc(const uint8_t *data, size_t size)
+{
+    uint32_t crc=0xffffffffU;
+    for(size_t i=0;i<size;++i) { crc^=data[i]; for(unsigned b=0;b<8;++b) crc=(crc>>1)^(0xedb88320U & (0U-(crc&1U))); }
+    return ~crc;
+}
+static void rotation_test_reseal(uint8_t *record, size_t size)
+{
+    uint32_t crc=rotation_test_crc(record,size-4);
+    for(unsigned i=0;i<4;++i) record[size-4+i]=(uint8_t)(crc>>(8*i));
+}
+bool md_ui_test_rotation(void)
+{
+    md_ui_settings_t s,t; uint8_t record[MD_UI_SETTINGS_WIRE_SIZE]; size_t n;
+    md_target_profile_t target={.hardware=MD_CAP_COLOR|MD_CAP_DIMMING,.verified=true};
+    for(unsigned r=0;r<4;++r) {
+        md_ui_settings_defaults(&s); s.rotation=r; s.language=MD_UI_LANGUAGE_RUSSIAN;
+        if(!md_ui_settings_encode(&s,record,sizeof(record),&n) ||
+           !md_ui_settings_decode(record,n,&t) || t.rotation!=r || t.language!=s.language) return false;
+        if(!md_configuration_from_legacy(&a,&s,&target) ||
+           !md_configuration_encode(&a,wire,sizeof(wire),&n) ||
+           !md_configuration_decode(wire,n,&b) || b.platform.rotation!=r ||
+           !md_configuration_to_legacy(&b,&t) || t.rotation!=r) return false;
+        md_ui_state_t state; md_ui_state_init(&state,&s);
+        state.screen=MD_UI_SCREEN_SETTINGS; state.selected_setting=23;
+        if(!md_ui_state_dispatch(&state,&s,MD_UI_ACTION_INCREMENT) || s.rotation!=(r+1)%4 ||
+           !md_ui_state_dispatch(&state,&s,MD_UI_ACTION_DECREMENT) || s.rotation!=r) return false;
+        const float points[][2]={{0,0},{319,0},{319,239},{0,239},{160,120},{43,91}};
+        for(unsigned i=0;i<6;++i) {
+            float x=points[i][0],y=points[i][1];
+            md_touch_rotate_point(&x,&y,320,240,r,false);
+            if(x<0 || y<0 || x>=(r%2?240:320) || y>=(r%2?320:240)) return false;
+            if(r==1 && i==0 && (x!=239 || y!=0)) return false;
+            if(r==2 && i==0 && (x!=319 || y!=239)) return false;
+            if(r==3 && i==0 && (x!=0 || y!=319)) return false;
+            /* Independent esp_lvgl_port panel-area formula: logical -> physical. */
+            float panel_x=x,panel_y=y;
+            if(r==1) { panel_x=y; panel_y=239-x; }
+            if(r==2) { panel_x=319-x; panel_y=239-y; }
+            if(r==3) { panel_x=319-y; panel_y=x; }
+            if(panel_x!=points[i][0] || panel_y!=points[i][1]) return false;
+            md_touch_rotate_point(&x,&y,320,240,r,true);
+            if(x!=points[i][0] || y!=points[i][1]) return false;
+        }
+    }
+    /* Migrate build-only schema-1 rotation to relative zero with all other data kept. */
+    wire[4]=1; rotation_test_reseal(wire,n);
+    if(!md_configuration_decode(wire,n,&b) || b.platform.rotation!=0) return false;
+    /* Compare canonical wire, not padding or unused widget slots in C structs. */
+    static uint8_t migrated_wire[MD_CONFIG_WIRE_MAX]; size_t migrated_size;
+    wire[4]=MD_CONFIG_SCHEMA_VERSION; wire[n-5]=0; rotation_test_reseal(wire,n);
+    if(!md_configuration_encode(&b,migrated_wire,sizeof(migrated_wire),&migrated_size) ||
+       migrated_size!=n || memcmp(wire,migrated_wire,n)!=0) return false;
+    md_ui_settings_defaults(&s); s.language=MD_UI_LANGUAGE_RUSSIAN;
+    if(!md_ui_settings_encode(&s,record,sizeof(record),&n)) return false;
+    record[4]=3; rotation_test_reseal(record,n);
+    if(!md_ui_settings_decode(record,n,&t) || t.rotation!=0 || t.language!=s.language) return false;
+    for(unsigned group=0;group<MD_UI_CARD_GROUP_COUNT;++group) {
+        md_ui_rect_t rects[4];
+        for(unsigned i=0;i<4;++i) {
+            rects[i]=(md_ui_rect_t){0}; md_ui_fixed_portrait_rect(group,i,&rects[i]);
+            const md_ui_rect_t r=rects[i];
+            if(r.x<0 || r.y<35 || r.x+r.width>320 || r.y+r.height>215 || r.width<100 || r.height<30) return false;
+            for(unsigned j=0;j<i;++j) {
+                md_ui_rect_t q=rects[j];
+                if(r.x<q.x+q.width && q.x<r.x+r.width && r.y<q.y+q.height && q.y<r.y+r.height) return false;
+            }
+        }
+    }
+    for(unsigned layout=MD_UI_LAYOUT_SINGLE;layout<MD_UI_LAYOUT_COUNT;++layout) {
+        md_ui_settings_defaults(&s); if(!md_ui_settings_set_layout(&s,layout)) return false;
+        for(unsigned orientation=0;orientation<2;++orientation) {
+            md_ui_rect_t rects[MD_UI_MAX_WIDGETS];
+            for(unsigned i=0;i<s.widget_count;++i) {
+                md_ui_rect_t r=rects[i]=md_ui_widget_rect(&s.widgets[i],orientation);
+                if(r.x<0 || r.y<39 || r.x+r.width>320 || r.y+r.height>207 || r.width<20 || r.height<20) return false;
+                for(unsigned j=0;j<i;++j) {
+                    md_ui_rect_t q=rects[j];
+                    if(r.x<q.x+q.width && q.x<r.x+r.width && r.y<q.y+q.height && q.y<r.y+r.height) return false;
+                }
+            }
+        }
+    }
+    s.rotation=4; return !md_ui_settings_validate(&s);
 }

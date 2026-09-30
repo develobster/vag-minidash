@@ -8,7 +8,8 @@
 #define SETTINGS_MAGIC_1 'D'
 #define SETTINGS_MAGIC_2 'U'
 #define SETTINGS_MAGIC_3 'I'
-#define SETTINGS_VERSION 3U
+#define SETTINGS_VERSION 4U
+#define SETTINGS_LANGUAGE_VERSION 3U
 #define SETTINGS_PREVIOUS_VERSION 2U
 #define SETTINGS_LEGACY_VERSION 1U
 #define SETTINGS_V1_V2_HEADER_SIZE 15U
@@ -452,7 +453,7 @@ bool md_ui_settings_validate(const md_ui_settings_t *settings)
         settings->units < 0 || settings->units >= MD_UI_UNITS_COUNT ||
         settings->temperature_unit < 0 || settings->temperature_unit >= MD_UI_TEMP_COUNT ||
         settings->language < 0 || settings->language >= MD_UI_LANGUAGE_COUNT ||
-        settings->brightness_pct > 100 || settings->last_screen >= MD_UI_SCREEN_FOCUS ||
+        settings->rotation > 3 || settings->brightness_pct > 100 || settings->last_screen >= MD_UI_SCREEN_FOCUS ||
         settings->widget_count > MD_UI_MAX_WIDGETS) return false;
 
     md_ui_layout_cell_t expected_cells[MD_UI_MAX_WIDGETS];
@@ -548,7 +549,7 @@ bool md_ui_settings_encode(const md_ui_settings_t *settings, uint8_t *output,
     output[12] = settings->last_screen;
     output[13] = settings->widget_count;
     output[14] = settings->warnings_enabled ? 1U : 0U;
-    output[15] = (uint8_t)settings->language;
+    output[15] = (uint8_t)settings->language | (settings->rotation << 2);
 
     size_t offset = SETTINGS_V3_HEADER_SIZE;
     for (unsigned i = 0; i < MD_UI_MAX_WIDGETS; ++i) {
@@ -598,11 +599,12 @@ bool md_ui_settings_decode(const uint8_t *input, size_t input_size,
         ? MD_UI_SETTINGS_V1_WIRE_SIZE
         : (version == SETTINGS_PREVIOUS_VERSION
             ? MD_UI_SETTINGS_V2_WIRE_SIZE
-            : (version == SETTINGS_VERSION ? MD_UI_SETTINGS_WIRE_SIZE : 0U));
+            : (version == SETTINGS_VERSION || version == SETTINGS_LANGUAGE_VERSION ? MD_UI_SETTINGS_WIRE_SIZE : 0U));
     if (input_size != expected_size ||
         (version == SETTINGS_LEGACY_VERSION && input[5] != 0U) ||
         (version != SETTINGS_LEGACY_VERSION && input[5] >= MD_UI_LAYOUT_COUNT) ||
-        (version == SETTINGS_VERSION && input[15] >= MD_UI_LANGUAGE_COUNT)) return false;
+        (version == SETTINGS_LANGUAGE_VERSION && input[15] >= MD_UI_LANGUAGE_COUNT) ||
+        (version == SETTINGS_VERSION && (input[15] > 15 || (input[15] & 3) >= MD_UI_LANGUAGE_COUNT))) return false;
     const uint32_t expected_crc = crc32(input, input_size - SETTINGS_CRC_SIZE);
     if (read_u32_le(input + input_size - SETTINGS_CRC_SIZE) != expected_crc) {
         return false;
@@ -622,10 +624,11 @@ bool md_ui_settings_decode(const uint8_t *input, size_t input_size,
     decoded.last_screen = input[12];
     decoded.widget_count = input[13];
     decoded.warnings_enabled = input[14] != 0;
-    decoded.language = version == SETTINGS_VERSION
-        ? (md_ui_language_t)input[15] : MD_UI_LANGUAGE_ENGLISH;
+    decoded.language = version >= SETTINGS_LANGUAGE_VERSION
+        ? (md_ui_language_t)(input[15] & 3) : MD_UI_LANGUAGE_ENGLISH;
+    decoded.rotation = version == SETTINGS_VERSION ? input[15] >> 2 : 0;
 
-    const size_t header_size = version == SETTINGS_VERSION
+    const size_t header_size = version >= SETTINGS_LANGUAGE_VERSION
         ? SETTINGS_V3_HEADER_SIZE : SETTINGS_V1_V2_HEADER_SIZE;
     size_t offset = header_size;
     const unsigned wire_widget_count = version == SETTINGS_LEGACY_VERSION
@@ -657,7 +660,7 @@ bool md_ui_settings_decode(const uint8_t *input, size_t input_size,
         threshold->critical_milli = (int32_t)read_u32_le(input + offset);
         offset += 4;
     }
-    if (version == SETTINGS_VERSION) {
+    if (version >= SETTINGS_LANGUAGE_VERSION) {
         memcpy(decoded.fixed_card_overrides, input + offset,
                sizeof(decoded.fixed_card_overrides));
         offset += sizeof(decoded.fixed_card_overrides);
@@ -888,6 +891,9 @@ static bool adjust_setting(md_ui_state_t *state, md_ui_settings_t *settings,
         if (!md_ui_settings_set_layout(settings, layouts[selected])) return false;
         break;
     }
+    case 23:
+        settings->rotation = (uint8_t)((settings->rotation + 4 + direction) % 4);
+        break;
     case 13:
         settings->language = settings->language == MD_UI_LANGUAGE_ENGLISH
             ? MD_UI_LANGUAGE_RUSSIAN : MD_UI_LANGUAGE_ENGLISH;
@@ -1053,6 +1059,7 @@ bool md_ui_state_dispatch(md_ui_state_t *state,
         previous_settings.temperature_unit != settings->temperature_unit ||
         previous_settings.language != settings->language ||
         previous_settings.brightness_pct != settings->brightness_pct ||
+        previous_settings.rotation != settings->rotation ||
         previous_settings.last_screen != settings->last_screen ||
         previous_settings.warnings_enabled != settings->warnings_enabled ||
         warning_config_changed ||

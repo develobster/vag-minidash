@@ -1,5 +1,15 @@
 # Embedded UI architecture
 
+Wi-Fi/theme update (2026-10-01): local settings remain editable with AP enabled;
+Wi-Fi shows an ON/OFF indicator. Eleven themes now include Volkswagen/Porsche,
+monospaced retro fonts and distinct frames/instrument artwork. See
+[implementation, tests and remaining checks](wifi-and-instrument-themes-2026-10-01.md).
+
+Rotation update (2026-09-30): Settings supports 0/90/180/270 degrees, with
+portrait card/grid reflow and transformed calibrated touch. Configuration schema
+2 migrates old build-only orientation to relative 0 without changing common
+settings. See [implementation, migration and verification](rotation-and-portrait-2026-09-30.md).
+
 Theme/startup update (2026-09-30): nine presets including Terminal, Matrix,
 Fallout, Amber CRT, Cyberpunk and Arctic; boot-only CRT reveal with autonomous
 LEDC fade (~2 s) to saved brightness; new-settings default is now 70%.
@@ -97,11 +107,11 @@ hardware adapters yet.
 
 ## Settings and warnings
 
-The shared schema-1 configuration validates up to four pages of eight widgets,
+The shared schema-2 configuration validates up to four pages of eight widgets,
 logical geometry, bindings, types, ranges/precision, colors and warnings.
 Its bounded explicit little-endian CRC blob is committed to NVS before publication.
 Legacy v1/v2/v3 records are retained; touch calibration has an independent key.
-Local writes are deferred 1.5 seconds and are blocked during preview/editor sessions.
+Local writes are deferred 1.5 seconds and remain available during AP sessions. Local editing ends a temporary Web preview before changing the saved baseline.
 Revision checks prevent stale edits. Invalid records are retained without erase.
 See [configuration](configuration.md) for Preview/Save/Cancel and HTTP contracts.
 
@@ -115,15 +125,14 @@ The Custom dashboard supports eight value bindings on a 12 by 8 grid. Built-in
 layout presets include 1, 2, 4, 6 and 8 widgets plus 1-large/2-small,
 1-large/4-small and 2-large/4-small mixed arrangements. Layout geometry is
 stored independently from canonical signal names. Settings provides a six-page
-layout and per-slot signal selector. Numeric, bar, quality-status and graph widgets render in LVGL. Four Custom pages support validated free logical geometry and a local mobile Web editor. Gauge widgets are not implemented. The 8-widget layout has not
+layout and per-slot signal selector. Numeric, bar, quality-status and graph widgets render in LVGL. Four Custom pages support validated free logical geometry and a local mobile Web editor. Independent gauge widgets are not implemented; Volkswagen/Porsche add decorative instrument frames to numeric cards. The 8-widget layout has not
 yet passed a physical readability review.
 
 Warnings are disabled by default and apply only to fresh valid values. Thresholds
 are configurable through `md_display_app_set_warning()` for the four supported
 warning slots. Settings exposes the global warning switch and per-signal enable
-switches; numeric threshold values are editable through the Web editor and are not validated on a vehicle. Brightness is shown as FIXED and its control is locked on the
-current board because the backlight is wired directly to 3.3 V. No GPIO drives
-the LED load.
+switches; numeric threshold values are editable through the Web editor and are not validated on a vehicle. Brightness uses owner-confirmed GPIO4 LEDC PWM with a 10% minimum,
+sleep-off and boot fade. Calibration remains in its independent NVS key.
 
 ## Build and verification
 

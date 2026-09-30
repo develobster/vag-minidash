@@ -305,6 +305,39 @@ static bool web_selftest_run(void)
         CHECK("cancel_restores_pages",candidate->common.page_count==original->common.page_count);
     } else ++failed;
     free(json); json=NULL;
+    if (!md_display_configuration_read(candidate,&revision,NULL)) { ++failed; goto done; }
+    root=md_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); cJSON_Delete(root);
+    const uint8_t local_brightness=original->platform.brightness==70 ? 80 : 70;
+    CHECK("local_brightness_queue_with_wifi",md_display_app_set_brightness(local_brightness));
+    vTaskDelay(pdMS_TO_TICKS(350));
+    CHECK("local_brightness_applied_with_wifi",md_display_configuration_read(candidate,&revision,NULL) &&
+        candidate->platform.brightness==local_brightness && md_ui_web_active());
+    CHECK("local_edit_invalidates_web_revision",json && request("/api/preview",HTTP_METHOD_POST,json,s_token,&capture)==409);
+    free(json); json=NULL;
+    root=md_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); cJSON_Delete(root);
+    CHECK("cancel_keeps_local_edit",json && request("/api/cancel",HTTP_METHOD_POST,json,s_token,&capture)==200 &&
+        md_display_configuration_read(candidate,&revision,NULL) && candidate->platform.brightness==local_brightness);
+    free(json); json=NULL;
+    candidate->platform.brightness=50;
+    root=md_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); cJSON_Delete(root);
+    CHECK("http_preview_before_local_takeover",json && request("/api/preview",HTTP_METHOD_POST,json,s_token,&capture)==200);
+    free(json); json=NULL;
+    vTaskDelay(pdMS_TO_TICKS(250));
+    CHECK("local_takeover_queue",md_display_app_set_brightness(local_brightness));
+    vTaskDelay(pdMS_TO_TICKS(350));
+    CHECK("local_takeover_discards_preview",md_display_configuration_read(candidate,&revision,NULL) &&
+        candidate->platform.brightness==local_brightness && candidate->common.page_count==original->common.page_count);
+    CHECK("local_settings_actions_with_wifi",
+        md_display_app_dispatch(MD_UI_INPUT_CONSOLE,MD_UI_ACTION_OPEN_SETTINGS) &&
+        md_display_app_dispatch(MD_UI_INPUT_CONSOLE,MD_UI_ACTION_NEXT_ITEM) &&
+        md_display_app_dispatch(MD_UI_INPUT_CONSOLE,MD_UI_ACTION_INCREMENT));
+    bool local_theme_applied=false;
+    for(unsigned i=0;i<40 && !local_theme_applied;i++) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+        local_theme_applied=md_display_configuration_read(candidate,&revision,NULL) &&
+            candidate->common.theme==(original->common.theme+1)%MD_UI_THEME_COUNT;
+    }
+    CHECK("local_theme_applied_with_wifi",local_theme_applied && md_ui_web_active());
     /* Always save the captured original, never the last preview if cancel
        or a config read failed. Tests must not persist synthetic pages. */
     if (!md_display_configuration_read(candidate,&revision,NULL)) { ++failed; goto done; }

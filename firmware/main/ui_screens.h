@@ -54,3 +54,7 @@ void md_ui_screens_update(md_ui_screen_t screen,
 bool md_ui_screens_startup_begin(void);
 void md_ui_screens_startup_frame(uint32_t elapsed_ms);
 void md_ui_screens_startup_end(void);
+
+bool md_ui_screens_resize(uint16_t width, uint16_t height, const md_ui_settings_t *settings, const md_ui_palette_t *palette, md_ui_screen_t screen);
+
+bool md_ui_screens_selftest(void);

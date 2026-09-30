@@ -1,5 +1,15 @@
 # Developer entry and repeatable acceptance
 
+Wi-Fi/theme update (2026-10-01): local settings remain editable with AP enabled;
+Wi-Fi shows an ON/OFF indicator. Eleven themes now include Volkswagen/Porsche,
+monospaced retro fonts and distinct frames/instrument artwork. See
+[implementation, tests and remaining checks](ui/wifi-and-instrument-themes-2026-10-01.md).
+
+Rotation update (2026-09-30): Settings supports 0/90/180/270 degrees, with
+portrait card/grid reflow and transformed calibrated touch. Configuration schema
+2 migrates old build-only orientation to relative 0 without changing common
+settings. See [implementation, migration and verification](ui/rotation-and-portrait-2026-09-30.md).
+
 Theme/startup update (2026-09-30): nine presets including Terminal, Matrix,
 Fallout, Amber CRT, Cyberpunk and Arctic; boot-only CRT reveal with autonomous
 LEDC fade (~2 s) to saved brightness; new-settings default is now 70%.

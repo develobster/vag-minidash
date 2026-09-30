@@ -87,3 +87,18 @@ md_touch_hit_t md_touch_hit_zone(int16_t x, int16_t y,
     if (x >= width - edge) return MD_TOUCH_HIT_NEXT;
     return MD_TOUCH_HIT_CONTENT;
 }
+
+void md_touch_rotate_point(float *x, float *y, unsigned width, unsigned height, unsigned rotation, bool inverse)
+{
+    if (!x || !y || !width || !height || rotation > 3) return;
+    if (inverse && (rotation & 1)) { unsigned t=width; width=height; height=t; }
+    if (inverse) rotation=(4-rotation)%4;
+    /* Inverse of esp_lvgl_port display rotation: raw physical -> logical UI. */
+    const float a=*x, b=*y;
+    switch(rotation) {
+    case 1: *x=height-1-b; *y=a; break;
+    case 2: *x=width-1-a; *y=height-1-b; break;
+    case 3: *x=b; *y=width-1-a; break;
+    default: break;
+    }
+}

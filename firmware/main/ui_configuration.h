@@ -1,7 +1,7 @@
 #pragma once
 #include "ui_model.h"
 
-#define MD_CONFIG_SCHEMA_VERSION 1U
+#define MD_CONFIG_SCHEMA_VERSION 2U
 #define MD_CONFIG_MAX_PAGES 4U
 #define MD_CONFIG_TEXT_SIZE 32U
 #define MD_CONFIG_WIRE_MAX 2304U

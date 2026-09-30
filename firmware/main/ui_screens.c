@@ -93,6 +93,7 @@ typedef struct {
     char title_text[48];
     char value_text[32];
     bool selected;
+    bool selection_valid;
 } setting_row_view_t;
 
 typedef struct {
@@ -107,12 +108,14 @@ static screen_view_t s_screens[MD_UI_SCREEN_COUNT];
 static setting_row_view_t s_setting_rows[MD_UI_SETTINGS_ROWS];
 static widget_picker_option_view_t s_widget_picker_options[MD_SIGNAL_COUNT];
 static md_ui_palette_t s_palette;
+static md_ui_theme_style_t s_theme_style;
 static uint16_t s_width = 320;
 static uint16_t s_height = 240;
 static bool s_created;
 static lv_obj_t *s_calibration_target;
 static lv_obj_t *s_calibration_instruction;
 static lv_obj_t *s_settings_action;
+static lv_obj_t *s_wifi_switch;
 static lv_obj_t *s_settings_action_label;
 static lv_obj_t *s_settings_page;
 static lv_obj_t *s_settings_page_label;
@@ -130,6 +133,17 @@ static lv_obj_t *s_focus_stats;
 static char s_focus_stats_text[96];
 static lv_obj_t *s_config_credentials;
 
+extern const lv_font_t md_ui_font_mono_10;
+extern const lv_font_t md_ui_font_mono_12;
+extern const lv_font_t md_ui_font_mono_14;
+extern const lv_font_t md_ui_font_mono_16;
+extern const lv_font_t md_ui_font_mono_20;
+extern const lv_font_t md_ui_font_mono_28;
+extern const lv_font_t md_ui_font_mono_48;
+extern const lv_font_t md_ui_font_cluster_16;
+extern const lv_font_t md_ui_font_cluster_20;
+extern const lv_font_t md_ui_font_cluster_28;
+extern const lv_font_t md_ui_font_cluster_48;
 extern const lv_font_t md_ui_font_ru_10;
 extern const lv_font_t md_ui_font_ru_12;
 extern const lv_font_t md_ui_font_ru_14;
@@ -150,6 +164,15 @@ static lv_coord_t ypx(int value)
 
 static const lv_font_t *ui_font_for_language(const lv_font_t *font)
 {
+    if(s_theme_style.font_family==1) {
+        if(font==&lv_font_montserrat_10) return &md_ui_font_mono_10;
+        if(font==&lv_font_montserrat_12) return &md_ui_font_mono_12;
+        if(font==&lv_font_montserrat_14) return &md_ui_font_mono_14;
+        if(font==&lv_font_montserrat_16) return &md_ui_font_mono_16;
+        if(font==&lv_font_montserrat_20) return &md_ui_font_mono_20;
+        if(font==&lv_font_montserrat_28) return &md_ui_font_mono_28;
+        if(font==&lv_font_montserrat_48) return &md_ui_font_mono_48;
+    }
     if (s_language != MD_UI_LANGUAGE_RUSSIAN) return font;
     if (font == &lv_font_montserrat_10) return &md_ui_font_ru_10;
     if (font == &lv_font_montserrat_12) return &md_ui_font_ru_12;
@@ -163,6 +186,17 @@ static void set_ui_font(lv_obj_t *object, const lv_font_t *font,
 {
     if (object && font)
         lv_obj_set_style_text_font(object, ui_font_for_language(font), selector);
+}
+
+static const lv_font_t *metric_font(const lv_font_t *font)
+{
+    if(s_theme_style.font_family==2) {
+        if(font==&lv_font_montserrat_16) return &md_ui_font_cluster_16;
+        if(font==&lv_font_montserrat_20) return &md_ui_font_cluster_20;
+        if(font==&lv_font_montserrat_28) return &md_ui_font_cluster_28;
+        if(font==&lv_font_montserrat_48) return &md_ui_font_cluster_48;
+    }
+    return font;
 }
 
 static void apply_view_fonts(screen_view_t *view)
@@ -179,7 +213,7 @@ static void apply_view_fonts(screen_view_t *view)
         } else {
             set_ui_font(field->title, field->title_font, 0);
             set_ui_font(field->status, &lv_font_montserrat_10, 0);
-            set_ui_font(field->value, field->value_font, 0);
+            set_ui_font(field->value, (field->widget_type==MD_UI_WIDGET_STATUS ? field->value_font : metric_font(field->value_font)), 0);
             set_ui_font(field->unit, &lv_font_montserrat_12, 0);
         }
     }
@@ -192,8 +226,8 @@ static void apply_language_fonts(void)
     for (unsigned i = 0; i < MD_UI_SCREEN_COUNT; ++i)
         apply_view_fonts(&s_screens[i]);
     for (unsigned i = 0; i < MD_UI_SETTINGS_ROWS; ++i) {
-        set_ui_font(s_setting_rows[i].title, &lv_font_montserrat_14, 0);
-        set_ui_font(s_setting_rows[i].value, &lv_font_montserrat_14, 0);
+        set_ui_font(s_setting_rows[i].title, s_height > s_width ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
+        set_ui_font(s_setting_rows[i].value, s_height > s_width ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
     }
     set_ui_font(s_settings_action_label, &lv_font_montserrat_14, 0);
     set_ui_font(s_settings_previous_label, &lv_font_montserrat_14, 0);
@@ -212,7 +246,6 @@ static lv_color_t color(uint32_t rgb)
 }
 
 
-static md_ui_theme_style_t s_theme_style;
 static lv_obj_t *s_startup_masks[4];
 static lv_obj_t *s_startup_glow;
 
@@ -224,6 +257,71 @@ static void themed_frame(lv_obj_t *object)
     lv_obj_set_style_shadow_width(object, xpx(s_theme_style.glow_width), 0);
     lv_obj_set_style_shadow_color(object, color(s_palette.accent), 0);
     lv_obj_set_style_shadow_opa(object, s_theme_style.glow_opacity, 0);
+}
+/* Draw before children: labels stay legible above the instrument artwork. */
+static void metric_frame_draw(lv_event_t *event)
+{
+    field_view_t *field=lv_event_get_user_data(event);
+    lv_obj_t *obj=lv_event_get_target(event);
+    lv_layer_t *layer=lv_event_get_layer(event);
+    lv_area_t a; lv_obj_get_coords(obj,&a);
+    const int w=lv_area_get_width(&a), h=lv_area_get_height(&a);
+    lv_draw_line_dsc_t line; lv_draw_line_dsc_init(&line);
+    line.color=color(s_palette.accent); line.width=1; line.opa=100;
+    if(s_theme_style.frame_kind) {
+        const int inset=s_theme_style.frame_kind==3 ? 5 : 3;
+        line.p1.x=a.x1+inset; line.p1.y=a.y1+inset;
+        line.p2.x=a.x1+inset; line.p2.y=a.y2-inset;
+        if(s_theme_style.frame_kind==2) { line.width=3; line.opa=180; }
+        lv_draw_line(layer,&line);
+        if(s_theme_style.frame_kind!=2) {
+            line.p1=line.p2; line.p2.x=a.x2-inset; lv_draw_line(layer,&line);
+            if(s_theme_style.frame_kind==3) {
+                line.p1=line.p2; line.p2.y=a.y1+inset; lv_draw_line(layer,&line);
+            }
+            if(s_theme_style.frame_kind==4) {
+                line.p1.x=a.x2-14; line.p1.y=a.y1+3;
+                line.p2.x=a.x2-3; line.p2.y=a.y1+14; lv_draw_line(layer,&line);
+            }
+        }
+    }
+    if(!s_theme_style.gauge_style || !field || field->visual || h<65 || w<90) return;
+    const int radius=(w<h-22 ? w : h-22)/2-5;
+    if(radius<16) return;
+    lv_draw_arc_dsc_t arc; lv_draw_arc_dsc_init(&arc);
+    arc.center.x=(a.x1+a.x2)/2; arc.center.y=a.y1+22+radius;
+    arc.radius=radius; arc.start_angle=135; arc.end_angle=405;
+    arc.width=s_theme_style.gauge_style==2 ? 3 : 2;
+    arc.color=color(s_palette.border); arc.opa=100;
+    lv_draw_arc(layer,&arc);
+    for(int i=0;i<=10;i++) {
+        const float angle=(135+i*27)*0.01745329252f;
+        line.color=color(i==10 ? s_palette.critical : s_palette.text);
+        line.width=i%5==0 ? 2 : 1; line.opa=120;
+        line.p1.x=arc.center.x+(int)(cosf(angle)*(radius-5));
+        line.p1.y=arc.center.y+(int)(sinf(angle)*(radius-5));
+        line.p2.x=arc.center.x+(int)(cosf(angle)*radius);
+        line.p2.y=arc.center.y+(int)(sinf(angle)*radius);
+        lv_draw_line(layer,&line);
+    }
+}
+
+static void settings_row_reset(setting_row_view_t *row)
+{
+    lv_obj_set_style_bg_color(row->row,color(s_palette.surface),0);
+    lv_obj_set_style_border_color(row->row,color(s_palette.border),0);
+    lv_obj_set_style_border_width(row->row,0,0);
+    lv_obj_set_style_shadow_opa(row->row,LV_OPA_TRANSP,0);
+    row->selected=false; row->selection_valid=false;
+}
+static void settings_row_select(setting_row_view_t *row, bool selected)
+{
+    if(row->selection_valid && row->selected==selected) return;
+    row->selected=selected; row->selection_valid=true;
+    lv_obj_set_style_bg_color(row->row,color(selected?s_palette.surface_alt:s_palette.surface),0);
+    lv_obj_set_style_border_color(row->row,color(selected?s_palette.accent:s_palette.border),0);
+    lv_obj_set_style_border_width(row->row,selected?1:0,0);
+    lv_obj_set_style_shadow_opa(row->row,selected?s_theme_style.glow_opacity:LV_OPA_TRANSP,0);
 }
 static void phosphor_scanlines(lv_event_t *event)
 {
@@ -244,7 +342,9 @@ static void set_static_text(lv_obj_t *label, char *buffer, size_t capacity,
                             const char *text)
 {
     if (!label || !buffer || capacity == 0 || !text) return;
-    if (strncmp(buffer, text, capacity) == 0) return;
+    /* Text content alone is insufficient after an object is recreated: its
+       label may still contain LVGL's default "Text" instead of this buffer. */
+    if (strncmp(buffer, text, capacity) == 0 && lv_label_get_text(label) == buffer) return;
     (void)snprintf(buffer, capacity, "%s", text);
     lv_obj_invalidate(label);
     lv_label_set_text_static(label, buffer);
@@ -356,8 +456,8 @@ static field_view_t *create_field(screen_view_t *view, int x, int y,
     }
     field->default_signal_id = field->signal_id;
     field->primary = primary;
-    const bool narrow_card = width < 110;
-    const bool compact_card = height < 70;
+    const bool narrow_card = xpx(width) < 110;
+    const bool compact_card = ypx(height) < 70;
     field->inline_unit = width < 170 || compact_card || narrow_card;
     field->compact_title = width < 190;
     field->title_font = narrow_card || compact_card || width < 180
@@ -382,6 +482,7 @@ static field_view_t *create_field(screen_view_t *view, int x, int y,
     lv_obj_set_style_border_color(field->card, color(s_palette.border), 0);
     lv_obj_set_style_border_width(field->card, 1, 0);
     themed_frame(field->card);
+    lv_obj_add_event_cb(field->card,metric_frame_draw,LV_EVENT_DRAW_MAIN,field);
     /* Child positions below already include their own margins. */
     lv_obj_set_style_pad_all(field->card, 0, 0);
 
@@ -409,9 +510,10 @@ static field_view_t *create_field(screen_view_t *view, int x, int y,
         lv_obj_set_size(field->status, xpx(width - 12), ypx(13));
         set_ui_font(field->status, &lv_font_montserrat_10, 0);
         lv_obj_set_style_text_align(field->status, LV_TEXT_ALIGN_LEFT, 0);
-        lv_obj_set_pos(field->value, xpx(6), ypx(36));
-        lv_obj_set_size(field->value, xpx(width - 12), ypx(height - 39));
-        set_ui_font(field->value, field->value_font, 0);
+        const int value_top = height < 60 ? 30 : 36;
+        lv_obj_set_pos(field->value, xpx(6), ypx(value_top));
+        lv_obj_set_size(field->value, xpx(width - 12), ypx(height - value_top - 2));
+        set_ui_font(field->value, (field->widget_type==MD_UI_WIDGET_STATUS ? field->value_font : metric_font(field->value_font)), 0);
         lv_obj_add_flag(field->unit, LV_OBJ_FLAG_HIDDEN);
     } else if (compact_card) {
         lv_obj_set_pos(field->title, xpx(6), ypx(3));
@@ -423,7 +525,7 @@ static field_view_t *create_field(screen_view_t *view, int x, int y,
         lv_obj_set_style_text_align(field->status, LV_TEXT_ALIGN_RIGHT, 0);
         lv_obj_set_pos(field->value, xpx(6), ypx(17));
         lv_obj_set_size(field->value, xpx(width - 12), ypx(height - 19));
-        set_ui_font(field->value, field->value_font, 0);
+        set_ui_font(field->value, (field->widget_type==MD_UI_WIDGET_STATUS ? field->value_font : metric_font(field->value_font)), 0);
         lv_obj_add_flag(field->unit, LV_OBJ_FLAG_HIDDEN);
     } else {
         lv_obj_set_pos(field->title, xpx(7), ypx(5));
@@ -437,7 +539,7 @@ static field_view_t *create_field(screen_view_t *view, int x, int y,
         const int unit_y = height - 18;
         lv_obj_set_pos(field->value, xpx(7), ypx(value_y));
         lv_obj_set_size(field->value, xpx(width - 14), ypx(unit_y - value_y - 2));
-        set_ui_font(field->value, field->value_font, 0);
+        set_ui_font(field->value, (field->widget_type==MD_UI_WIDGET_STATUS ? field->value_font : metric_font(field->value_font)), 0);
         lv_obj_set_pos(field->unit, xpx(7), ypx(unit_y));
         lv_obj_set_size(field->unit, xpx(width - 14), ypx(14));
         set_ui_font(field->unit, &lv_font_montserrat_12, 0);
@@ -499,6 +601,10 @@ static field_view_t *create_fixed_field(screen_view_t *view,
                                         const char *canonical_signal,
                                         bool primary)
 {
+    if (s_height > s_width) {
+        md_ui_rect_t rect={x,y,width,height}; md_ui_fixed_portrait_rect(group,slot,&rect);
+        x=rect.x; y=rect.y; width=rect.width; height=rect.height;
+    }
     field_view_t *field = create_field(view, x, y, width, height, label,
                                        canonical_signal, primary);
     if (field) {
@@ -549,10 +655,8 @@ static void create_dashboard(screen_view_t *view, md_ui_dashboard_t dashboard,
     } else {
         for (unsigned i = 0; i < settings->widget_count; ++i) {
             const md_ui_widget_binding_t *widget = &settings->widgets[i];
-            const int x = widget->column * 320 / MD_UI_GRID_COLUMNS;
-            const int y = 39 + widget->row * 168 / MD_UI_GRID_ROWS;
-            const int w = widget->columns * 320 / MD_UI_GRID_COLUMNS - 3;
-            const int h = widget->rows * 168 / MD_UI_GRID_ROWS - 3;
+            const md_ui_rect_t rect=md_ui_widget_rect(widget,s_height>s_width);
+            const int x=rect.x-2, y=rect.y, w=rect.width, h=rect.height;
             const int id = md_ui_signal_id_from_name(widget->canonical_signal);
             const char *label = id >= 0
                 ? md_ui_signal_definitions[id].label : widget->canonical_signal;
@@ -560,7 +664,7 @@ static void create_dashboard(screen_view_t *view, md_ui_dashboard_t dashboard,
                 widget->canonical_signal, widget->columns >= 6 && widget->rows >= 5);
             if (field) {
                 field->widget_type = widget->type;
-                if (widget->type==MD_UI_WIDGET_STATUS) { field->value_font=&lv_font_montserrat_16; set_ui_font(field->value,field->value_font,0); }
+                if (widget->type==MD_UI_WIDGET_STATUS) { field->value_font=&lv_font_montserrat_16; set_ui_font(field->value,(field->widget_type==MD_UI_WIDGET_STATUS ? field->value_font : metric_font(field->value_font)),0); }
                 if (widget->type == MD_UI_WIDGET_BAR) {
                     field->visual = lv_bar_create(field->card);
                     lv_bar_set_range(field->visual, 0, 1000);
@@ -658,7 +762,7 @@ static void create_settings_screen(void)
         "Coolant warning", "Engine oil warn", "Trans oil warn", "Low voltage warn",
         "Dashboard layout", "Language", "Widget 1 signal", "Widget 2 signal",
         "Widget 3 signal", "Widget 4 signal", "Widget 5 signal", "Widget 6 signal",
-        "Widget 7 signal", "Widget 8 signal", "Wi-Fi configuration"};
+        "Widget 7 signal", "Widget 8 signal", "Wi-Fi configuration", "Screen rotation"};
     screen_view_t *view = &s_screens[MD_UI_SCREEN_SETTINGS];
     style_root(view, "SETTINGS", "TAP ROW TO SELECT");
     for (unsigned i = 0; i < MD_UI_SETTINGS_ROWS; ++i) {
@@ -686,7 +790,16 @@ static void create_settings_screen(void)
         lv_obj_set_size(row->value, xpx(135), ypx(20));
         set_ui_font(row->value, &lv_font_montserrat_14, 0);
         lv_obj_set_style_text_align(row->value, LV_TEXT_ALIGN_RIGHT, 0);
+        if (s_height > s_width) {
+            lv_obj_set_pos(row->title,xpx(8),ypx(2)); lv_obj_set_size(row->title,xpx(284),ypx(14));
+            lv_obj_set_pos(row->value,xpx(8),ypx(18)); lv_obj_set_size(row->value,xpx(284),ypx(15));
+            set_ui_font(row->title,&lv_font_montserrat_12,0); set_ui_font(row->value,&lv_font_montserrat_12,0);
+        }
     }
+    s_wifi_switch=lv_switch_create(s_setting_rows[22].row);
+    lv_obj_set_pos(s_wifi_switch,xpx(250),ypx(7)); lv_obj_set_size(s_wifi_switch,xpx(42),ypx(24));
+    lv_obj_clear_flag(s_wifi_switch,LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_width(s_setting_rows[22].value,xpx(s_height>s_width?230:80));
     s_settings_action = lv_obj_create(view->root);
     if (!s_settings_action) return;
     lv_obj_remove_style_all(s_settings_action);
@@ -891,6 +1004,30 @@ bool md_ui_screens_create(uint16_t width, uint16_t height,
     }
     s_created = true;
     md_ui_screens_retheme(palette, settings->theme);
+    return true;
+}
+
+bool md_ui_screens_resize(uint16_t width, uint16_t height,
+                          const md_ui_settings_t *settings, const md_ui_palette_t *palette,
+                          md_ui_screen_t screen)
+{
+    lv_obj_t *temporary = lv_obj_create(NULL);
+    if (!temporary) return false;
+    lv_screen_load(temporary);
+    for (unsigned i=0; i<MD_UI_DASHBOARD_COUNT; ++i)
+        if (s_dashboards[i].root) lv_obj_delete(s_dashboards[i].root);
+    for (unsigned i=0; i<MD_UI_SCREEN_COUNT; ++i)
+        if (s_screens[i].root) lv_obj_delete(s_screens[i].root);
+#if CONFIG_MINIDASH_TOUCH_DEBUG_OVERLAY
+    lv_obj_clean(lv_layer_top()); s_debug_label=NULL;
+#endif
+    s_created=false;
+    s_calibration_target=s_calibration_instruction=s_focus_stats=s_config_credentials=NULL;
+    s_settings_action=s_settings_action_label=s_settings_page=s_settings_page_label=NULL;
+    s_settings_previous=s_settings_previous_label=NULL;
+    if (!md_ui_screens_create(width,height,settings,palette)) return false;
+    md_ui_screens_show(screen,settings);
+    lv_obj_delete(temporary);
     return true;
 }
 
@@ -1168,6 +1305,10 @@ void md_ui_screens_show(md_ui_screen_t screen,
 {
     if (!s_created) return;
     screen_view_t *view = view_for(screen, settings);
+    if (screen==MD_UI_SCREEN_SETTINGS) {
+        for(unsigned i=0;i<MD_UI_SETTINGS_ROWS;++i)
+            if(s_setting_rows[i].row) settings_row_reset(&s_setting_rows[i]);
+    }
     if (view && view->root) lv_screen_load(view->root);
 }
 
@@ -1204,6 +1345,7 @@ void md_ui_screens_retheme(const md_ui_palette_t *palette, md_ui_theme_id_t them
     if (!palette || !s_created) return;
     s_palette = *palette;
     s_theme_style = md_ui_theme_style(theme);
+    apply_language_fonts();
     for (unsigned i = 0; i < MD_UI_DASHBOARD_COUNT; ++i) retheme_view(&s_dashboards[i]);
     for (unsigned i = 1; i < MD_UI_SCREEN_COUNT; ++i) {
         if (i == MD_UI_SCREEN_CUSTOM) continue;
@@ -1216,7 +1358,7 @@ void md_ui_screens_retheme(const md_ui_palette_t *palette, md_ui_theme_id_t them
         lv_obj_set_style_bg_color(row->row, color(s_palette.surface), 0);
         lv_obj_set_style_text_color(row->title, color(s_palette.text), 0);
         lv_obj_set_style_text_color(row->value, color(s_palette.accent), 0);
-        row->selected = false;
+        settings_row_reset(row);
     }
     for (unsigned i = 0; i < MD_SIGNAL_COUNT; ++i) {
         widget_picker_option_view_t *option = &s_widget_picker_options[i];
@@ -1226,6 +1368,11 @@ void md_ui_screens_retheme(const md_ui_palette_t *palette, md_ui_theme_id_t them
         lv_obj_set_style_border_color(option->card, color(s_palette.border), 0);
         lv_obj_set_style_text_color(option->label, color(s_palette.text), 0);
         option->selected = false;
+    }
+    if(s_wifi_switch) {
+        lv_obj_set_style_bg_color(s_wifi_switch,color(s_palette.border),LV_PART_MAIN);
+        lv_obj_set_style_bg_color(s_wifi_switch,color(s_palette.accent),LV_PART_INDICATOR|LV_STATE_CHECKED);
+        lv_obj_set_style_bg_color(s_wifi_switch,color(s_palette.text),LV_PART_KNOB);
     }
     themed_frame(s_settings_action); themed_frame(s_settings_page); themed_frame(s_settings_previous);
     md_ui_screens_setting_action_pressed(false);
@@ -1361,7 +1508,7 @@ static void refresh_metric_binding(field_view_t *field,
         s_page_model.widgets[field->widget_slot].signal == signal && s_page_model.widgets[field->widget_slot].label[0])
         label = s_page_model.widgets[field->widget_slot].label;
     if (field->card_group==MD_UI_CARD_GROUP_CUSTOM)
-        lv_obj_set_style_text_font(field->title,field->title_font==&lv_font_montserrat_10 ? &md_ui_font_ru_10 : &md_ui_font_ru_12,0);
+        lv_obj_set_style_text_font(field->title,s_theme_style.font_family==1 ? ui_font_for_language(field->title_font) : (field->title_font==&lv_font_montserrat_10 ? &md_ui_font_ru_10 : &md_ui_font_ru_12),0);
     set_static_text(field->title, field->title_text,
                     sizeof(field->title_text), label);
 }
@@ -1439,7 +1586,7 @@ static void update_diagnostic_field(field_view_t *field,
 }
 
 static void settings_value(uint8_t index, const md_ui_settings_t *settings,
-                           bool brightness_control, char *output, size_t capacity)
+                           bool brightness_control, bool wifi_active, char *output, size_t capacity)
 {
     static const char *const dashboard[] = {"OEM", "SPORT", "MINIMAL", "CUSTOM"};
     static const char *const day_night[] = {"AUTO", "DAY", "NIGHT"};
@@ -1479,7 +1626,8 @@ static void settings_value(uint8_t index, const md_ui_settings_t *settings,
         value = layout[settings->layout];
         break;
     }
-    case 22: value = "START"; break;
+    case 23: snprintf(output, capacity, "%u°", settings->rotation * 90U); return;
+    case 22: value = wifi_active ? "ON" : "OFF"; break;
     case 13:
         value = settings->language == MD_UI_LANGUAGE_RUSSIAN
             ? "RUSSIAN" : "ENGLISH";
@@ -1594,10 +1742,14 @@ void md_ui_screens_update(md_ui_screen_t screen,
     }
     if ((screen == MD_UI_SCREEN_CUSTOM || (screen == MD_UI_SCREEN_DASHBOARD && settings->dashboard == MD_UI_DASHBOARD_CUSTOM)) && s_page_model.title[0])
     {
-        lv_obj_set_style_text_font(view->title,&md_ui_font_ru_16,0);
+        lv_obj_set_style_text_font(view->title,s_theme_style.font_family==1 ? &md_ui_font_mono_16 : &md_ui_font_ru_16,0);
         set_static_text(view->title, view->title_text, sizeof(view->title_text), s_page_model.title);
     }
     if (screen == MD_UI_SCREEN_SETTINGS) {
+        if(s_wifi_switch) {
+            if(diagnostics && diagnostics->wifi_active) lv_obj_add_state(s_wifi_switch,LV_STATE_CHECKED);
+            else lv_obj_remove_state(s_wifi_switch,LV_STATE_CHECKED);
+        }
         if (s_settings_action_label) {
             const char *action_label = state->selected_setting == 7 ? "START" : "CHANGE";
             if (state->selected_setting == 5 &&
@@ -1636,21 +1788,11 @@ void md_ui_screens_update(md_ui_screen_t screen,
                 lv_obj_add_flag(row->row, LV_OBJ_FLAG_HIDDEN);
             char value[32];
             settings_value((uint8_t)i, settings,
-                           diagnostics && diagnostics->brightness_control,
+                           diagnostics && diagnostics->brightness_control, diagnostics && diagnostics->wifi_active,
                            value, sizeof(value));
             set_static_text(row->value, row->value_text, sizeof(row->value_text), value);
             const bool selected = i == state->selected_setting;
-            if (row->selected != selected) {
-                row->selected = selected;
-                if (selected) {
-                    lv_obj_set_style_bg_color(row->row, color(s_palette.surface_alt), 0);
-                    lv_obj_set_style_border_color(row->row, color(s_palette.accent), 0);
-                    lv_obj_set_style_border_width(row->row, 1, 0);
-                } else {
-                    lv_obj_set_style_bg_color(row->row, color(s_palette.surface), 0);
-                    lv_obj_set_style_border_width(row->row, 0, 0);
-                }
-            }
+            settings_row_select(row,selected);
         }
     }
 }
@@ -1737,4 +1879,46 @@ void md_ui_screens_startup_frame(uint32_t elapsed)
                             (elapsed<800 ? (800-elapsed)*255/500 : 0),0);
     lv_obj_set_style_border_opa(s_startup_glow,f.glow_opacity,0);
     lv_obj_set_style_shadow_opa(s_startup_glow,f.glow_opacity,0);
+}
+
+/* Isolated actual-LVGL regression test; never loads or changes the owner's scene. */
+bool md_ui_screens_selftest(void)
+{
+    lv_obj_t *root=lv_obj_create(NULL); if(!root) return false;
+    bool ok=true; char cached[24]="PREV";
+    const lv_font_t *mono[]={&md_ui_font_mono_10,&md_ui_font_mono_12,&md_ui_font_mono_14,&md_ui_font_mono_16};
+    const uint32_t glyphs[]={0x410,0x42f,0x430,0x44f,0x401,0x451,'0','9',0xb0};
+    for(unsigned i=0;i<4;i++) for(unsigned j=0;j<sizeof(glyphs)/sizeof(glyphs[0]);j++) {
+        lv_font_glyph_dsc_t glyph;
+        ok=ok && lv_font_get_glyph_dsc(mono[i],&glyph,glyphs[j],0);
+    }
+    const lv_font_t *cluster[]={&md_ui_font_cluster_16,&md_ui_font_cluster_20,&md_ui_font_cluster_28,&md_ui_font_cluster_48};
+    for(unsigned i=0;i<4;i++) for(unsigned ch='0';ch<='9';ch++) {
+        lv_font_glyph_dsc_t glyph; ok=ok && lv_font_get_glyph_dsc(cluster[i],&glyph,ch,0);
+    }
+    for(unsigned i=0;i<2;++i) {
+        lv_obj_t *label=lv_label_create(root);
+        set_static_text(label,cached,sizeof(cached),"PREV");
+        ok=ok && strcmp(lv_label_get_text(label),"PREV")==0 && lv_label_get_text(label)==cached;
+        lv_obj_delete(label); /* Next new object reuses the unchanged cached string. */
+    }
+    setting_row_view_t rows[4]={0};
+    for(unsigned i=0;i<4;++i) { rows[i].row=lv_obj_create(root); lv_obj_remove_style_all(rows[i].row); }
+    for(unsigned cycle=0;cycle<8;++cycle) {
+        const unsigned current=cycle%4;
+        for(unsigned i=0;i<4;++i) settings_row_select(&rows[i],i==current);
+        if(cycle%2) { /* Theme reset must erase old borders and invalidate cache. */
+            for(unsigned i=0;i<4;++i) { themed_frame(rows[i].row); settings_row_reset(&rows[i]); }
+            for(unsigned i=0;i<4;++i) settings_row_select(&rows[i],i==current);
+        }
+        unsigned count=0;
+        for(unsigned i=0;i<4;++i) {
+            const bool highlighted=lv_obj_get_style_border_width(rows[i].row,LV_PART_MAIN)>0;
+            if(highlighted) ++count;
+            ok=ok && highlighted==(i==current);
+            if(i!=current) ok=ok && lv_obj_get_style_shadow_opa(rows[i].row,LV_PART_MAIN)==LV_OPA_TRANSP;
+        }
+        ok=ok && count==1;
+    }
+    lv_obj_delete(root); return ok;
 }

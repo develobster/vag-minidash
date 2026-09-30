@@ -28,3 +28,5 @@ bool md_display_app_restore_legacy(void);
 
 /* Bench console route uses the same UI settings and NVS path. */
 bool md_display_app_set_brightness(uint8_t percent);
+
+bool md_display_app_view_selftest(void);

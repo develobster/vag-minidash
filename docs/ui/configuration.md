@@ -1,5 +1,15 @@
 # Device configuration and local editor
 
+Wi-Fi/theme update (2026-10-01): local settings remain editable with AP enabled;
+Wi-Fi shows an ON/OFF indicator. Eleven themes now include Volkswagen/Porsche,
+monospaced retro fonts and distinct frames/instrument artwork. See
+[implementation, tests and remaining checks](wifi-and-instrument-themes-2026-10-01.md).
+
+Rotation update (2026-09-30): Settings supports 0/90/180/270 degrees, with
+portrait card/grid reflow and transformed calibrated touch. Configuration schema
+2 migrates old build-only orientation to relative 0 without changing common
+settings. See [implementation, migration and verification](rotation-and-portrait-2026-09-30.md).
+
 Theme/startup update (2026-09-30): nine presets including Terminal, Matrix,
 Fallout, Amber CRT, Cyberpunk and Arctic; boot-only CRT reveal with autonomous
 LEDC fade (~2 s) to saved brightness; new-settings default is now 70%.
@@ -28,7 +38,7 @@ and the existing `display_app.c` / `ui_screens.c` adapters.
    graph widgets, canonical ranges, precision and labels, colors or warnings.
    Page titles/labels support the embedded Latin/Cyrillic glyph subset.
 4. Preview applies a validated candidate to RAM and shows Custom on the display. Save/Cancel restores the previously active screen. Save commits first, then
-   publishes it. Cancel restores the last saved configuration. AP shutdown or
+   publishes it. Cancel restores the preview baseline; without an active preview it preserves local edits. AP shutdown or
    its absolute ten-minute timeout cancels any unsaved preview.
 5. Revisit Wi-Fi configuration and CHANGE to stop the AP. Ordinary BACK returns
    to the UI without stopping the session. Wi-Fi is off at normal startup.
@@ -44,11 +54,11 @@ Export is versioned JSON and contains no calibration or Wi-Fi credentials.
 - `GET /api/config`, `/api/defaults`, `/api/device`, `/api/signals`,
   `/api/layouts`, `/api/themes`; `/api/session` returns a volatile session token.
 - `POST /api/preview`, `POST /api/cancel`, `PUT /api/config` accept the complete
-  schema-1 configuration with its current `revision`.
+  schema-2 configuration with its current `revision`.
 - Mutations require `X-MiniDash-Session`, JSON content type and same AP Origin
   when Origin is present. No CORS access is granted. Request bodies are bounded
   to 16 KiB, nesting to eight levels, and duplicate/unknown keys are rejected.
-- 400: invalid settings, capability mismatch or unsupported rotation change;
+- 400: invalid settings, capability mismatch or rotation outside 0–3;
   403: missing session, invalid origin or driving lockout;
   409: stale revision; 500: allocation/storage/availability failure.
 - No DTC clear, coding, adaptation, arbitrary UDS, ECU identity modification,
@@ -56,16 +66,17 @@ Export is versioned JSON and contains no calibration or Wi-Fi credentials.
 
 The HTTP task runs below UI/touch priority. Two AP clients, three HTTP sockets,
 bounded buffers and receive/send timeouts limit work. There is one editor
-revision: local setting writes and card rebinding are blocked during an AP
-session, while display navigation remains available. Preview cannot be saved
+revision: local setting writes and card rebinding remain available during an AP
+session. Local editing discards a temporary Web preview and invalidates stale
+Web drafts (HTTP 409; reload the editor). Preview cannot be saved
 by the asynchronous local-settings writer. Before opening AP, pending local
 changes are checkpointed. On commit failure the current configuration and
 revision remain unchanged.
 
 ## Storage / migration
 
-Legacy settings v1/v2/v3 remain readable through the existing migration adapter.
-The canonical schema-1 `MDC1` blob is little-endian, length-bounded and CRC32
+Legacy settings v1/v2/v3/v4 remain readable through the existing migration adapter.
+The canonical schema-2 `MDC1` blob is little-endian, length-bounded and CRC32
 protected; it is stored as `minidash_ui/configuration`. Legacy `settings` and
 the separate touch-calibration key are retained. Invalid/unknown canonical
 records are not erased; runtime uses a legacy/default fallback. A failed write
@@ -86,18 +97,11 @@ changes reset the window. Focus displays current value, quality, min/max and
 the short graph. Ranges are presentation bounds in canonical units; warnings
 continue to use their separate configured thresholds.
 
-`md_brightness_t` prepares bounded 10–100% manual PWM with 1% steps every 20 ms,
-and zero for screen-off. It uses the existing display backend LEDC PWM only if
-the board profile enables dimming. Current BL is directly powered from 3.3 V:
-FIXED, no brightness slider or invented GPIO. AUTO cannot be enabled without
-both dimming hardware and a verified ambient source. Day/night AUTO remains
-night fallback without a confirmed vehicle lighting signal.
-
-For later hardware dimming, first establish whether BL is an enable input or
-LED power. For LED power use a correctly rated logic-level MOSFET/transistor
-and the module's proper current limiting, with common ground, gate resistor
-and pulldown; do not connect the power load to GPIO. No such wiring is claimed
-verified by the current software.
+GPIO4 controls the owner-confirmed backlight using 5 kHz, 12-bit LEDC PWM,
+gamma 2.0 and a readable 10% minimum. Manual changes apply immediately; sleep
+uses zero. Boot fades to the saved setting over approximately two seconds while
+the CRT reveal expands. AUTO remains unavailable without a verified ambient source.
+Day/night AUTO uses night fallback without a confirmed lighting signal.
 
 The device remains a read-only telemetry UI. Acquisition, embedded recording,
 DTC read/clear and coding/adaptation are not implemented by this editor.
@@ -112,15 +116,6 @@ retained legacy settings into the current schema, replacing newer UI pages.
 It requires AP off and no driving context; it never changes calibration.
 Normal migration and Reset UI do not invoke this recovery command.
 
-AUTO brightness currently has capability gates only: no ambient provider or
-adaptive algorithm is connected. Actual BL remains FIXED. For a verified LED
-power input, a possible external high-side arrangement is P-MOS source to the
-rated 3.3 V supply, drain to BL, gate pulled up to source with 10 kOhm; an NPN
-collector pulls the gate down through 100 Ohm, emitter to common ground, base
-via 1 kOhm from a subsequently approved GPIO and base pulldown 100 kOhm. GPIO
-high enables the load; GPIO never supplies LED current. Select a P-MOS with
-Rds(on) specified at Vgs -2.5 V, current rating above measured load/inrush,
-appropriate supply protection and the module's verified LED current limiting.
-Confirm BL topology, voltage/current, gate switching, thermal behavior and PWM
-flicker on a bench before enabling the existing 5 kHz/10-bit LEDC backend.
-No component part number, new GPIO or hardware approval is assumed here.
+AUTO brightness has no verified ambient provider or adaptive algorithm.
+The current owner-confirmed GPIO4 control and electrical acceptance are recorded
+in [the backlight report](../hardware/backlight-pwm-2026-09-30.md).

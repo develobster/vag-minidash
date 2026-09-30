@@ -6,6 +6,10 @@ md_ui_palette_t md_ui_theme_palette(md_ui_theme_id_t theme, bool day_mode)
 {
     /* Original palettes; retro presets keep a dark phosphor background in DAY. */
     switch(theme) {
+    case MD_UI_THEME_VOLKSWAGEN:
+        return (md_ui_palette_t){.background=0x030609,.surface=0x0a1018,.surface_alt=0x172432,.border=0x8195aa,.text=0xf4f7ff,.muted=0x9eaec0,.accent=0x419cff,.normal=0xf4f7ff,.warning=0xffbc40,.critical=0xff394d,.unavailable=0x566879};
+    case MD_UI_THEME_PORSCHE:
+        return (md_ui_palette_t){.background=0x080706,.surface=0x171411,.surface_alt=0x28231c,.border=0x9c8d72,.text=0xfff2d5,.muted=0xb6aa93,.accent=0xeac577,.normal=0xfff2d5,.warning=0xffbd4a,.critical=0xff4238,.unavailable=0x736b5e};
     case MD_UI_THEME_TERMINAL:
         return (md_ui_palette_t){.background=0x020b04,.surface=0x061509,.surface_alt=0x0a2310,.border=0x248844,.text=0xaaffbb,.muted=0x65ac77,.accent=0x45ff78,.normal=0x8bffac,.warning=0xffd76a,.critical=0xff6767,.unavailable=0x476d50};
     case MD_UI_THEME_MATRIX:
@@ -176,19 +180,21 @@ const char *md_ui_signal_state_label(md_ui_signal_state_t state)
 const char *md_ui_theme_name(md_ui_theme_id_t theme)
 {
     static const char *const names[MD_UI_THEME_COUNT] = {
-        "OEM", "Sport", "Minimal", "Terminal", "Matrix", "Fallout", "Amber CRT", "Cyberpunk", "Arctic"
+        "OEM", "Sport", "Minimal", "Terminal", "Matrix", "Fallout", "Amber CRT", "Cyberpunk", "Arctic", "Volkswagen", "Porsche"
     };
     return theme >= 0 && theme < MD_UI_THEME_COUNT ? names[theme] : names[0];
 }
 md_ui_theme_style_t md_ui_theme_style(md_ui_theme_id_t theme)
 {
     switch(theme) {
-    case MD_UI_THEME_TERMINAL: return (md_ui_theme_style_t){0,1,0,0,0,1};
-    case MD_UI_THEME_MATRIX: return (md_ui_theme_style_t){0,1,4,35,24,1};
-    case MD_UI_THEME_FALLOUT: return (md_ui_theme_style_t){2,2,2,24,14,1};
-    case MD_UI_THEME_AMBER: return (md_ui_theme_style_t){2,1,4,35,20,1};
-    case MD_UI_THEME_CYBERPUNK: return (md_ui_theme_style_t){0,2,5,48,0,0};
-    case MD_UI_THEME_ARCTIC: return (md_ui_theme_style_t){10,1,0,0,0,0};
-    default: return (md_ui_theme_style_t){6,1,0,0,0,0};
+    case MD_UI_THEME_TERMINAL: return (md_ui_theme_style_t){0,1,0,0,0,1,1,1,0};
+    case MD_UI_THEME_MATRIX: return (md_ui_theme_style_t){0,1,4,35,24,1,1,2,0};
+    case MD_UI_THEME_FALLOUT: return (md_ui_theme_style_t){12,2,2,24,14,1,1,3,0};
+    case MD_UI_THEME_AMBER: return (md_ui_theme_style_t){18,2,4,35,20,1,1,3,0};
+    case MD_UI_THEME_CYBERPUNK: return (md_ui_theme_style_t){0,2,5,48,0,0,1,4,0};
+    case MD_UI_THEME_ARCTIC: return (md_ui_theme_style_t){18,1,0,0,0,0,0,0,0};
+    case MD_UI_THEME_VOLKSWAGEN: return (md_ui_theme_style_t){8,2,0,0,0,0,2,0,1};
+    case MD_UI_THEME_PORSCHE: return (md_ui_theme_style_t){22,2,0,0,0,0,2,0,2};
+    default: return (md_ui_theme_style_t){6,1,0,0,0,0,0,0,0};
     }
 }

@@ -1,5 +1,15 @@
 # Current feature and evidence matrix
 
+Wi-Fi/theme update (2026-10-01): local settings remain editable with AP enabled;
+Wi-Fi shows an ON/OFF indicator. Eleven themes now include Volkswagen/Porsche,
+monospaced retro fonts and distinct frames/instrument artwork. See
+[implementation, tests and remaining checks](ui/wifi-and-instrument-themes-2026-10-01.md).
+
+Rotation update (2026-09-30): Settings supports 0/90/180/270 degrees, with
+portrait card/grid reflow and transformed calibrated touch. Configuration schema
+2 migrates old build-only orientation to relative 0 without changing common
+settings. See [implementation, migration and verification](ui/rotation-and-portrait-2026-09-30.md).
+
 Theme/startup update (2026-09-30): nine presets including Terminal, Matrix,
 Fallout, Amber CRT, Cyberpunk and Arctic; boot-only CRT reveal with autonomous
 LEDC fade (~2 s) to saved brightness; new-settings default is now 70%.
@@ -32,7 +42,7 @@ Registry confidence metadata alone does not grant a validation label.
 
 | Component | Status / evidence | Code and tests | Limits |
 |---|---|---|---|
-| Display | IMPLEMENTED; HARDWARE TESTED for ST7789 backend | `firmware/main/st7789_backend.c`, `display_manager.c`, `ui_screens.c`; UI delivery record | 320x240 rotation 2; LCD marking unconfirmed; ILI9341 backend exists but is not the validated current panel |
+| Display | IMPLEMENTED; HARDWARE TESTED for ST7789 backend | `firmware/main/st7789_backend.c`, `display_manager.c`, `ui_screens.c`; UI delivery record | 320x240 baseline with 0/90/180/270 user rotation; LCD marking unconfirmed; ILI9341 backend exists but is not the validated current panel |
 | XPT2046 touch | IMPLEMENTED; HARDWARE TESTED | `xpt2046_touch.c`, `ui_touch_map.c`, `ui_touch_nvs.c`; `core/tests.c`, device UI record | Five-point affine/NVS; calibration independent of UI config; physical edge/readability checks remain |
 | Multiple screens | IMPLEMENTED; OFFLINE/HARDWARE TESTED | `ui_core.c`, `ui_screens.c`; native/device self-tests | Telemetry source absent on MCU |
 | Layouts / four Custom pages | IMPLEMENTED; OFFLINE TESTED; prior device contracts | `ui_configuration.c`, `ui_model.c`, `ui_screens.c`; `core/tests.c`, `core/test_json.c` | 1/2/4/6/8 and mixed layouts; dense readability not physically accepted |
@@ -43,8 +53,8 @@ Registry confidence metadata alone does not grant a validation label.
 | BLE / phone app | PARTIAL bring-up; NOT IMPLEMENTED product app | `firmware/main/main.c` bring-up | ESP32-S3 BLE, no Classic SPP or product configuration protocol |
 | Wi-Fi | IMPLEMENTED; prior HARDWARE TESTED AP contracts | `ui_web.c`, `main.c`; prior four AP cycles | Explicit temporary AP; no always-on remote service |
 | Web UI | IMPLEMENTED; OFFLINE TESTED; prior HARDWARE TESTED HTTP | `ui_web.c`, `webui.html`; native JSON/Node tests | Random WPA2/session token/revision/bounds; driving gate lacks live speed provider; local HTTP plaintext |
-| Device settings | IMPLEMENTED; OFFLINE/HARDWARE TESTED persistence | `ui_configuration*.c`, `ui_settings_nvs.c`; JSON/native/device tests | Schema 1 CRC, legacy migration, separate touch key; no arbitrary new rotations |
-| Backlight/manual PWM | PARTIAL; OFFLINE TESTED controller | `ui_platform.c`, `display_manager.c` | Current BL is 3.3 V power, FIXED; hardware PWM/AUTO blocked; no confirmed vehicle illumination signal |
+| Device settings | IMPLEMENTED; OFFLINE/HARDWARE TESTED persistence | `ui_configuration*.c`, `ui_settings_nvs.c`; JSON/native/device tests | Schema 2 CRC, legacy migration, separate touch key; four display orientations |
+| Backlight/manual PWM | IMPLEMENTED; OWNER HARDWARE TESTED | `backlight_controller.c`, `display_manager.c`; backlight delivery report | GPIO4 LEDC 5 kHz/12 bit, 10–100%, sleep-off, saved boot fade; AUTO has no ambient source |
 | Passive CAN acquisition | IMPLEMENTED host; OFFLINE TESTED; PARTIAL standalone | `passive.py`, `dbc.py`, `pipeline.py`, `can_capture.py`; CAN/registry/MQB/pipeline tests | MCU CAN disabled; real connection-point visibility and hardware listen-only unverified |
 | UDS polling | IMPLEMENTED host; OFFLINE TESTED | `uds.py`, `runtime.py`, `pipeline.py`; runtime/live/pipeline tests | No physical MiniDash VNCI acceptance; extended session opt-in; missing bus feedback/adaptive UI priority |
 | Transport / J2534 / VNCI | PARTIAL; OFFLINE TESTED ABI/lifecycle | `transports.py`, `j2534.py`; `test_live.py`, `test_transport.py` | Driver inventory/evidenced routes exist; MiniDash physical VCI route not proven |

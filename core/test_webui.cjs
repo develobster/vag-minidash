@@ -28,13 +28,26 @@ const selectOf=id=>elements[id].children.flatMap(x=>x.children).find(x=>x.tagNam
 const change=(select,value)=>{select.value=String(value);select.onchange()};
 (async()=>{
     await tick();assert.equal(elements.message.textContent,'Соединение с устройством установлено');
-    assert.equal(selectOf('themes').children.length,9);
+    const rotation=()=>elements.general.children.find(x=>x.textContent==='Поворот экрана').children[0];
+    assert.equal(rotation().children.length,4);
+    for(const r of [1,2,3,0]) {
+        change(rotation(),r);
+        assert.equal(elements.preview.style.gridTemplateColumns,'repeat('+(r%2?8:12)+',1fr)');
+        assert.equal(elements.preview.style.gridTemplateRows,'repeat('+(r%2?12:8)+',20px)');
+    }
+    change(rotation(),3); await elements.try.click(); assert.equal(current.platform.rotation,3);
+    await elements.cancel.click(); assert.equal(current.platform.rotation,0);
+    change(rotation(),1); await elements.save.click(); assert.equal(saved.platform.rotation,1);
+    change(rotation(),0); await elements.save.click();
+    assert.equal(selectOf('themes').children.length,11);
     assert.equal(selectOf('themes').children[4].textContent,'Matrix');
     change(selectOf('themes'),4);
     assert.equal(elements.preview.children[0].style.borderRadius,'0px');
     assert.match(elements.preview.children[0].style.backgroundImage,/repeating-linear-gradient/);
     change(selectOf('themes'),8);
-    assert.equal(elements.preview.children[0].style.borderRadius,'10px');
+    assert.equal(elements.preview.children[0].style.borderRadius,'18px');
+    assert.equal(selectOf('themes').children[9].textContent,'Volkswagen');
+    assert.equal(selectOf('themes').children[10].textContent,'Porsche');
     change(selectOf('themes'),0);
     assert.equal(elements.widgets.children.length,4);assert.equal(elements.delete.disabled,true);
     elements.add.click();elements.add.click();elements.add.click();assert.equal(elements.add.disabled,true);

@@ -1,5 +1,6 @@
 #pragma once
 
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -27,3 +28,5 @@ bool md_touch_map_apply(const md_touch_map_t *map, uint16_t raw_x, uint16_t raw_
                         int16_t *screen_x, int16_t *screen_y);
 md_touch_hit_t md_touch_hit_zone(int16_t x, int16_t y,
                                   uint16_t width, uint16_t height);
+
+void md_touch_rotate_point(float *x, float *y, unsigned width, unsigned height, unsigned rotation, bool inverse);

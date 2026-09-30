@@ -71,6 +71,7 @@ bool md_configuration_from_legacy(md_device_configuration_t *c, const md_ui_sett
         c->platform.present = MD_CAP_COLOR;
         c->platform.brightness = md_target_has(target, MD_CAP_DIMMING) && s->brightness_pct < 10
             ? 10 : s->brightness_pct;
+        c->platform.rotation = s->rotation;
         c->platform.brightness_mode = md_target_has(target, MD_CAP_DIMMING)
             ? MD_BRIGHTNESS_MANUAL : MD_BRIGHTNESS_FIXED;
         if (md_target_has(target, MD_CAP_DIMMING)) c->platform.present |= MD_CAP_DIMMING;
@@ -90,6 +91,7 @@ static bool settings_for_page(const md_device_configuration_t *c, uint8_t page_i
     memcpy(s->warnings, common->warnings, sizeof(s->warnings));
     memcpy(s->fixed_card_overrides, common->fixed_card_overrides, sizeof(s->fixed_card_overrides));
     s->brightness_pct = c->platform.present ? c->platform.brightness : 100;
+    s->rotation = c->platform.present ? c->platform.rotation : 0;
     const md_ui_dashboard_page_t *page = &common->pages[page_index];
     s->layout = page->layout; s->widget_count = page->widget_count;
     if (page->widget_count > MD_UI_MAX_WIDGETS) return false;
@@ -113,7 +115,7 @@ bool md_configuration_update_legacy(md_device_configuration_t *c, const md_ui_se
     if (c->common.theme!=s->theme || c->common.day_night!=s->day_night) c->common.custom_theme=false;
     copy_common_from_settings(&c->common, s);
     page_from_settings(&c->common.pages[c->common.active_page], s);
-    if (c->platform.present) c->platform.brightness = s->brightness_pct;
+    if (c->platform.present) { c->platform.brightness = s->brightness_pct; c->platform.rotation = s->rotation; }
     return true;
 }
 bool md_configuration_set_layout(md_ui_dashboard_page_t *page, md_ui_layout_t layout)
@@ -221,7 +223,9 @@ bool md_configuration_decode(const uint8_t *wire, size_t length, md_device_confi
     reader_t tail = {wire + length - 4, 4, 0, true};
     if (get32(&tail) != checksum(wire, length - 4)) return false;
     reader_t r = {wire, length - 4, 0, true};
-    if (get32(&r) != 0x3143444dU || get8(&r) != MD_CONFIG_SCHEMA_VERSION) return false;
+    if (get32(&r) != 0x3143444dU) return false;
+    const uint8_t version = get8(&r);
+    if (version != 1 && version != MD_CONFIG_SCHEMA_VERSION) return false;
     md_device_configuration_t result = {0}; result.schema_version = MD_CONFIG_SCHEMA_VERSION;
     md_common_configuration_t *s = &result.common;
     s->dashboard = get8(&r); s->theme = get8(&r); s->day_night = get8(&r); s->units = get8(&r);
@@ -253,6 +257,8 @@ bool md_configuration_decode(const uint8_t *wire, size_t length, md_device_confi
     }
     result.platform.present = get32(&r);
     if (result.platform.present) { result.platform.brightness = get8(&r); result.platform.brightness_mode = get8(&r); result.platform.rotation = get8(&r); }
+    if (result.platform.rotation > 3) return false;
+    if (version == 1) result.platform.rotation = 0; /* Old rotation was build-only. */
     if (!r.ok || r.offset != r.size || !md_configuration_validate(&result, NULL)) return false;
     *config = result; return true;
 }

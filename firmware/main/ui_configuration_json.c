@@ -99,8 +99,9 @@ bool md_configuration_parse_json(const cJSON *root, md_device_configuration_t *c
 {
     if (!c || !revision || !shape(root, "|schema||revision||common||platform|")) return false;
     md_device_configuration_t candidate = {0}; unsigned n;
-    if (!integer(root, "schema", MD_CONFIG_SCHEMA_VERSION, &n) || n != MD_CONFIG_SCHEMA_VERSION) return false;
-    candidate.schema_version = n;
+    if (!integer(root, "schema", MD_CONFIG_SCHEMA_VERSION, &n) || (n != 1 && n != MD_CONFIG_SCHEMA_VERSION)) return false;
+    const bool legacy_rotation = n == 1;
+    candidate.schema_version = MD_CONFIG_SCHEMA_VERSION;
     if (!integer(root, "revision", UINT32_MAX, &n)) return false;
     const uint32_t rev = n;
     md_common_configuration_t *s = &candidate.common;
@@ -162,6 +163,8 @@ bool md_configuration_parse_json(const cJSON *root, md_device_configuration_t *c
         candidate.platform.present = n;
         BYTE(platform,"brightness",candidate.platform.brightness);
         BYTE(platform,"brightness_mode",candidate.platform.brightness_mode); BYTE(platform,"rotation",candidate.platform.rotation);
+        if (candidate.platform.rotation > 3) return false;
+        if (legacy_rotation) candidate.platform.rotation = 0;
     }
 #undef BYTE
     if (!md_configuration_validate(&candidate,NULL)) return false;
@@ -203,6 +206,16 @@ bool md_ui_test_configuration_json(void)
 void md_ui_theme_json_metadata(cJSON *preset, md_ui_theme_id_t theme)
 {
     if(!preset) return;
+    /* Presets carry palette/style, not eleven copies of user pages/settings. */
+    cJSON *common=cJSON_GetObjectItemCaseSensitive(preset,"common");
+    cJSON *palette=common ? cJSON_DetachItemFromObjectCaseSensitive(common,"palette") : NULL;
+    cJSON_DeleteItemFromObjectCaseSensitive(preset,"common");
+    common=cJSON_AddObjectToObject(preset,"common");
+    if(palette && common) cJSON_AddItemToObject(common,"palette",palette);
+    else cJSON_Delete(palette);
+    cJSON_DeleteItemFromObjectCaseSensitive(preset,"platform");
+    cJSON_DeleteItemFromObjectCaseSensitive(preset,"schema");
+    cJSON_DeleteItemFromObjectCaseSensitive(preset,"revision");
     cJSON_AddStringToObject(preset,"name",md_ui_theme_name(theme));
     cJSON *style=cJSON_AddObjectToObject(preset,"style");
     if(!style) return;
@@ -210,4 +223,6 @@ void md_ui_theme_json_metadata(cJSON *preset, md_ui_theme_id_t theme)
     number(style,"radius",traits.radius); number(style,"border_width",traits.border_width);
     number(style,"glow_width",traits.glow_width); number(style,"glow_opacity",traits.glow_opacity);
     number(style,"scanline_opacity",traits.scanline_opacity);
+    number(style,"font_family",traits.font_family); number(style,"frame_kind",traits.frame_kind);
+    number(style,"gauge_style",traits.gauge_style);
 }

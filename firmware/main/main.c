@@ -458,6 +458,7 @@ void app_main(void)
             md_ui_web_selftest();
         } else if (strcmp(line, "ui-test") == 0) {
             (void)md_ui_core_selftest_run();
+            printf("MINIDASH_UI_VIEW_TEST cached_text_and_single_selection=%s\n",md_display_app_view_selftest()?"PASS":"FAIL");
             print_ready();
         } else if (strcmp(line, "reboot") == 0) {
             printf("MINIDASH_REBOOT_REQUESTED\n");
