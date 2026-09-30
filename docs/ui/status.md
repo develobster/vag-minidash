@@ -1,5 +1,12 @@
 # MiniDash embedded UI status
 
+Current backlight update (2026-09-30): GPIO4 is owner-confirmed and enabled for
+LEDC PWM (5 kHz, 12 bit, gamma 2.0), using the existing Brightness setting and
+NVS. Manual Settings control, 10% readable minimum, reboot persistence and cold
+USB boot have passed physical bench acceptance. Prior FIXED/3V3 descriptions
+below record the preceding wiring. See [backlight implementation and acceptance](../hardware/backlight-pwm-2026-09-30.md).
+
+
 UI delivery record updated 2026-09-30. Original work branch: `feature/ui-ux-touch-zones`, based on
 `feature/production-ui` at `00c6317c08b055ae0f56791ed250225c14b4301e`.
 

@@ -65,7 +65,7 @@ menu "MiniDash display and UI"
         range -1 48
         default -1
     config MINIDASH_LCD_PIN_BL
-        int "Backlight switch GPIO (-1 = unavailable)"
+        int "Backlight LEDC PWM GPIO (-1 = unavailable)"
         range -1 48
         default -1
     config MINIDASH_LCD_BL_ACTIVE_HIGH

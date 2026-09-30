@@ -1,5 +1,12 @@
 # ESP32-S3 display prototype (Rev.A software)
 
+Current backlight update (2026-09-30): GPIO4 is owner-confirmed and enabled for
+LEDC PWM (5 kHz, 12 bit, gamma 2.0), using the existing Brightness setting and
+NVS. Manual Settings control, 10% readable minimum, reboot persistence and cold
+USB boot have passed physical bench acceptance. Prior FIXED/3V3 descriptions
+below record the preceding wiring. See [backlight implementation and acceptance](backlight-pwm-2026-09-30.md).
+
+
 ## Scope and boundary
 
 The existing Python host runtime owns transport, ISO-TP, UDS, discovery, identity,

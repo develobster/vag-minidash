@@ -240,12 +240,13 @@ static bool test_navigation_and_console_mapping(void)
         state.screen != MD_UI_SCREEN_SETTINGS) return false;
     if (!md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_NEXT_ITEM) ||
         state.selected_setting != 1U) return false;
+    settings.brightness_pct = 100; /* Exercise wrap independently of boot default. */
     if (!md_ui_state_select_setting(&state, 5) ||
         state.selected_setting != 5U || settings.brightness_pct != 100U ||
         md_ui_state_select_setting(&state, MD_UI_SETTINGS_ROWS) ||
         md_ui_state_select_setting(&state, 5) ||
         !md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_SELECT) ||
-        settings.brightness_pct != 0U) return false;
+        settings.brightness_pct != 10U) return false;
     if (!md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_BACK) ||
         state.screen != MD_UI_SCREEN_CUSTOM) return false;
     if (md_ui_state_select_setting(&state, 0)) return false;

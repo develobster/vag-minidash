@@ -213,7 +213,7 @@ void md_ui_settings_defaults(md_ui_settings_t *settings)
     settings->units = MD_UI_UNITS_METRIC;
     settings->temperature_unit = MD_UI_TEMP_CELSIUS;
     settings->language = MD_UI_LANGUAGE_ENGLISH;
-    settings->brightness_pct = 100;
+    settings->brightness_pct = 80;
     settings->last_screen = MD_UI_SCREEN_DASHBOARD;
     settings->widget_count = 4;
     settings->warnings_enabled = false;
@@ -856,7 +856,7 @@ static bool adjust_setting(md_ui_state_t *state, md_ui_settings_t *settings,
         break;
     case 5: {
         const int next = (int)settings->brightness_pct + direction * 10;
-        settings->brightness_pct = (uint8_t)(next < 0 ? 100 : (next > 100 ? 0 : next));
+        settings->brightness_pct = (uint8_t)(next < 10 ? 100 : (next > 100 ? 10 : next));
         break;
     }
     case 6:

@@ -69,7 +69,8 @@ bool md_configuration_from_legacy(md_device_configuration_t *c, const md_ui_sett
     c->common.palette = md_ui_theme_palette(s->theme, s->day_night == MD_UI_DAY_NIGHT_DAY);
     if (md_target_has(target, MD_CAP_COLOR)) {
         c->platform.present = MD_CAP_COLOR;
-        c->platform.brightness = s->brightness_pct;
+        c->platform.brightness = md_target_has(target, MD_CAP_DIMMING) && s->brightness_pct < 10
+            ? 10 : s->brightness_pct;
         c->platform.brightness_mode = md_target_has(target, MD_CAP_DIMMING)
             ? MD_BRIGHTNESS_MANUAL : MD_BRIGHTNESS_FIXED;
         if (md_target_has(target, MD_CAP_DIMMING)) c->platform.present |= MD_CAP_DIMMING;
@@ -139,6 +140,8 @@ bool md_configuration_validate(const md_device_configuration_t *c, const md_targ
         c->common.page_count > MD_CONFIG_MAX_PAGES || c->common.active_page >= c->common.page_count ||
         (c->platform.present & ~(MD_CAP_COLOR | MD_CAP_DIMMING)) || c->platform.rotation > 3 ||
         c->platform.brightness > 100 || c->platform.brightness_mode > MD_BRIGHTNESS_AUTO) return false;
+    if (target && md_target_has(target, MD_CAP_DIMMING) && c->platform.present &&
+        c->platform.brightness < 10) return false;
     if (target && ((c->platform.present & target->hardware) != c->platform.present ||
         (c->platform.brightness_mode != MD_BRIGHTNESS_FIXED && !md_target_has(target, MD_CAP_DIMMING)) ||
         (c->platform.brightness_mode == MD_BRIGHTNESS_AUTO && !md_target_has(target, MD_CAP_AMBIENT_SOURCE)))) return false;

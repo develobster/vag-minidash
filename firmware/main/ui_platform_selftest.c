@@ -1,3 +1,4 @@
+#include "backlight_controller.h"
 #include "ui_platform_selftest.h"
 #include "ui_configuration.h"
 #include <math.h>
@@ -108,12 +109,40 @@ bool md_ui_test_buttons(void)
 }
 bool md_ui_test_brightness(void)
 {
+    if (md_backlight_duty(0) != 0 || md_backlight_duty(100) != 4095 ||
+        md_backlight_duty(50) != 1024 || md_backlight_duty(25) != 256 ||
+        md_backlight_duty(10) != 41 || md_backlight_duty(75) != 2303) return false;
+    for (unsigned p=1; p<=100; ++p)
+        if (md_backlight_duty(p) <= md_backlight_duty(p-1)) return false;
+    const uint8_t levels[] = {100,75,50,25,10,0};
+    for (unsigned i=0; i<sizeof(levels); ++i) {
+        md_ui_settings_t original, restored;
+        uint8_t record[MD_UI_SETTINGS_WIRE_SIZE];
+        size_t written;
+        md_ui_settings_defaults(&original);
+        if (original.brightness_pct != 80) return false;
+        original.brightness_pct = levels[i];
+        if (!md_ui_settings_encode(&original, record, sizeof(record), &written) ||
+            !md_ui_settings_decode(record, written, &restored) ||
+            restored.brightness_pct != levels[i]) return false;
+    }
     md_target_profile_t target={0}; md_brightness_t b; uint8_t value;
     md_brightness_init(&b,&target,80);
     if (b.mode!=MD_BRIGHTNESS_FIXED || md_brightness_set(&b,20) || md_brightness_mode(&b,MD_BRIGHTNESS_AUTO)) return false;
     target.hardware=MD_CAP_DIMMING; md_brightness_init(&b,&target,80);
+    md_ui_settings_t settings; md_ui_state_t state;
+    md_ui_settings_defaults(&settings);
+    md_ui_state_init(&state, &settings);
+    state.screen = MD_UI_SCREEN_SETTINGS; state.selected_setting = 5;
+    settings.brightness_pct = 10;
+    if (!md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_DECREMENT) ||
+        settings.brightness_pct != 100 ||
+        !md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_INCREMENT) ||
+        settings.brightness_pct != 10) return false;
+
     if (!md_brightness_set(&b,20) || md_brightness_mode(&b,MD_BRIGHTNESS_AUTO) ||
         !md_brightness_tick(&b,20,&value) || value!=79 || md_brightness_tick(&b,25,&value)) return false;
+    if (md_brightness_set(&b,1) || md_brightness_set(&b,0)) return false;
     b.screen_on=false;
     return md_brightness_tick(&b,40,&value) && value==78 && !md_brightness_set(&b,101);
 }

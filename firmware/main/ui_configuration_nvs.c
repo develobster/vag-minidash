@@ -44,9 +44,18 @@ bool md_configuration_storage_load(md_device_configuration_t *config,
         err = nvs_get_blob(handle, "configuration", wire, &length);
         md_device_configuration_t *decoded = malloc(sizeof(*decoded));
         if (decoded) {
-            ok = err == ESP_OK && md_configuration_decode(wire, length, decoded) &&
-                md_configuration_validate(decoded, target);
-            if (ok) *config = *decoded;
+            ok = err == ESP_OK && md_configuration_decode(wire, length, decoded);
+            if (ok && md_target_has(target, MD_CAP_DIMMING) && decoded->platform.brightness < 10)
+                decoded->platform.brightness = 10;
+            ok = ok && md_configuration_validate(decoded, target);
+            if (ok) {
+                *config = *decoded;
+                /* Upgrade fixed-wiring capability without losing saved percent. */
+                if (md_target_has(target, MD_CAP_DIMMING)) {
+                    config->platform.present |= MD_CAP_DIMMING;
+                    config->platform.brightness_mode = MD_BRIGHTNESS_MANUAL;
+                }
+            }
             free(decoded);
         }
     }

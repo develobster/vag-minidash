@@ -1,5 +1,12 @@
 # Developer entry and repeatable acceptance
 
+Current backlight update (2026-09-30): GPIO4 is owner-confirmed and enabled for
+LEDC PWM (5 kHz, 12 bit, gamma 2.0), using the existing Brightness setting and
+NVS. Manual Settings control, 10% readable minimum, reboot persistence and cold
+USB boot have passed physical bench acceptance. Prior FIXED/3V3 descriptions
+below record the preceding wiring. See [backlight implementation and acceptance](hardware/backlight-pwm-2026-09-30.md).
+
+
 Work in the existing repository/worktree. Read `AGENTS.md` and `git status`
 before editing. Use a feature branch; preserve other worktree changes. The
 integration base is `22a346b`, selected by ancestry and content, not timestamp.

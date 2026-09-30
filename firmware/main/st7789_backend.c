@@ -1,7 +1,7 @@
 #include "st7789_backend.h"
 #include <string.h>
 #include "driver/gpio.h"
-#include "driver/ledc.h"
+#include "backlight_controller.h"
 #include "driver/spi_master.h"
 #include "esp_heap_caps.h"
 #include "esp_lcd_panel_io.h"
@@ -20,8 +20,6 @@ typedef struct {
     SemaphoreHandle_t done;
     uint16_t *line_buffer;
     uint16_t width, height;
-    uint8_t brightness_pct;
-    bool powered;
 } st7789_context_t;
 static st7789_context_t context;
 
@@ -39,18 +37,7 @@ static bool transfer_done(esp_lcd_panel_io_handle_t io,
 static bool set_brightness(md_display_backend_t *backend, uint8_t brightness_pct)
 {
     (void)backend;
-    if (brightness_pct > 100) return false;
-    context.brightness_pct = brightness_pct;
-#if CONFIG_MINIDASH_LCD_PIN_BL >= 0
-    const uint32_t effective_pct = context.powered ? brightness_pct : 0U;
-    uint32_t duty = (effective_pct * 1023U + 50U) / 100U;
-    if (!CONFIG_MINIDASH_LCD_BL_ACTIVE_HIGH) duty = 1023U - duty;
-    if (ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty) != ESP_OK ||
-        ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0) != ESP_OK) return false;
-    return true;
-#else
-    return false;
-#endif
+    return md_backlight_set(brightness_pct);
 }
 
 static bool pins_confirmed(void)
@@ -73,6 +60,7 @@ static bool open_panel(md_display_backend_t *backend, const md_display_profile_t
     if (profile->driver != MD_DRIVER_ST7789 || profile->color_depth != 16 || !pins_confirmed()) return false;
     md_display_orientation_t orientation;
     if (!md_display_orientation_select(profile, &orientation)) return false;
+    if (!md_backlight_init()) return false;
     context.width = profile->width;
     context.height = profile->height;
 #if CONFIG_MINIDASH_DISPLAY_SMOKE_TEST
@@ -103,29 +91,6 @@ static bool open_panel(md_display_backend_t *backend, const md_display_profile_t
         .rgb_ele_order=LCD_RGB_ELEMENT_ORDER_RGB, .bits_per_pixel=16,
     };
     if (esp_lcd_new_panel_st7789(context.io,&panel_config,&context.panel)!=ESP_OK) return false;
-#if CONFIG_MINIDASH_LCD_PIN_BL >= 0
-    {
-        if (!GPIO_IS_VALID_OUTPUT_GPIO(CONFIG_MINIDASH_LCD_PIN_BL)) return false;
-        const ledc_timer_config_t timer = {
-            .speed_mode = LEDC_LOW_SPEED_MODE,
-            .duty_resolution = LEDC_TIMER_10_BIT,
-            .timer_num = LEDC_TIMER_0,
-            .freq_hz = 5000,
-            .clk_cfg = LEDC_AUTO_CLK,
-        };
-        if (ledc_timer_config(&timer) != ESP_OK) return false;
-        const ledc_channel_config_t channel = {
-            .gpio_num = CONFIG_MINIDASH_LCD_PIN_BL,
-            .speed_mode = LEDC_LOW_SPEED_MODE,
-            .channel = LEDC_CHANNEL_0,
-            .intr_type = LEDC_INTR_DISABLE,
-            .timer_sel = LEDC_TIMER_0,
-            .duty = CONFIG_MINIDASH_LCD_BL_ACTIVE_HIGH ? 0 : 1023,
-            .hpoint = 0,
-        };
-        if (ledc_channel_config(&channel) != ESP_OK) return false;
-    }
-#endif
 #if CONFIG_MINIDASH_DISPLAY_SMOKE_TEST
     const esp_lcd_panel_io_callbacks_t callbacks={.on_color_trans_done=transfer_done};
     if (esp_lcd_panel_io_register_event_callbacks(context.io,&callbacks,&context)!=ESP_OK) return false;
@@ -141,10 +106,6 @@ static bool open_panel(md_display_backend_t *backend, const md_display_profile_t
         esp_lcd_panel_mirror(context.panel, orientation.mirror_x,
                              orientation.mirror_y) != ESP_OK) return false;
     if (esp_lcd_panel_disp_on_off(context.panel,true)!=ESP_OK) return false;
-    context.powered = true;
-#if CONFIG_MINIDASH_LCD_PIN_BL >= 0
-    if (!set_brightness(NULL, context.brightness_pct ? context.brightness_pct : 100)) return false;
-#endif
     return true;
 }
 
@@ -172,10 +133,8 @@ static void power(md_display_backend_t *backend, bool on)
 {
     (void)backend;
     if (!context.panel) return;
-    context.powered = on;
     esp_lcd_panel_disp_on_off(context.panel,on);
-    if (on) (void)set_brightness(backend, context.brightness_pct);
-    else (void)set_brightness(backend, 0);
+    (void)md_backlight_power(on);
 }
 
 static esp_lcd_panel_handle_t panel_handle(md_display_backend_t *backend)

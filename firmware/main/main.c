@@ -1,3 +1,4 @@
+#include "backlight_controller.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <fcntl.h>
@@ -10,6 +11,7 @@
 #include "esp_bt.h"
 #include "esp_chip_info.h"
 #include "esp_err.h"
+#include "esp_log.h"
 #include "esp_flash.h"
 #include "esp_heap_caps.h"
 #include "esp_intr_alloc.h"
@@ -23,7 +25,7 @@
 #include "ui_web.h"
 #include "ui_core_selftest.h"
 
-/* No CAN setup and no GPIO pin is driven: the board pinout is not known yet. */
+/* CAN remains disabled; confirmed display/touch/backlight GPIO live in sdkconfig. */
 #define PSRAM_TEST_BYTES (6U * 1024U * 1024U)
 #define INTERNAL_TEST_BYTES 1024U
 
@@ -389,6 +391,10 @@ static void print_ready(void)
 
 void app_main(void)
 {
+    if (!md_backlight_init()) {
+        ESP_LOGE("md_backlight", "Early backlight initialization failed");
+        return;
+    }
     ++s_boot_count;
     const int input_flags = fcntl(STDIN_FILENO, F_GETFL, 0);
     s_console_input_blocking = input_flags >= 0 &&
@@ -435,6 +441,14 @@ void app_main(void)
             print_ready();
         } else if (strcmp(line, "config-legacy") == 0) {
             printf("MINIDASH_CONFIG_RECOVERY status=%s\n",md_display_app_restore_legacy()?"SAVED":"REJECTED");
+            fflush(stdout);
+        } else if (strcmp(line, "backlight-status") == 0) {
+            md_backlight_report();
+        } else if (strncmp(line, "brightness ", 11) == 0) {
+            unsigned percent; char extra;
+            const bool valid = sscanf(line + 11, "%u %c", &percent, &extra) == 1 && percent >= 10 && percent <= 100;
+            printf("MINIDASH_BRIGHTNESS_COMMAND status=%s\n",
+                   valid && md_display_app_set_brightness((uint8_t)percent) ? "QUEUED" : "REJECTED");
             fflush(stdout);
         } else if (strcmp(line, "config-export") == 0) {
             md_display_app_configuration_dump();

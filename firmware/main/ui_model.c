@@ -106,7 +106,7 @@ void md_brightness_init(md_brightness_t *b, const md_target_profile_t *target, u
 }
 bool md_brightness_set(md_brightness_t *b, uint8_t level)
 {
-    if (!b || !b->dimming || level > b->maximum || (level && level < b->minimum)) return false;
+    if (!b || !b->dimming || level > b->maximum || level < b->minimum) return false;
     b->target = level; return true;
 }
 bool md_brightness_mode(md_brightness_t *b, md_brightness_mode_t mode)

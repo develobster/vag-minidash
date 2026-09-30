@@ -35,7 +35,8 @@
 #define UI_TOUCH_SAMPLE_PERIOD_MS 25U
 
 typedef enum {
-    UI_EVENT_CONFIG_MODE,
+    UI_EVENT_SET_BRIGHTNESS = 7,
+    UI_EVENT_CONFIG_MODE = 0,
     UI_EVENT_ACTION = 1,
     UI_EVENT_TOUCH_GESTURE,
     UI_EVENT_SET_WARNING,
@@ -55,6 +56,7 @@ typedef struct {
     md_ui_context_t vehicle_context;
     bool context_verified;
     char canonical_signal[MD_UI_SIGNAL_NAME_LEN];
+    uint8_t brightness_pct;
     bool warning_enabled;
     md_ui_threshold_direction_t threshold_direction;
     int32_t warning_milli;
@@ -438,6 +440,14 @@ static void apply_event(const ui_event_t *event,
                         const md_display_profile_t *profile,
                         md_ui_palette_t *palette)
 {
+    if (event->type == UI_EVENT_SET_BRIGHTNESS) {
+        if (!md_target_has(&s_target, MD_CAP_DIMMING) || md_ui_web_active()) return;
+        settings->brightness_pct = event->brightness_pct;
+        enqueue_settings_save(settings);
+        ESP_LOGI(TAG, "Manual brightness=%u source=console", settings->brightness_pct);
+        return;
+    }
+
     if (event->type == UI_EVENT_CONFIG_MODE) {
         if (state->context == MD_UI_CONTEXT_DRIVING || state->sleeping) return;
         if (md_ui_web_active()) md_ui_web_stop();
@@ -803,7 +813,7 @@ static void ui_task(void *argument)
     md_device_configuration_t *visible_config=malloc(sizeof(*visible_config));
     if (!visible_config) { vTaskDelete(NULL); return; }
     *visible_config=s_configuration; uint32_t seen_revision=s_config_revision;
-    md_brightness_t brightness; md_brightness_init(&brightness,&s_target,settings.brightness_pct);
+    uint8_t applied_brightness = settings.brightness_pct;
     md_ui_state_t state;
     md_ui_state_init(&state, &settings);
     bool was_preview=false; md_ui_screen_t preview_return_screen=state.screen;
@@ -910,9 +920,11 @@ static void ui_task(void *argument)
             else if (lvgl_port_lock(20)) { md_ui_screens_config_credentials(md_ui_web_ssid(),md_ui_web_password()); md_ui_screens_show(state.screen,&settings); lvgl_port_unlock(); }
         }
         atomic_store(&s_visible_screen,state.screen);
-        md_brightness_set(&brightness,settings.brightness_pct); brightness.screen_on=!state.sleeping;
-        uint8_t pwm;
-        if (md_brightness_tick(&brightness,(uint32_t)(esp_timer_get_time()/1000),&pwm)) md_display_set_brightness(&display,pwm);
+        if (applied_brightness != settings.brightness_pct) {
+            if (md_display_set_brightness(&display, settings.brightness_pct))
+                applied_brightness = settings.brightness_pct;
+            else ESP_LOGE(TAG, "Backlight update failed");
+        }
         ui_event_t event;
         if (xQueueReceive(s_ui_event_queue, &event, pdMS_TO_TICKS(20)) == pdTRUE) {
             apply_event(&event, &state, &settings, &display, &profile, &palette);
@@ -1086,4 +1098,12 @@ bool md_display_app_restore_legacy(void)
         if (ok) { s_configuration=s_saved_configuration=*config; s_config_preview=false; ++s_config_revision; }
     }
     free(config); xSemaphoreGive(s_config_mutex); return ok;
+}
+
+bool md_display_app_set_brightness(uint8_t percent)
+{
+    if (!s_ui_event_queue || !s_display_ready || percent < 10 || percent > 100 ||
+        !md_target_has(&s_target, MD_CAP_DIMMING)) return false;
+    const ui_event_t event = {.type = UI_EVENT_SET_BRIGHTNESS, .brightness_pct = percent};
+    return xQueueSend(s_ui_event_queue, &event, 0) == pdTRUE;
 }
