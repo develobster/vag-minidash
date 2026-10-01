@@ -410,13 +410,21 @@ def run_watch(args):
                      for name, path in config.get("dbc_databases", {}).items()}
         engine = RuntimeEngine(plan, planner, sessions, databases,
                                cooldown=config.get("poll_cooldown", .05), trace=emit)
+        web_state = None
+        if getattr(args, 'web_port', None) is not None:
+            web_state = State()
+            web_state.mode = 'runtime'
+            server, web_thread = serve(web_state, args.web_port,
+                                      host=args.web_host, data_dir=args.web_data_dir)
+            resources.callback(server.server_close)
+            resources.callback(server.shutdown)
         bus = _open_passive_bus(config)
         if bus is not None:
             resources.callback(bus.shutdown)
         else:
             for definition in plan.passive:
                 availability.set(definition.id, "unavailable", "passive_bus_not_configured")
-        deadline, next_print = time.monotonic() + args.duration, 0
+        deadline, next_print, next_web = time.monotonic() + args.duration, 0, 0
         emit({"kind": "discovery", **snapshot.as_dict(redact_sensitive=True)})
         emit({"kind": "plan", "requested": list(plan.requested),
               "definitions": [item.id for item in plan.definitions],
@@ -433,6 +441,13 @@ def run_watch(args):
                     engine.feed_message(message)
             engine.step()
             now = time.monotonic()
+            if web_state is not None and now >= next_web:
+                web_state.update_runtime(engine.snapshot(), ecus=[
+                    {'role':role, 'state':session.state, 'identity_verified':session.identity_verified}
+                    for role, session in sessions.items()],
+                    can_state='listening' if bus else 'unavailable',
+                    vehicle_state='verified' if any(s.identity_verified for s in sessions.values()) else 'unavailable')
+                next_web = now + .5
             if now >= next_print:
                 current = engine.snapshot()
                 if args.json:
@@ -571,6 +586,9 @@ def main(argv=None):
     watch.add_argument("--interval", type=float, default=1.0)
     watch.add_argument("--trace", help="New structured JSONL trace; never overwritten")
     watch.add_argument("--json", action="store_true")
+    watch.add_argument("--web-port", type=int, help="Serve the existing Web Configurator during watch")
+    watch.add_argument("--web-host", default="127.0.0.1")
+    watch.add_argument("--web-data-dir", default=".minidash")
     args = parser.parse_args(argv)
     try:
         if args.command == "doctor":
