@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0b1016" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>MiniDash Configurator</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="#dashboard"
+        ><span class="logo">M</span> MiniDash <small>CONFIGURATOR</small></a
+      ><span id="connection" role="status">Connecting…</span>
+    </header>
+    <div id="mode" class="mode">Waiting for device capabilities…</div>
+    <main id="main"><div class="card">Loading configuration…</div></main>
+    <aside id="savebar" hidden>
+      <span>Unsaved changes · draft kept on this phone</span
+      ><button data-action="save">Save</button>
+    </aside>
+    <nav aria-label="Main navigation">
+      <button aria-label="Dashboard" data-page="dashboard">
+        ◉<span>Dashboard</span></button
+      ><button aria-label="Screens" data-page="screens">
+        ▦<span>Screens</span></button
+      ><button aria-label="Signals" data-page="signals">
+        ∿<span>Signals</span></button
+      ><button aria-label="Logs" data-page="logs">●<span>Logs</span></button
+      ><button aria-label="Device" data-page="device">
+        ⚙<span>Device</span>
+      </button>
+    </nav>
+    <dialog id="sheet" aria-label="Widget settings"></dialog>
+    <dialog id="confirm" aria-label="Confirm action"></dialog>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
