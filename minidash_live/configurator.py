@@ -11,6 +11,8 @@ import re
 import threading
 import time
 import uuid
+from .device_settings import migrate_configuration, validate_settings, settings_defaults
+from .settings_service import SettingsService
 
 SIGNALS = {
     "engine.rpm": ("Engine speed", "rpm", 0, 8000),
@@ -45,17 +47,19 @@ def defaults():
                    warning="#ffbc55", critical="#ff596a", gauge="round",
                    typography="system", spacing=8, grid=False)
               for name, colors in PRESETS.items()]
-    return dict(schema_version=1, settings=dict(appearance="dark", vehicle_profile="",
+    result = dict(schema_version=2, settings=dict(appearance="dark", vehicle_profile="",
                 display_width=320, display_height=240), active_screen="engine",
                 active_theme="oem-dark", themes=themes, signal_configuration={},
                 screens=[dict(id="engine", name="Engine", columns=2, widgets=[
                     widget(name, i) for i, name in enumerate(("engine.rpm", "vehicle.speed",
                     "engine.coolant_temperature", "vehicle.battery_voltage"))])])
+    result['device_settings']=settings_defaults()
+    return result
 
 def validate_config(config):
     """Reject unknown versions, malformed imports and unbounded display geometry."""
-    if not isinstance(config, dict) or type(config.get("schema_version")) is not int or config.get("schema_version") != 1:
-        raise ValueError("Unsupported configuration version; expected schema_version 1")
+    if not isinstance(config,dict): raise ValueError('Configuration object required')
+    config=migrate_configuration(config)
     def text(value, limit=80):
         if not isinstance(value, str) or not value or len(value) > limit:
             raise ValueError("Invalid text or identifier")
@@ -118,6 +122,8 @@ def validate_config(config):
         if type(settings[key]) is not int: raise ValueError("Integer display dimensions required")
         number(settings[key], 128, 1024)
     if not isinstance(config.get("signal_configuration"), dict): raise ValueError("Invalid signal configuration")
+    validate_settings(config)
+    config['settings']['vehicle_profile']=config['device_settings']['vehicle']['profile']
     return deepcopy(config)
 
 def atomic_json(path, data):
@@ -126,17 +132,21 @@ def atomic_json(path, data):
     temp.write_text(json.dumps(data, ensure_ascii=False, allow_nan=False), encoding="utf-8")
     temp.replace(path)
 
-class Configurator:
+class Configurator(SettingsService):
     def __init__(self, state, directory):
         self.state, self.directory = state, Path(directory)
         self.lock = threading.RLock()
         self.started = time.monotonic()
         path = self.directory / "configuration.json"
         saved = json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
-        self.config = validate_config(saved.get("configuration", saved)) if saved else defaults()
+        initial_id=(saved or {}).get('device_id') or uuid.uuid5(uuid.NAMESPACE_URL,str(self.directory.resolve())).hex
+        self.config = validate_config(migrate_configuration(saved.get("configuration", saved),initial_id)) if saved else defaults()
         self.revision = saved.get("revision", 0) if saved else 0
         self.active = None
         self.recording_error = None
+        self._init_settings(saved)
+        if not saved:
+            self.config['device_settings']['wifi']['ap_ssid']='MiniDash-'+self.device_id[-4:].upper()
         # Catalog metadata is read-only; presence never enables CAN/UDS acquisition.
         from .vag import VagKnowledgeProvider
         self.catalog = {}
@@ -148,16 +158,10 @@ class Configurator:
                     source='unavailable', age=None, expected_period=definition.expected_period))
 
     def configuration(self):
-        with self.lock: return dict(configuration=deepcopy(self.config), revision=self.revision)
+        with self.lock: return dict(configuration=deepcopy(self.config), revision=self.revision,secret_status=self.secret_status())
 
     def save(self, body):
-        config = validate_config(body["configuration"])
-        with self.lock:
-            if body.get("revision") != self.revision: raise RuntimeError("Configuration changed elsewhere. Reload before saving.")
-            atomic_json(self.directory / "configuration.json", dict(configuration=config, revision=self.revision+1))
-            self.config = config
-            self.revision += 1
-            return self.configuration()
+        return self.apply_settings(body)
 
     def telemetry(self):
         original = json.loads(self.state.snapshot())
@@ -189,12 +193,13 @@ class Configurator:
             recording = self._recording_status()
         return dict(mode=mode, status=original.get("status", "unknown"), signals=list(catalog.values()),
                     uptime=time.monotonic()-self.started, logging=recording,
-                    device=dict(platform="Windows/Python host", firmware=None, build="host-configurator-v1",
+                    device=dict(**self.device_info(),platform="Windows/Python host", firmware=None,
                         can="simulated" if mode == "simulation" else original.get("can_state", "unknown"),
                         vehicle="simulation" if mode == "simulation" else original.get("vehicle_state", "unknown"),
                         ecus=original.get("ecus", []), diagnostics=original.get("metrics", {})),
                     capabilities=dict(logging=True, configuration=True, ota=False, firmware_settings=False,
-                                      physical_display_preview=False), active_screen=self.config["active_screen"])
+                                      physical_display_preview=False), device_capabilities=self.device_capabilities(),
+                    operation=deepcopy(self.operation), active_screen=self.runtime_screen)
 
     def _recording_status(self):
         if not self.active: return dict(active=False, error=self.recording_error)
@@ -204,8 +209,12 @@ class Configurator:
     def start_recording(self):
         with self.lock:
             if self.active: raise RuntimeError("Recording already active")
+            settings=self.config['device_settings']['logging']
+            if not settings['enabled']:raise ValueError('Logging is disabled in Device settings')
+            self._enforce_retention()
             self.recording_error = None
             signals = sorted({w["signal"] for s in self.config["screens"] for w in s["widgets"]})
+            if settings['signal_scope']=='selected':signals=settings['selected_signals'][:]
             identifier = uuid.uuid4().hex
             path = self.directory / "logs" / (identifier+".jsonl")
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -223,8 +232,21 @@ class Configurator:
             line = json.dumps(row, ensure_ascii=False, allow_nan=False)+"\n"
             self.active["file"].write(line); self.active["file"].flush()
             self.active["samples"] += 1; self.active["bytes"] += len(line.encode())
-            if self.active["bytes"] >= 20_000_000 or time.monotonic()-self.active["started"] >= 3600:
+            settings=self.config['device_settings']['logging']
+            total=sum(p.stat().st_size for p in (self.directory/'logs').glob('*.jsonl'))
+            if self.active["bytes"] >= 20_000_000 or time.monotonic()-self.active["started"] >= settings['rotation_minutes']*60 or total>=settings['max_storage_mb']*1_000_000:
                 self.stop_recording()
+
+    def _enforce_retention(self):
+        settings=self.config['device_settings']['logging']
+        rows=self.recordings()
+        total=sum(p.stat().st_size for p in (self.directory/'logs').glob('*.jsonl'))
+        for row in reversed(rows):
+            expired=(datetime.now(timezone.utc)-datetime.fromisoformat(row['date'])).total_seconds()>settings['retention_days']*86400
+            if expired or total>=settings['max_storage_mb']*1_000_000:
+                path=self.log_path(row['id']);total-=path.stat().st_size
+                path.unlink();path.with_suffix('.json').unlink()
+        if total>=settings['max_storage_mb']*1_000_000:raise ValueError('Recording storage full; remove incomplete files or increase the storage limit')
 
     def stop_recording(self):
         with self.lock:
@@ -260,6 +282,7 @@ class SimulationState:
 
     def step(self):
         if self.paused: return
+        if getattr(self,'device_settings',{}).get('power',{}).get('mode') in ('sleep','deep_sleep'):return
         t = time.monotonic()-self.started
         wave = (math.sin(t/8)+1)/2
         values = (800+wave*4400, wave*125, 88+math.sin(t/17)*5,
@@ -267,8 +290,9 @@ class SimulationState:
                   min(7,max(1,int(wave*6)+1)), wave*125, wave*125+math.sin(t)*.3,
                   (wave*1200-math.sin(t/30)*4)/1000)
         for (name, meta), value in zip(SIGNALS.items(), values):
-            self.store.publish("synthetic", name, "simulated", value, 2, unit=meta[1],
-                               expected_period=.5, definition_id="simulation."+name)
+            acquisition=getattr(self,'device_settings',{}).get('acquisition',{})
+            self.store.publish("synthetic", name, "simulated", value, acquisition.get('stale_timeout_s',3), unit=meta[1],
+                               expected_period=1/acquisition.get('default_rate_hz',2), definition_id="simulation."+name)
 
     def snapshot(self):
         return json.dumps(dict(status="simulation_paused" if self.paused else "active",
@@ -276,17 +300,22 @@ class SimulationState:
 
 def main():
     import argparse
-    from .api import serve
+    from .api import serve, State
     parser = argparse.ArgumentParser(description="MiniDash host Web Configurator (canonical simulation, no vehicle I/O)")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--data-dir", default=".minidash")
+    parser.add_argument('--host-only',action='store_true',help='Serve host settings without simulated telemetry or hardware capabilities')
     args = parser.parse_args()
-    state = SimulationState(); state.step()
+    state = State() if args.host_only else SimulationState()
+    if args.host_only:state.mode='host'
+    else:state.step()
     server, thread = serve(state, args.port, host=args.host, data_dir=args.data_dir)
-    print(f"SIMULATION — Web Configurator http://{args.host}:{server.server_port}", flush=True)
+    print(f"{state.mode.upper()} - Web Configurator http://{args.host}:{server.server_port}", flush=True)
     try:
-        while True: state.step(); time.sleep(.5)
+        while True:
+            if not args.host_only:state.step()
+            time.sleep(1/server.configurator.config['device_settings']['acquisition']['default_rate_hz'])
     except KeyboardInterrupt: pass
     finally: server.shutdown(); server.server_close(); thread.join(2)
 

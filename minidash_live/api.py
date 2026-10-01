@@ -77,18 +77,24 @@ def serve(state, port, *, host="127.0.0.1", data_dir=".minidash"):
                     while not stop.is_set():
                         body = json.dumps(app.telemetry(), ensure_ascii=False, allow_nan=False)
                         self.wfile.write(('data: '+body+'\n\n').encode()); self.wfile.flush()
-                        stop.wait(.5)
+                        stop.wait(1/app.config['device_settings']['acquisition']['ui_refresh_hz'])
                     return
                 if path == '/api/signals': return self.reply(state.snapshot())
                 if path == '/api/telemetry': return self.reply(app.telemetry())
                 if path == '/api/configuration': return self.reply(app.configuration())
-                if path == '/api/defaults': return self.reply(defaults())
+                if path == '/api/capabilities': return self.reply(app.device_capabilities())
+                if path == '/api/settings/schema': return self.reply(app.settings_schema())
+                if path == '/api/settings/status': return self.reply(dict(operation=app.operation,device=app.device_info(),secret_status=app.secret_status()))
+                if path == '/api/diagnostics/bundle': return self.reply(app.diagnostic_bundle())
+                if path == '/api/defaults':
+                    config=defaults();config['device_settings']['wifi']['ap_ssid']='MiniDash-'+app.device_id[-4:].upper()
+                    return self.reply(config)
                 if path == '/api/logs': return self.reply(app.recordings())
                 if path.startswith('/api/logs/'):
                     return self.reply(app.log_path(path.rsplit('/',1)[-1]).read_bytes(), 'application/x-ndjson')
                 if path == '/api/ota': return self.reply(dict(available=False, reason="ESP32 Wi-Fi/OTA backend is not implemented"))
                 name = 'index.html' if path == '/' else path.lstrip('/')
-                if name not in {'index.html','app.js','model.js','style.css','sw.js','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png'}:
+                if name not in {'index.html','app.js','model.js','settings.js','units.js','style.css','sw.js','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png'}:
                     return self.reply(dict(error='Not found'), status=404)
                 file = assets / name
                 return self.reply(file.read_bytes(), mimetypes.guess_type(name)[0] or 'application/octet-stream')
@@ -109,8 +115,12 @@ def serve(state, port, *, host="127.0.0.1", data_dir=".minidash"):
                 if not isinstance(body, dict): raise ValueError('JSON object required')
                 path = urlsplit(self.path).path
                 if path == '/api/configuration' and self.command == 'PUT': return self.reply(app.save(body))
+                if path == '/api/settings/plan' and self.command == 'POST': return self.reply(app.plan_settings(body))
+                if path == '/api/settings/apply' and self.command == 'POST': return self.reply(app.apply_settings(body))
+                if path == '/api/system/action' and self.command == 'POST': return self.reply(app.system_action(body))
+                if path == '/api/wifi/scan' and self.command == 'POST': return self.reply(app.scan_wifi())
                 if path == '/api/configuration/validate' and self.command == 'POST':
-                    validate_config(body['configuration']); return self.reply(dict(valid=True))
+                    config=app.normalize_configuration(body['configuration']); return self.reply(dict(valid=True,configuration=config))
                 if path == '/api/logs/start' and self.command == 'POST': return self.reply(app.start_recording())
                 if path == '/api/logs/stop' and self.command == 'POST': return self.reply(app.stop_recording())
                 if path == '/api/simulation' and self.command == 'POST' and getattr(state,'mode',None) == 'simulation':
@@ -148,6 +158,8 @@ def serve(state, port, *, host="127.0.0.1", data_dir=".minidash"):
                         except OSError: pass
                         app.active = None
     worker = threading.Thread(target=sample, daemon=True); worker.start()
+    if app.config['device_settings']['logging']['enabled'] and app.config['device_settings']['logging']['auto_start']:
+        app.start_recording()
     thread = threading.Thread(target=server.serve_forever,daemon=True)
     thread.start()
     return server,thread

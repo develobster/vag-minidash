@@ -118,7 +118,7 @@ class ConfiguratorApiTests(unittest.TestCase):
         candidate=copy.deepcopy(original['configuration']);candidate['screens'][0]['name']='Imported'
         self.request('/api/configuration/validate','POST',dict(configuration=candidate))
         self.assertEqual(self.request('/api/configuration'),original)
-        candidate['schema_version']=2
+        candidate['schema_version']=99
         with self.assertRaises(HTTPError) as err:self.request('/api/configuration','PUT',dict(configuration=candidate,revision=0))
         self.assertEqual(err.exception.code,400);self.assertEqual(self.request('/api/configuration'),original)
     def test_configuration_conflicts_return_409(self):
