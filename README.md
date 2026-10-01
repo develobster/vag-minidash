@@ -10,6 +10,10 @@ host logging и versioned backup. Для телефона в одной сети
 пока недоступны; UI сообщает это явно. Возможности, API, проверки и ограничения:
 [web-configurator.md](docs/web-configurator.md).
 
+Device Settings / Advanced расширены schema v2, capability detection, безопасным
+Apply, защищёнными Wi-Fi credentials и diagnostic bundle:
+[device-settings.md](docs/device-settings.md).
+
 Первый дисплейный прототип ESP32-S3 (ST7789/ILI9341 backends), граница host/firmware и проверка
 проводки описаны в [display-prototype.md](docs/hardware/display-prototype.md).
 
