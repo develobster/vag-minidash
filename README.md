@@ -13,6 +13,7 @@ bench; autonomous vehicle acquisition on the MCU is not implemented yet.
 - [Repository consolidation audit and branch recommendations](docs/research/repository-consolidation-2026-09-30.md)
 - [First real-car session: commands and current VNCI blockers](docs/validation/first-real-car-session.md)
 - [Real-car preparation delivery and readiness matrix](docs/validation/real-car-preparation-2026-09-30.md)
+- [Current state and practical next-work plan](docs/validation/practical-next-work-2026-10-01.md)
 - [Focus instruments and vehicle scale profiles](docs/ui/focus-instruments-2026-10-01.md)
 - [Project working instructions](AGENTS.md)
 

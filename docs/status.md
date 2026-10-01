@@ -1,5 +1,10 @@
 # Current feature and evidence matrix
 
+Current branch/acceptance and actionable next work (2026-10-01):
+[project status and phased practical plan](validation/practical-next-work-2026-10-01.md).
+The latest UI additions pass the common build gates; physical Focus readability,
+backlight-load measurement and real VNCI transport remain acceptance blockers.
+
 Focus update (2026-10-01): Volkswagen/Porsche now show a value-driven needle
 only in single-signal Focus; ordinary cards have no instrument arcs. Five
 reference vehicle profiles, Tiguan fallback and Auto/manual ranges use schema 3.
