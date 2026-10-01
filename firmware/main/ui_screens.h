@@ -13,6 +13,8 @@ bool md_ui_screens_create(uint16_t width, uint16_t height,
                           const md_ui_settings_t *settings,
                           const md_ui_palette_t *palette);
 void md_ui_screens_rebuild_custom(const md_ui_settings_t *settings);
+void md_ui_screens_instrument_profile(const char *id,uint32_t ttl_ms,uint32_t now_ms);
+void md_ui_screens_gauge_dump(md_ui_screen_t screen);
 void md_ui_screens_configuration(const md_device_configuration_t *config);
 void md_ui_screens_config_credentials(const char *ssid, const char *password);
 const md_ui_renderer_t *md_ui_lvgl_renderer(void);

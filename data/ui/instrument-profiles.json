@@ -1,0 +1,113 @@
+{
+  "schema": 1,
+  "default": "tiguan-5na-tsi-eu",
+  "scope": "Representative European instrument scales, not safety/rev limits or a universal trim catalogue. Model is configured/discovered identity, not decoded VIN. Observed engine ASAM required for auto match.",
+  "profiles": [
+    {
+      "id": "tiguan-5na-tsi-eu",
+      "name": "Tiguan II TSI",
+      "models": [
+        "TIGUAN II / MQB",
+        "TIGUAN II",
+        "TIGUAN 5NA"
+      ],
+      "years": [
+        2016,
+        2023
+      ],
+      "manufacturer": "VOLKSWAGEN",
+      "fuel": "TFS",
+      "rpm_max": 8000,
+      "speed_max": 280,
+      "coolant_min": 50,
+      "coolant_max": 130,
+      "source": "https://www.volkswagen.fr/idhub/content/dam/onehub_pkw/importers/in/pdf/Tiguan-User-Manual.pdf",
+      "evidence": "VW Tiguan manual 11.2021 PDF pages 28 and 31. Representative petrol EU analogue illustration, not every 2017 trim."
+    },
+    {
+      "id": "golf-7-tsi-eu",
+      "name": "Golf VII TSI",
+      "models": [
+        "GOLF VII",
+        "GOLF VII / MQB",
+        "GOLF 7",
+        "GOLF 5G"
+      ],
+      "years": [
+        2013,
+        2019
+      ],
+      "manufacturer": "VOLKSWAGEN",
+      "fuel": "TFS",
+      "rpm_max": 8000,
+      "speed_max": 260,
+      "coolant_min": 0,
+      "coolant_max": 0,
+      "source": "https://www.volkswagen.se/idhub/content/dam/onehub_pkw/importers/se/hjalp-och-support/broschyrer/golf/tidigare-golf/nya_golf_modellbroschyr_web_30mars.pdf",
+      "evidence": "VW Sweden March 2017 brochure p25 ordinary petrol AID. Coolant numerals not verified: configured fallback."
+    },
+    {
+      "id": "golf-7-gtd-eu",
+      "name": "Golf VII GTD",
+      "models": [
+        "GOLF VII GTD",
+        "GOLF 7 GTD",
+        "GOLF GTD 5G"
+      ],
+      "years": [
+        2013,
+        2019
+      ],
+      "manufacturer": "VOLKSWAGEN",
+      "fuel": "TDI",
+      "rpm_max": 6000,
+      "speed_max": 280,
+      "coolant_min": 0,
+      "coolant_max": 0,
+      "source": "https://www.volkswagen.se/idhub/content/dam/onehub_pkw/importers/se/hjalp-och-support/broschyrer/golf/tidigare-golf/nya_golf_modellbroschyr_web_30mars.pdf",
+      "evidence": "VW Sweden March 2017 brochure p17 GTD AID. Coolant numerals not verified: configured fallback."
+    },
+    {
+      "id": "passat-b8-tsi-eu",
+      "name": "Passat B8 TSI",
+      "models": [
+        "PASSAT B8",
+        "PASSAT VIII",
+        "PASSAT B8 / MQB"
+      ],
+      "years": [
+        2015,
+        2023
+      ],
+      "manufacturer": "VOLKSWAGEN",
+      "fuel": "TFS",
+      "rpm_max": 8000,
+      "speed_max": 280,
+      "coolant_min": 0,
+      "coolant_max": 0,
+      "source": "https://www.volkswagen.se/idhub/content/dam/onehub_pkw/importers/se/hjalp-och-support/broschyrer/passat/before-nbd/002.vw-1189-passat_21_gte_alltrack_modellbroschyrny_web.download.pdf",
+      "evidence": "VW Sweden October 2015 brochure p17 Alltrack AID. Representative petrol scale; coolant numerals not verified."
+    },
+    {
+      "id": "octavia-5e-petrol-eu",
+      "name": "Octavia III petrol",
+      "models": [
+        "OCTAVIA III",
+        "OCTAVIA III / MQB",
+        "OCTAVIA 5E"
+      ],
+      "years": [
+        2013,
+        2020
+      ],
+      "manufacturer": "SKODA",
+      "fuel": "TFS",
+      "rpm_max": 8000,
+      "speed_max": 260,
+      "coolant_min": 50,
+      "coolant_max": 130,
+      "source": "https://ownersmanuals.blob.core.windows.net/ownersmanuals/en/Octavia_5E/05-2014/OwnersManual.pdf",
+      "evidence": "Skoda Octavia 5E manual May 2014 printed p29/30 figures 21/23 petrol analogue illustration."
+    }
+  ]
+}

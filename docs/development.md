@@ -1,5 +1,11 @@
 # Developer entry and repeatable acceptance
 
+Focus update (2026-10-01): Volkswagen/Porsche now show a value-driven needle
+only in single-signal Focus; ordinary cards have no instrument arcs. Five
+reference vehicle profiles, Tiguan fallback and Auto/manual ranges use schema 3.
+Automatic matching is connected through host discovery → USB, not autonomous
+MCU CAN acquisition. See [implementation, sources and acceptance](ui/focus-instruments-2026-10-01.md).
+
 Wi-Fi/theme update (2026-10-01): local settings remain editable with AP enabled;
 Wi-Fi shows an ON/OFF indicator. Eleven themes now include Volkswagen/Porsche,
 monospaced retro fonts and distinct frames/instrument artwork. See
@@ -166,3 +172,14 @@ Car: confirm protected power/transceiver/listen-only wiring and the intended
 connection point; doctor/F190 and exact identity first, then only evidenced
 read-only signals. Capture with the tagged manifest, compare against a reference,
 replay offline and retain provenance. No clear/coding/unknown-button probing.
+
+## Instrument catalogue consistency
+
+After editing `data/ui/instrument-profiles.json`, run
+`python scripts/generate_instrument_profiles.py`, then
+`python scripts/generate_instrument_profiles.py --check`. The host uses the same
+JSON while the MCU compiles the generated numeric table. Native CTest adds
+`instrument-profile-contract` (matching ranges, strict frames, expiry and clock
+wrap). Python `tests.test_instruments` covers observed-vs-seed identity and
+repeated bridge profiles; device Web tests additionally verify range validation,
+NVS roundtrip and local changes preserving manual ranges.

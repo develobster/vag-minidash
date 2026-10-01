@@ -425,7 +425,12 @@ void app_main(void)
             continue;
         }
         line[strcspn(line, "\r\n")] = '\0';
-        if (strncmp(line, "MDS1|", 5) == 0) {
+        if(strncmp(line,"MDV1|",5)==0) {
+            if(!md_display_app_publish_instrument_profile(line)) {
+                printf("MINIDASH_INSTRUMENT status=REJECTED\n");
+                fflush(stdout);
+            }
+        } else if (strncmp(line, "MDS1|", 5) == 0) {
             if (!md_display_app_publish_serial_sample(line)) {
                 printf("MINIDASH_SAMPLE status=REJECTED\n");
                 fflush(stdout);
@@ -449,6 +454,13 @@ void app_main(void)
             const bool valid = sscanf(line + 11, "%u %c", &percent, &extra) == 1 && percent >= 10 && percent <= 100;
             printf("MINIDASH_BRIGHTNESS_COMMAND status=%s\n",
                    valid && md_display_app_set_brightness((uint8_t)percent) ? "QUEUED" : "REJECTED");
+            fflush(stdout);
+        } else if(strcmp(line,"gauge-status")==0) {
+            if(!md_display_app_gauge_dump()) printf("MINIDASH_GAUGE status=BUSY\n");
+        } else if (strncmp(line,"focus ",6)==0) {
+            const int signal=md_ui_signal_id_from_name(line+6);
+            printf("MINIDASH_FOCUS_COMMAND status=%s\n",signal>=0 &&
+                md_display_app_open_details(MD_UI_INPUT_CONSOLE,signal) ? "QUEUED" : "REJECTED");
             fflush(stdout);
         } else if (strcmp(line, "config-export") == 0) {
             md_display_app_configuration_dump();

@@ -338,6 +338,32 @@ static bool web_selftest_run(void)
             candidate->common.theme==(original->common.theme+1)%MD_UI_THEME_COUNT;
     }
     CHECK("local_theme_applied_with_wifi",local_theme_applied && md_ui_web_active());
+    if (!md_display_configuration_read(candidate,&revision,NULL)) { ++failed; goto done; }
+    candidate->common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum=0;
+    root=md_configuration_json(original,revision);
+    cJSON *range=cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(root,"common"),"gauge_ranges"),0);
+    cJSON_ReplaceItemInObjectCaseSensitive(range,"maximum",cJSON_CreateNumber(0));
+    json=cJSON_PrintUnformatted(root); cJSON_Delete(root);
+    CHECK("http_invalid_gauge_range",json && request("/api/preview",HTTP_METHOD_POST,json,s_token,&capture)==400);
+    free(json); json=NULL;
+    candidate->common.gauge_auto=false;
+    candidate->common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum=10000;
+    root=md_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); cJSON_Delete(root);
+    CHECK("http_save_manual_gauge",json && request("/api/config",HTTP_METHOD_PUT,json,s_token,&capture)==200);
+    free(json); json=NULL;
+    md_target_profile_t gauge_target={0};
+    CHECK("nvs_manual_gauge_roundtrip",md_display_configuration_read(candidate,&revision,&gauge_target) &&
+        md_configuration_storage_load(candidate,&gauge_target) && !candidate->common.gauge_auto &&
+        candidate->common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum==10000);
+    const uint8_t gauge_local_brightness=local_brightness==70 ? 80 : 70;
+    const bool gauge_local_queued=md_display_app_set_brightness(gauge_local_brightness);
+    vTaskDelay(pdMS_TO_TICKS(400));
+    CHECK("local_action_preserves_gauge_ranges",gauge_local_queued &&
+        md_display_configuration_read(candidate,&revision,NULL) && candidate->platform.brightness==gauge_local_brightness && !candidate->common.gauge_auto &&
+        candidate->common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum==10000);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    CHECK("nvs_manual_gauge_after_local_edit",md_configuration_storage_load(candidate,&gauge_target) &&
+        !candidate->common.gauge_auto && candidate->common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum==10000);
     /* Always save the captured original, never the last preview if cancel
        or a config read failed. Tests must not persist synthetic pages. */
     if (!md_display_configuration_read(candidate,&revision,NULL)) { ++failed; goto done; }

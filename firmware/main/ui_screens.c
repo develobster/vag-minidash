@@ -1,4 +1,5 @@
 #include "ui_screens.h"
+#include "ui_instrument_profiles.h"
 #include "ui_startup.h"
 
 #include <stdio.h>
@@ -67,6 +68,12 @@ typedef struct {
     uint8_t widget_type;
     lv_obj_t *visual;
     lv_chart_series_t *series;
+    bool focus, gauge_available, gauge_layout, focus_inline_unit;
+    uint16_t gauge_level;
+    float gauge_minimum, gauge_maximum;
+    lv_obj_t *gauge_scale;
+    lv_obj_t *gauge_ticks[5];
+    char gauge_scale_text[80];
 } field_view_t;
 
 typedef struct {
@@ -128,6 +135,9 @@ static char s_widget_picker_title_text[48];
 static md_ui_language_t s_language = MD_UI_LANGUAGE_ENGLISH;
 static md_ui_language_t s_font_language = MD_UI_LANGUAGE_COUNT;
 static md_ui_dashboard_page_t s_page_model;
+static float s_gauge_ranges[MD_SIGNAL_COUNT][2];
+static bool s_gauge_auto=true;
+static md_instrument_selection_t s_instrument_selection;
 static md_ui_history_t s_history[MD_SIGNAL_COUNT];
 static lv_obj_t *s_focus_stats;
 static char s_focus_stats_text[96];
@@ -285,25 +295,36 @@ static void metric_frame_draw(lv_event_t *event)
             }
         }
     }
-    if(!s_theme_style.gauge_style || !field || field->visual || h<65 || w<90) return;
-    const int radius=(w<h-22 ? w : h-22)/2-5;
+    if(!s_theme_style.gauge_style || !field || !field->focus || h<100 || w<90) return;
+    const int radius=(w-24<h-70 ? w-24 : h-70)/2;
     if(radius<16) return;
     lv_draw_arc_dsc_t arc; lv_draw_arc_dsc_init(&arc);
-    arc.center.x=(a.x1+a.x2)/2; arc.center.y=a.y1+22+radius;
+    arc.center.x=(a.x1+a.x2)/2; arc.center.y=a.y1+26+radius;
     arc.radius=radius; arc.start_angle=135; arc.end_angle=405;
     arc.width=s_theme_style.gauge_style==2 ? 3 : 2;
-    arc.color=color(s_palette.border); arc.opa=100;
+    arc.color=color(s_palette.border); arc.opa=200;
     lv_draw_arc(layer,&arc);
     for(int i=0;i<=10;i++) {
         const float angle=(135+i*27)*0.01745329252f;
-        line.color=color(i==10 ? s_palette.critical : s_palette.text);
-        line.width=i%5==0 ? 2 : 1; line.opa=120;
+        line.color=color(s_palette.text);
+        line.width=i%5==0 ? 2 : 1; line.opa=220;
         line.p1.x=arc.center.x+(int)(cosf(angle)*(radius-5));
         line.p1.y=arc.center.y+(int)(sinf(angle)*(radius-5));
         line.p2.x=arc.center.x+(int)(cosf(angle)*radius);
         line.p2.y=arc.center.y+(int)(sinf(angle)*radius);
         lv_draw_line(layer,&line);
     }
+    if(field->gauge_available) {
+        const float angle=(135.0f+270.0f*field->gauge_level/1000.0f)*0.01745329252f;
+        line.color=color(s_palette.critical); line.width=s_theme_style.gauge_style==2 ? 3 : 2;
+        line.opa=LV_OPA_COVER;
+        line.p1.x=arc.center.x-(int)(cosf(angle)*7);
+        line.p1.y=arc.center.y-(int)(sinf(angle)*7);
+        line.p2.x=arc.center.x+(int)(cosf(angle)*(radius-9));
+        line.p2.y=arc.center.y+(int)(sinf(angle)*(radius-9));
+        lv_draw_line(layer,&line);
+    }
+
 }
 
 static void settings_row_reset(setting_row_view_t *row)
@@ -861,6 +882,15 @@ static void create_focus_screen(void)
     field_view_t *field=create_field(view, 54, 48, 212, 156, "ENGINE SPEED",
                        "engine.rpm", true);
     if (field) {
+        field->focus=true; field->focus_inline_unit=field->inline_unit;
+        for(unsigned i=0;i<5;i++) {
+            field->gauge_ticks[i]=lv_label_create(field->card);
+            lv_obj_add_flag(field->gauge_ticks[i],LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_style_text_align(field->gauge_ticks[i],LV_TEXT_ALIGN_CENTER,0);
+        }
+        field->gauge_scale=lv_label_create(field->card);
+        lv_obj_add_flag(field->gauge_scale,LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_style_text_align(field->gauge_scale,LV_TEXT_ALIGN_CENTER,0);
         field->widget_type=MD_UI_WIDGET_GRAPH;
         field->visual=lv_chart_create(field->card);
         lv_obj_set_pos(field->visual,xpx(7),ypx(113));
@@ -1392,6 +1422,74 @@ void md_ui_screens_retheme(const md_ui_palette_t *palette, md_ui_theme_id_t them
     }
 }
 
+static void update_focus_gauge(field_view_t *field, const md_ui_settings_t *settings,
+    const md_ui_signal_store_t *signals, uint32_t now_ms)
+{
+    if(!field->focus) return;
+    const bool gauge=s_theme_style.gauge_style!=0;
+    if(field->gauge_layout!=gauge) {
+        field->gauge_layout=gauge;
+        field->inline_unit=gauge || field->focus_inline_unit;
+        lv_obj_set_pos(field->value,xpx(7),gauge ? lv_obj_get_height(field->card)-32 : ypx(27));
+        lv_obj_set_size(field->value,lv_obj_get_width(field->card)-xpx(14),gauge ? 28 : ypx(109));
+        set_ui_font(field->value,gauge ? metric_font(&lv_font_montserrat_20) : metric_font(field->value_font),0);
+        lv_obj_set_style_text_align(field->value,gauge ? LV_TEXT_ALIGN_CENTER : LV_TEXT_ALIGN_LEFT,0);
+        if(gauge) { lv_obj_add_flag(field->unit,LV_OBJ_FLAG_HIDDEN); lv_obj_remove_flag(field->gauge_scale,LV_OBJ_FLAG_HIDDEN); }
+        else { lv_obj_add_flag(field->gauge_scale,LV_OBJ_FLAG_HIDDEN); if(!field->inline_unit) lv_obj_remove_flag(field->unit,LV_OBJ_FLAG_HIDDEN); }
+        for(unsigned i=0;i<5;i++) {
+            if(gauge) lv_obj_remove_flag(field->gauge_ticks[i],LV_OBJ_FLAG_HIDDEN);
+            else lv_obj_add_flag(field->gauge_ticks[i],LV_OBJ_FLAG_HIDDEN);
+        }
+        lv_obj_invalidate(field->card);
+    }
+    if(!gauge) return;
+    lv_obj_add_flag(field->visual,LV_OBJ_FLAG_HIDDEN);
+    float low,high;
+    if(!md_ui_focus_gauge_range(field->signal_id,&low,&high)) return;
+    if(s_gauge_ranges[field->signal_id][1]>s_gauge_ranges[field->signal_id][0]) {
+        low=s_gauge_ranges[field->signal_id][0]; high=s_gauge_ranges[field->signal_id][1];
+    }
+    if(s_gauge_auto) md_instrument_profile_range(md_instrument_active(&s_instrument_selection,now_ms,NULL),field->signal_id,&low,&high);
+    field->gauge_minimum=low; field->gauge_maximum=high;
+    md_ui_widget_view_t projected;
+    md_ui_project_widget(&projected,field->signal_id,settings,signals,now_ms,low,high,NULL);
+    const bool available=projected.has_range && projected.signal.state==MD_UI_SIGNAL_VALID;
+    if(field->gauge_available!=available || field->gauge_level!=projected.level_per_mille) {
+        field->gauge_available=available; field->gauge_level=projected.level_per_mille;
+        lv_obj_invalidate(field->card);
+    }
+    const md_ui_signal_definition_t *definition=md_ui_signal_definition(field->signal_id);
+    md_ui_signal_snapshot_t sample={.state=MD_UI_SIGNAL_VALID,.value_available=true,.value=low};
+    char left[20],right[20],unit[12],text[80];
+    md_ui_format_signal(definition,&sample,settings,left,sizeof(left),unit,sizeof(unit));
+    sample.value=high;
+    md_ui_format_signal(definition,&sample,settings,right,sizeof(right),unit,sizeof(unit));
+    snprintf(text,sizeof(text),"%s  ...  %s %s",left,right,unit);
+    const int width=lv_obj_get_width(field->card),height=lv_obj_get_height(field->card);
+    const int radius=(width-24<height-70 ? width-24 : height-70)/2;
+    for(unsigned i=0;i<5;i++) {
+        sample.value=low+(high-low)*i/4.0f;
+        char tick[20];
+        if(field->signal_id==MD_SIGNAL_ENGINE_RPM) snprintf(tick,sizeof(tick),fabsf(roundf(sample.value/1000)-sample.value/1000)<0.01f ? "%.0f" : "%.1f",sample.value/1000);
+        else md_ui_format_signal(definition,&sample,settings,tick,sizeof(tick),unit,sizeof(unit));
+        lv_label_set_text(field->gauge_ticks[i],tick);
+        set_ui_font(field->gauge_ticks[i],&lv_font_montserrat_10,0);
+        lv_obj_set_style_text_color(field->gauge_ticks[i],color(s_palette.text),0);
+        const float angle=(135+i*67.5f)*0.01745329252f;
+        lv_obj_set_pos(field->gauge_ticks[i],width/2+(int)(cosf(angle)*(radius-14))-14,
+            26+radius+(int)(sinf(angle)*(radius-14))-6);
+        lv_obj_set_size(field->gauge_ticks[i],28,14);
+    }
+    if(field->signal_id==MD_SIGNAL_ENGINE_RPM) snprintf(text,sizeof(text),"x1000 rpm");
+    set_static_text(field->gauge_scale,field->gauge_scale_text,sizeof(field->gauge_scale_text),text);
+    set_ui_font(field->gauge_scale,&lv_font_montserrat_10,0);
+    lv_obj_set_style_text_color(field->gauge_scale,color(s_palette.muted),0);
+    lv_obj_set_pos(field->gauge_scale,4,lv_obj_get_height(field->card)-51);
+    lv_obj_set_size(field->gauge_scale,lv_obj_get_width(field->card)-8,16);
+    /* Retheme reapplies generic fonts; restore the focus numeric size here. */
+    set_ui_font(field->value,metric_font(&lv_font_montserrat_20),0);
+}
+
 static void update_metric_field(field_view_t *field,
                                 const md_ui_settings_t *settings,
                                 const md_ui_signal_store_t *signals,
@@ -1429,7 +1527,7 @@ static void update_metric_field(field_view_t *field,
             snapshot.demo && snapshot.value_available ? "DEMO" : md_ui_signal_state_label(snapshot.state)));
         formatted_unit[0] = 0;
     }
-    if (field->visual && spec && id >= 0) {
+    if (field->visual && spec && id >= 0 && !(field->focus && s_theme_style.gauge_style)) {
         md_ui_widget_view_t projected;
         md_ui_project_widget(&projected, (md_ui_signal_id_t)id, settings, signals, now_ms,
             spec->minimum, spec->maximum, &s_history[id]);
@@ -1452,6 +1550,7 @@ static void update_metric_field(field_view_t *field,
             }
         }
     }
+    update_focus_gauge(field,settings,signals,now_ms);
     if (!snapshot.value_available && field->widget_type != MD_UI_WIDGET_STATUS) {
         (void)snprintf(formatted_value, sizeof(formatted_value), "--");
         formatted_unit[0] = '\0';
@@ -1665,6 +1764,7 @@ void md_ui_screens_update(md_ui_screen_t screen,
     if (s_font_language != s_language) apply_language_fonts();
     screen_view_t *view = view_for(screen, settings);
     if (!view || !view->root) return;
+    if(screen==MD_UI_SCREEN_FOCUS) md_ui_screens_focus_signal(state->focused_signal);
     set_ui_text(view->title, view->title_text, sizeof(view->title_text),
                 view->title_key);
     set_ui_text(view->footer, view->footer_text, sizeof(view->footer_text),
@@ -1727,6 +1827,12 @@ void md_ui_screens_update(md_ui_screen_t screen,
         }
     }
 
+    if (screen==MD_UI_SCREEN_FOCUS && s_theme_style.gauge_style) {
+        bool matched=false;
+        const md_instrument_profile_t *p=md_instrument_active(&s_instrument_selection,now_ms,&matched);
+        char name[64]; snprintf(name,sizeof(name),"%s%s",s_gauge_auto ? p->name : "MANUAL",s_gauge_auto && !matched ? " *" : "");
+        set_static_text(view->title,view->title_text,sizeof(view->title_text),name);
+    }
     if (screen == MD_UI_SCREEN_FOCUS && state->focused_signal < MD_SIGNAL_COUNT && s_focus_stats) {
         const md_ui_history_t *h = &s_history[state->focused_signal];
         char low[32] = "--", high[32] = "--", unit[12];
@@ -1797,8 +1903,36 @@ void md_ui_screens_update(md_ui_screen_t screen,
     }
 }
 
+void md_ui_screens_instrument_profile(const char *id,uint32_t ttl_ms,uint32_t now_ms)
+{ (void)md_instrument_select(&s_instrument_selection,id,ttl_ms,now_ms); }
+
+void md_ui_screens_gauge_dump(md_ui_screen_t screen)
+{
+    if(screen>=MD_UI_SCREEN_COUNT) return;
+    const screen_view_t *view=&s_screens[screen]; unsigned instruments=0;
+    for(unsigned i=0;i<view->field_count;i++) {
+        const field_view_t *f=&view->fields[i];
+        if(f->focus && s_theme_style.gauge_style) {
+            ++instruments;
+            printf("MINIDASH_GAUGE signal=%s needle=%u level=%u min=%.3f max=%.3f card=%dx%d chart_hidden=%u ticks=%s,%s,%s,%s,%s value=%s\n",
+                f->canonical_signal,f->gauge_available,f->gauge_level,(double)f->gauge_minimum,(double)f->gauge_maximum,
+                (int)lv_obj_get_width(f->card),(int)lv_obj_get_height(f->card),lv_obj_has_flag(f->visual,LV_OBJ_FLAG_HIDDEN),
+                lv_label_get_text(f->gauge_ticks[0]),lv_label_get_text(f->gauge_ticks[1]),lv_label_get_text(f->gauge_ticks[2]),
+                lv_label_get_text(f->gauge_ticks[3]),lv_label_get_text(f->gauge_ticks[4]),lv_label_get_text(f->value));
+        }
+    }
+    printf("MINIDASH_GAUGE_VIEW screen=%u instruments=%u title=%s\n",screen,instruments,view->title?lv_label_get_text(view->title):"");
+    fflush(stdout);
+}
+
 void md_ui_screens_configuration(const md_device_configuration_t *config)
 {
+    if(config) s_gauge_auto=config->common.gauge_auto;
+    if(config) for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) {
+        s_gauge_ranges[i][0]=config->common.gauge_ranges[i].minimum;
+        s_gauge_ranges[i][1]=config->common.gauge_ranges[i].maximum;
+    }
+
     if (config && config->common.active_page < config->common.page_count)
         s_page_model = config->common.pages[config->common.active_page];
 }
@@ -1920,5 +2054,38 @@ bool md_ui_screens_selftest(void)
         }
         ok=ok && count==1;
     }
+    /* Unloaded LVGL objects exercise real focus layout and needle state. */
+    const md_ui_theme_style_t saved_style=s_theme_style;
+    const bool saved_auto=s_gauge_auto; s_gauge_auto=false;
+    float saved_ranges[MD_SIGNAL_COUNT][2]; memcpy(saved_ranges,s_gauge_ranges,sizeof(saved_ranges));
+    memset(s_gauge_ranges,0,sizeof(s_gauge_ranges));
+    field_view_t field={.focus=true,.signal_id=MD_SIGNAL_ENGINE_RPM,.value_font=&lv_font_montserrat_48};
+    field.card=lv_obj_create(root); field.value=lv_label_create(field.card);
+    field.unit=lv_label_create(field.card); field.visual=lv_obj_create(field.card);
+    field.gauge_scale=lv_label_create(field.card);
+    for(unsigned i=0;i<5;i++) field.gauge_ticks[i]=lv_label_create(field.card);
+    md_ui_settings_t settings; md_ui_settings_defaults(&settings);
+    md_ui_signal_store_t store; md_ui_signal_store_init(&store);
+    for(unsigned theme=MD_UI_THEME_VOLKSWAGEN;theme<=MD_UI_THEME_PORSCHE;theme++) {
+        s_theme_style=md_ui_theme_style(theme);
+        for(unsigned portrait=0;portrait<2;portrait++) {
+            lv_obj_set_size(field.card,portrait?159:212,portrait?208:156);
+            md_ui_signal_store_publish_id(&store,MD_SIGNAL_ENGINE_RPM,4000,MD_UI_SIGNAL_VALID,100,100,true);
+            field.gauge_layout=false; update_focus_gauge(&field,&settings,&store,100);
+            ok=ok && field.gauge_available && field.gauge_level==500 &&
+                lv_obj_has_flag(field.visual,LV_OBJ_FLAG_HIDDEN) &&
+                lv_obj_get_style_text_font(field.value,0)==&md_ui_font_cluster_20 &&
+                !strcmp(lv_label_get_text(field.gauge_ticks[4]),"8");
+            update_focus_gauge(&field,&settings,&store,200);
+            ok=ok && !field.gauge_available;
+            s_gauge_ranges[MD_SIGNAL_ENGINE_RPM][1]=10000;
+            update_focus_gauge(&field,&settings,&store,100);
+            ok=ok && field.gauge_level==400 && !strcmp(lv_label_get_text(field.gauge_ticks[4]),"10");
+            s_gauge_ranges[MD_SIGNAL_ENGINE_RPM][1]=0;
+        }
+    }
+    s_theme_style=md_ui_theme_style(MD_UI_THEME_OEM); update_focus_gauge(&field,&settings,&store,100);
+    ok=ok && !field.gauge_layout && lv_obj_has_flag(field.gauge_scale,LV_OBJ_FLAG_HIDDEN);
+    s_gauge_auto=saved_auto; s_theme_style=saved_style; memcpy(s_gauge_ranges,saved_ranges,sizeof(saved_ranges));
     lv_obj_delete(root); return ok;
 }

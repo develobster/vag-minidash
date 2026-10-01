@@ -1,5 +1,11 @@
 # Device configuration and local editor
 
+Focus update (2026-10-01): Volkswagen/Porsche now show a value-driven needle
+only in single-signal Focus; ordinary cards have no instrument arcs. Five
+reference vehicle profiles, Tiguan fallback and Auto/manual ranges use schema 3.
+Automatic matching is connected through host discovery → USB, not autonomous
+MCU CAN acquisition. See [implementation, sources and acceptance](focus-instruments-2026-10-01.md).
+
 Wi-Fi/theme update (2026-10-01): local settings remain editable with AP enabled;
 Wi-Fi shows an ON/OFF indicator. Eleven themes now include Volkswagen/Porsche,
 monospaced retro fonts and distinct frames/instrument artwork. See
@@ -49,12 +55,22 @@ preview is schematic and shows `NO DATA`, never invented live readings.
 Import is only staged in the browser until device validation and Preview/Save.
 Export is versioned JSON and contains no calibration or Wi-Fi credentials.
 
+## Focus scale settings
+
+Schema 3 adds `common.gauge_auto` (default true) and `common.gauge_ranges`,
+12 min/max pairs in canonical signal-registry order. Auto selects the volatile
+recognized profile or Tiguan fallback; manual mode uses the stored ranges.
+The local Web editor exposes this mode and ranges; local theme/language/rotation
+edits preserve them. Schema 1/2 imports initialize these fields and retain all
+existing common settings and relative schema-2 rotation. See the
+[Focus report](focus-instruments-2026-10-01.md) for sources and variant limits.
+
 ## Contract
 
 - `GET /api/config`, `/api/defaults`, `/api/device`, `/api/signals`,
   `/api/layouts`, `/api/themes`; `/api/session` returns a volatile session token.
 - `POST /api/preview`, `POST /api/cancel`, `PUT /api/config` accept the complete
-  schema-2 configuration with its current `revision`.
+  schema-3 configuration with its current `revision`.
 - Mutations require `X-MiniDash-Session`, JSON content type and same AP Origin
   when Origin is present. No CORS access is granted. Request bodies are bounded
   to 16 KiB, nesting to eight levels, and duplicate/unknown keys are rejected.
@@ -76,7 +92,7 @@ revision remain unchanged.
 ## Storage / migration
 
 Legacy settings v1/v2/v3/v4 remain readable through the existing migration adapter.
-The canonical schema-2 `MDC1` blob is little-endian, length-bounded and CRC32
+The canonical schema-3 `MDC1` blob is little-endian, length-bounded and CRC32
 protected; it is stored as `minidash_ui/configuration`. Legacy `settings` and
 the separate touch-calibration key are retained. Invalid/unknown canonical
 records are not erased; runtime uses a legacy/default fallback. A failed write

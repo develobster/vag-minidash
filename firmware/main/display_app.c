@@ -8,6 +8,7 @@
 #include "display_manager.h"
 #include "backlight_controller.h"
 #include "display_serial_protocol.h"
+#include "ui_instrument_profiles.h"
 #include "esp_app_desc.h"
 #include "esp_heap_caps.h"
 #include "esp_lvgl_port.h"
@@ -38,6 +39,7 @@
 
 typedef enum {
     UI_EVENT_SET_BRIGHTNESS = 7,
+    UI_EVENT_INSTRUMENT_PROFILE = 8,
     UI_EVENT_CONFIG_MODE = 0,
     UI_EVENT_ACTION = 1,
     UI_EVENT_TOUCH_GESTURE,
@@ -59,6 +61,7 @@ typedef struct {
     bool context_verified;
     char canonical_signal[MD_UI_SIGNAL_NAME_LEN];
     uint8_t brightness_pct;
+    uint32_t profile_ttl_ms;
     bool warning_enabled;
     md_ui_threshold_direction_t threshold_direction;
     int32_t warning_milli;
@@ -503,6 +506,13 @@ static void apply_event(const ui_event_t *event,
         event->action==MD_UI_ACTION_SELECT)) ||
        (event->type==UI_EVENT_TOUCH_GESTURE && event->touch_gesture==MD_UI_TOUCH_LONG_PRESS))
         (void)end_preview_for_local(settings);
+    if(event->type==UI_EVENT_INSTRUMENT_PROFILE) {
+        if(lvgl_port_lock(20)) {
+            md_ui_screens_instrument_profile(event->canonical_signal,event->profile_ttl_ms,(uint32_t)(esp_timer_get_time()/1000));
+            lvgl_port_unlock();
+        }
+        return;
+    }
     if (event->type == UI_EVENT_SET_BRIGHTNESS) {
         if (!md_target_has(&s_target, MD_CAP_DIMMING)) return;
         settings->brightness_pct = event->brightness_pct;
@@ -1101,6 +1111,13 @@ bool md_display_app_open_details(md_ui_input_source_t source,
     return xQueueSend(s_ui_event_queue, &event, 0) == pdTRUE;
 }
 
+bool md_display_app_publish_instrument_profile(const char *frame)
+{
+    ui_event_t event={.type=UI_EVENT_INSTRUMENT_PROFILE};
+    if(!s_ui_event_queue || !md_instrument_frame_decode(frame,event.canonical_signal,sizeof(event.canonical_signal),&event.profile_ttl_ms)) return false;
+    return xQueueSend(s_ui_event_queue,&event,0)==pdTRUE;
+}
+
 bool md_display_app_set_vehicle_context(md_ui_context_t context, bool verified)
 {
     if (!s_ui_event_queue || context < MD_UI_CONTEXT_UNKNOWN ||
@@ -1219,4 +1236,11 @@ bool md_display_app_view_selftest(void)
 {
     if(!s_display_ready || !lvgl_port_lock(500)) return false;
     const bool ok=md_ui_screens_selftest(); lvgl_port_unlock(); return ok;
+}
+
+bool md_display_app_gauge_dump(void)
+{
+    if(!s_ui_task || !lvgl_port_lock(200)) return false;
+    md_ui_screens_gauge_dump((md_ui_screen_t)atomic_load(&s_visible_screen));
+    lvgl_port_unlock(); return true;
 }

@@ -1,5 +1,11 @@
 # Current feature and evidence matrix
 
+Focus update (2026-10-01): Volkswagen/Porsche now show a value-driven needle
+only in single-signal Focus; ordinary cards have no instrument arcs. Five
+reference vehicle profiles, Tiguan fallback and Auto/manual ranges use schema 3.
+Automatic matching is connected through host discovery → USB, not autonomous
+MCU CAN acquisition. See [implementation, sources and acceptance](ui/focus-instruments-2026-10-01.md).
+
 Wi-Fi/theme update (2026-10-01): local settings remain editable with AP enabled;
 Wi-Fi shows an ON/OFF indicator. Eleven themes now include Volkswagen/Porsche,
 monospaced retro fonts and distinct frames/instrument artwork. See

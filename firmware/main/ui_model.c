@@ -1,4 +1,5 @@
 #include "ui_model.h"
+#include "ui_instrument_profiles.h"
 #include <math.h>
 #include <string.h>
 
@@ -142,4 +143,15 @@ md_ui_rect_t md_ui_widget_rect(const md_ui_widget_binding_t *w, bool portrait)
         39+(portrait?w->column*168/MD_UI_GRID_COLUMNS:w->row*168/MD_UI_GRID_ROWS),
         (portrait?w->rows*320/MD_UI_GRID_ROWS:w->columns*320/MD_UI_GRID_COLUMNS)-3,
         (portrait?w->columns*168/MD_UI_GRID_COLUMNS:w->rows*168/MD_UI_GRID_ROWS)-3};
+}
+
+bool md_ui_focus_gauge_range(md_ui_signal_id_t signal, float *low, float *high)
+{
+    static const float bounds[MD_SIGNAL_COUNT][2]={
+        {0,0},{0,0},{0,0},{-40,160},{0,100},{0,4000},
+        {800,1200},{-1000,3000},{-40,160},{0,8},{-40,160},{8,18}
+    };
+    if(!low || !high || signal<0 || signal>=MD_SIGNAL_COUNT) return false;
+    if(md_instrument_profile_range(md_instrument_profile_default(),signal,low,high)) return true;
+    *low=bounds[signal][0]; *high=bounds[signal][1]; return true;
 }

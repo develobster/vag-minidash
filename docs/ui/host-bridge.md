@@ -60,3 +60,23 @@ signals are rejected before the serial port is opened. No live vehicle-to-screen
 session has been performed yet; CAN remains disabled in the firmware. Validate
 the bridge with unavailable states or a configured replay transport before
 using a live vehicle source.
+
+## Vehicle instrument profiles
+
+The host now prefixes each retained batch with a bounded allowlisted profile
+frame, for example `MDV1|golf-7-gtd-eu|3000`. It is repeated so queue replacement
+cannot lose identity. Accepted frames are silent; rejected frames are reported.
+The MCU applies it on the UI task and expires it independently of sample TTL,
+returning to the Tiguan scale fallback. Profiles are volatile and never rewrite
+NVS or change diagnostic acquisition.
+
+Automatic selection uses explicit vehicle generation/year plus successfully
+observed engine ASAM fuel identity after discovery. Configured vehicle identity
+may provide the model hint; this is not a universal VIN or exact cluster decoder.
+Unknown/ambiguous/unsupported inputs select the explicit default. Use
+`--display-market other` to disable the European matching scope, or
+`--display-instrument-profile <id>` for a known variant override. IDs and primary
+sources are in `data/ui/instrument-profiles.json`; Auto/manual mode and per-signal
+ranges are configured in the device's Web editor. See the
+[Focus report](focus-instruments-2026-10-01.md) for scope, tests and remaining
+real-car/standalone MCU integration work.

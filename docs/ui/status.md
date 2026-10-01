@@ -1,5 +1,11 @@
 # MiniDash embedded UI status
 
+Focus update (2026-10-01): Volkswagen/Porsche now show a value-driven needle
+only in single-signal Focus; ordinary cards have no instrument arcs. Five
+reference vehicle profiles, Tiguan fallback and Auto/manual ranges use schema 3.
+Automatic matching is connected through host discovery → USB, not autonomous
+MCU CAN acquisition. See [implementation, sources and acceptance](focus-instruments-2026-10-01.md).
+
 Wi-Fi/theme update (2026-10-01): local settings remain editable with AP enabled;
 Wi-Fi shows an ON/OFF indicator. Eleven themes now include Volkswagen/Porsche,
 monospaced retro fonts and distinct frames/instrument artwork. See
@@ -63,7 +69,7 @@ Settings exposes 10–100% and boot restores the saved brightness with a CRT fad
 - OEM, Sport and Minimal themes, day/night palettes, metric/imperial conversion,
   and configurable warning enable switches. Warning thresholds remain disabled
   by default and are not vehicle-validated.
-- Canonical schema-2 CRC configuration stores four pages of eight widgets, logical geometry, type/range/precision/labels, palettes and warning settings. Legacy v1/v2/v3 settings and separate touch calibration remain intact.
+- Canonical schema-3 CRC configuration stores four pages of eight widgets, logical geometry, type/range/precision/labels, palettes and warning settings. Legacy v1/v2/v3 settings and separate touch calibration remain intact.
 - Explicit temporary WPA2 AP hosts a mobile Web editor with firmware registries, layouts/themes, import/export, Preview/Save/Cancel and resets. Preview switches to Custom; Save/Cancel restores the previous screen. Ten-minute absolute timeout, session token, revision checks, bounded strict JSON and no diagnostic write routes.
 - Eight portable C modules compile without LVGL/ESP-IDF. Button debounce/long-press/repeat/lockout, renderer abstraction, logical presentation slicing and capability-gated brightness transitions exist. Physical GPIO/OLED/automotive adapters remain future work.
 - Optional USB Serial/JTAG host bridge from `minidash_live watch`; it forwards

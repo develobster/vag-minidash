@@ -1,5 +1,11 @@
 # MiniDash embedded UI settings
 
+Focus update (2026-10-01): Volkswagen/Porsche now show a value-driven needle
+only in single-signal Focus; ordinary cards have no instrument arcs. Five
+reference vehicle profiles, Tiguan fallback and Auto/manual ranges use schema 3.
+Automatic matching is connected through host discovery → USB, not autonomous
+MCU CAN acquisition. See [implementation, sources and acceptance](focus-instruments-2026-10-01.md).
+
 Wi-Fi/theme update (2026-10-01): local settings remain editable with AP enabled;
 Wi-Fi shows an ON/OFF indicator. Eleven themes now include Volkswagen/Porsche,
 monospaced retro fonts and distinct frames/instrument artwork. See
@@ -92,7 +98,7 @@ on the real panel have not yet been confirmed. Numeric, bar, quality-status and 
 
 ## Persistence
 
-Settings are validated and stored in a bounded schema-2 CRC configuration under minidash_ui/configuration. Legacy 393-byte v1, 503-byte v2 and 528-byte v3/v4 records remain readable and retained; touch calibration is independent. Writes are deferred until 1.5 seconds after the
+Settings are validated and stored in a bounded schema-3 CRC configuration under minidash_ui/configuration. Legacy 393-byte v1, 503-byte v2 and 528-byte v3/v4 records remain readable and retained; touch calibration is independent. Writes are deferred until 1.5 seconds after the
 latest edit. Invalid records fall back to defaults without automatic erase.
 The NVS partition is declared in `firmware/partitions.csv`.
 

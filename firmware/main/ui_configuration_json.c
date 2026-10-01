@@ -59,6 +59,12 @@ cJSON *md_configuration_json(const md_device_configuration_t *c, uint32_t revisi
     cJSON *fixed = cJSON_AddArrayToObject(common, "fixed_card_overrides");
     for (unsigned i = 0; i < MD_UI_FIXED_CARD_OVERRIDES_COUNT; ++i)
         cJSON_AddItemToArray(fixed, cJSON_CreateNumber(s->fixed_card_overrides[i]));
+    cJSON_AddBoolToObject(common,"gauge_auto",s->gauge_auto);
+    cJSON *ranges=cJSON_AddArrayToObject(common,"gauge_ranges");
+    for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) {
+        cJSON *o=cJSON_CreateObject(); number(o,"minimum",s->gauge_ranges[i].minimum);
+        number(o,"maximum",s->gauge_ranges[i].maximum); cJSON_AddItemToArray(ranges,o);
+    }
     cJSON *pages = cJSON_AddArrayToObject(common, "pages");
     for (unsigned p = 0; p < s->page_count; ++p) {
         const md_ui_dashboard_page_t *page = &s->pages[p]; cJSON *o = cJSON_CreateObject();
@@ -99,14 +105,26 @@ bool md_configuration_parse_json(const cJSON *root, md_device_configuration_t *c
 {
     if (!c || !revision || !shape(root, "|schema||revision||common||platform|")) return false;
     md_device_configuration_t candidate = {0}; unsigned n;
-    if (!integer(root, "schema", MD_CONFIG_SCHEMA_VERSION, &n) || (n != 1 && n != MD_CONFIG_SCHEMA_VERSION)) return false;
+    if (!integer(root, "schema", MD_CONFIG_SCHEMA_VERSION, &n) || (n < 1 || n > MD_CONFIG_SCHEMA_VERSION)) return false;
     const bool legacy_rotation = n == 1;
+    const unsigned version=n;
     candidate.schema_version = MD_CONFIG_SCHEMA_VERSION;
     if (!integer(root, "revision", UINT32_MAX, &n)) return false;
     const uint32_t rev = n;
     md_common_configuration_t *s = &candidate.common;
     const cJSON *common = cJSON_GetObjectItemCaseSensitive(root, "common");
-    if (!shape(common, "|dashboard||theme||day_night||units||temperature_unit||language||last_screen||active_page||warnings_enabled||custom_theme||palette||warnings||fixed_card_overrides||pages|")) return false;
+    if (!shape(common, "|dashboard||theme||day_night||units||temperature_unit||language||last_screen||active_page||warnings_enabled||custom_theme||palette||warnings||fixed_card_overrides||pages||gauge_ranges||gauge_auto|")) return false;
+    s->gauge_auto=true;
+    if(version>=3 && !boolean(common,"gauge_auto",&s->gauge_auto)) return false;
+    const cJSON *ranges=cJSON_GetObjectItemCaseSensitive(common,"gauge_ranges");
+    if(version>=3 && (!cJSON_IsArray(ranges) || cJSON_GetArraySize(ranges)!=MD_SIGNAL_COUNT)) return false;
+    for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) {
+        if(version>=3) {
+            const cJSON *o=cJSON_GetArrayItem(ranges,i);
+            if(!shape(o,"|minimum||maximum|") || !real(o,"minimum",&s->gauge_ranges[i].minimum) ||
+                !real(o,"maximum",&s->gauge_ranges[i].maximum)) return false;
+        } else md_ui_focus_gauge_range(i,&s->gauge_ranges[i].minimum,&s->gauge_ranges[i].maximum);
+    }
 #define BYTE(O,K,F) do { if (!integer((O),(K),255,&n)) return false; (F) = n; } while (0)
     BYTE(common,"dashboard",s->dashboard); BYTE(common,"theme",s->theme);
     BYTE(common,"day_night",s->day_night); BYTE(common,"units",s->units);
@@ -179,12 +197,30 @@ static bool test_json_inner(md_device_configuration_t *first, md_device_configur
     if (!md_configuration_from_legacy(&a,&settings,NULL)) return false;
     cJSON *root=md_configuration_json(&a,17); uint32_t revision;
     bool ok=root && md_configuration_parse_json(root,&b,&revision) && revision==17;
+    if(ok) {
+        cJSON *range=cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(root,"common"),"gauge_ranges"),0);
+        cJSON_ReplaceItemInObjectCaseSensitive(range,"maximum",cJSON_CreateNumber(-1));
+        ok=!md_configuration_parse_json(root,&b,&revision);
+        cJSON_ReplaceItemInObjectCaseSensitive(range,"maximum",cJSON_CreateNumber(10000));
+        ok=ok && md_configuration_parse_json(root,&b,&revision) && b.common.gauge_ranges[0].maximum==10000;
+    }
     if (ok) {
         cJSON_AddNumberToObject(root,"revision",18);
         ok=!md_configuration_parse_json(root,&b,&revision);
     }
     cJSON_Delete(root);
     if (!ok) return false;
+    for(unsigned old=1;old<=2;old++) {
+        root=md_configuration_json(&a,17);
+        cJSON_ReplaceItemInObjectCaseSensitive(root,"schema",cJSON_CreateNumber(old));
+        cJSON *common=cJSON_GetObjectItemCaseSensitive(root,"common");
+        cJSON_DeleteItemFromObjectCaseSensitive(common,"gauge_ranges");
+        cJSON_DeleteItemFromObjectCaseSensitive(common,"gauge_auto");
+        ok=md_configuration_parse_json(root,&b,&revision) && b.common.gauge_auto &&
+            b.common.gauge_ranges[MD_SIGNAL_VEHICLE_SPEED].maximum==280 &&
+            b.common.gauge_ranges[MD_SIGNAL_ENGINE_COOLANT_TEMPERATURE].minimum==50;
+        cJSON_Delete(root); if(!ok) return false;
+    }
     root=md_configuration_json(&a,17); cJSON_AddStringToObject(root,"uds","22f190");
     ok=!md_configuration_parse_json(root,&b,&revision); cJSON_Delete(root);
     if (!ok) return false;

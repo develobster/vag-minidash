@@ -87,3 +87,6 @@ bool md_brightness_tick(md_brightness_t *brightness, uint32_t now_ms, uint8_t *o
 typedef struct { int x,y,width,height; } md_ui_rect_t;
 void md_ui_fixed_portrait_rect(md_ui_card_group_t group, uint8_t slot, md_ui_rect_t *rect);
 md_ui_rect_t md_ui_widget_rect(const md_ui_widget_binding_t *widget, bool portrait);
+
+/* Presentation bounds in canonical units, never warning/safety thresholds. */
+bool md_ui_focus_gauge_range(md_ui_signal_id_t signal, float *low, float *high);

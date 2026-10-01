@@ -23,16 +23,20 @@ bool md_ui_test_configuration(void)
     a.common.pages[2].widgets[0].type=MD_UI_WIDGET_STATUS;
     a.common.pages[3].widgets[0].type=MD_UI_WIDGET_GRAPH;
     a.common.active_page=3;
+    a.common.gauge_auto=false;
+    a.common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum=10000;
     if (!md_configuration_validate(&a,NULL)) return false;
     md_ui_settings_t legacy;
     if (!md_configuration_to_legacy(&a,&legacy) || legacy.widgets[0].type!=MD_UI_WIDGET_GRAPH) return false;
     legacy.language=MD_UI_LANGUAGE_RUSSIAN;
-    if (!md_configuration_update_legacy(&a,&legacy) || a.common.pages[1].widgets[0].type!=MD_UI_WIDGET_BAR) return false;
+    if (!md_configuration_update_legacy(&a,&legacy) || a.common.pages[1].widgets[0].type!=MD_UI_WIDGET_BAR ||
+        a.common.gauge_auto || a.common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum!=10000) return false;
     if (!md_configuration_reset_page(&a,0) || !md_configuration_validate(&a,NULL)) return false;
     size_t n=0;
     return md_configuration_encode(&a,wire,sizeof(wire),&n) && n<=MD_CONFIG_WIRE_MAX &&
         md_configuration_decode(wire,n,&b) && b.common.page_count==4 && b.common.language==MD_UI_LANGUAGE_RUSSIAN &&
-        b.common.pages[3].widgets[0].type==MD_UI_WIDGET_GRAPH;
+        b.common.pages[3].widgets[0].type==MD_UI_WIDGET_GRAPH && !b.common.gauge_auto &&
+        b.common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum==10000;
 }
 bool md_ui_test_widget_precision(void)
 {
@@ -84,6 +88,21 @@ bool md_ui_test_history(void)
     if (h.count!=1 || h.maximum!=60) return false;
     r.demo=true; r.value=10; r.updated_ms=240; md_ui_history_observe(&h,&r,240);
     if (h.count!=1 || h.minimum!=10 || !h.demo) return false;
+    md_ui_settings_t settings; md_ui_settings_defaults(&settings);
+    md_ui_signal_store_t store; md_ui_signal_store_init(&store);
+    for(int id=0;id<MD_SIGNAL_COUNT;id++) {
+        float low,high; md_ui_widget_view_t v;
+        if(!md_ui_focus_gauge_range(id,&low,&high) || !isfinite(low) || high<=low) return false;
+        const float samples[]={low,(low+high)/2,high,low-1,high+1};
+        const unsigned expected[]={0,500,1000,0,1000};
+        for(unsigned i=0;i<5;i++) {
+            md_ui_signal_store_publish_id(&store,id,samples[i],MD_UI_SIGNAL_VALID,100,100,false);
+            md_ui_project_widget(&v,id,&settings,&store,100,low,high,NULL);
+            if(!v.has_range || v.level_per_mille!=expected[i]) return false;
+        }
+        md_ui_project_widget(&v,id,&settings,&store,200,low,high,NULL);
+        if(v.has_range || v.signal.value_available) return false;
+    }
     uint8_t first,count;
     return md_ui_presentation_slice(6,3,1,&first,&count) && first==3 && count==3 &&
         !md_ui_presentation_slice(6,3,2,&first,&count);
@@ -240,11 +259,16 @@ bool md_ui_test_rotation(void)
         }
     }
     /* Migrate build-only schema-1 rotation to relative zero with all other data kept. */
-    wire[4]=1; rotation_test_reseal(wire,n);
-    if(!md_configuration_decode(wire,n,&b) || b.platform.rotation!=0) return false;
+    static uint8_t old_wire[MD_CONFIG_WIRE_MAX]; memcpy(old_wire,wire,n);
+    const size_t old_size=n-MD_SIGNAL_COUNT*8-1;
+    old_wire[4]=2; rotation_test_reseal(old_wire,old_size);
+    if(!md_configuration_decode(old_wire,old_size,&b) || b.platform.rotation!=a.platform.rotation ||
+       b.common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum!=8000) return false;
+    old_wire[4]=1; rotation_test_reseal(old_wire,old_size);
+    if(!md_configuration_decode(old_wire,old_size,&b) || b.platform.rotation!=0) return false;
     /* Compare canonical wire, not padding or unused widget slots in C structs. */
     static uint8_t migrated_wire[MD_CONFIG_WIRE_MAX]; size_t migrated_size;
-    wire[4]=MD_CONFIG_SCHEMA_VERSION; wire[n-5]=0; rotation_test_reseal(wire,n);
+    wire[4]=MD_CONFIG_SCHEMA_VERSION; wire[n-MD_SIGNAL_COUNT*8-6]=0; rotation_test_reseal(wire,n);
     if(!md_configuration_encode(&b,migrated_wire,sizeof(migrated_wire),&migrated_size) ||
        migrated_size!=n || memcmp(wire,migrated_wire,n)!=0) return false;
     md_ui_settings_defaults(&s); s.language=MD_UI_LANGUAGE_RUSSIAN;
