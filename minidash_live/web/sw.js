@@ -1,9 +1,11 @@
-const CACHE = "minidash-shell-v1";
+const CACHE = "minidash-shell-v2";
 const SHELL = [
   "/",
   "/index.html",
   "/app.js",
   "/model.js",
+  "/settings.js",
+  "/units.js",
   "/style.css",
   "/manifest.webmanifest",
   "/icon.svg",

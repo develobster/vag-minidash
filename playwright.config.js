@@ -8,11 +8,19 @@ export default defineConfig({
     browserName: "chromium",
     hasTouch: true,
   },
-  webServer: {
-    command:
-      "python -m minidash_live.configurator --port 8766 --data-dir work/ui-test-data",
-    url: "http://127.0.0.1:8766/api/configuration",
-    reuseExistingServer: false,
-  },
+  webServer: [
+    {
+      command:
+        "python -m minidash_live.configurator --port 8766 --data-dir work/ui-test-data",
+      url: "http://127.0.0.1:8766/api/configuration",
+      reuseExistingServer: false,
+    },
+    {
+      command:
+        "python -m minidash_live.configurator --host-only --port 8767 --data-dir work/host-ui-test-data",
+      url: "http://127.0.0.1:8767/api/configuration",
+      reuseExistingServer: false,
+    },
+  ],
   reporter: "list",
 });

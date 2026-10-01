@@ -1,3 +1,5 @@
+import { createSettingsUI } from "./settings.js";
+import { preferred, unitFor, dateTime } from "./units.js";
 import {
   TYPES,
   escape as e,
@@ -31,6 +33,39 @@ let catalogKey = "",
   filter = "all",
   saving = false;
 const clone = (v) => JSON.parse(JSON.stringify(v));
+const deviceSettings = createSettingsUI({
+  config: () => config,
+  base: () => base,
+  page: () => page,
+  revision: () => revision,
+  dirty: () => dirty,
+  telemetry: () => telemetry,
+  signals: () => signals(),
+  preview: () => preview(),
+  api,
+  toast,
+  render,
+  changed,
+  openSheet,
+  closeSheet: () => sheet.close(),
+  ask,
+  download,
+  accept(result, pending) {
+    if (telemetry && result.operation) telemetry.operation = result.operation;
+    revision = result.revision;
+    base = clone(result.configuration);
+    if (!pending || JSON.stringify(config) === JSON.stringify(pending)) {
+      config = result.configuration;
+      dirty = false;
+      $("#savebar").hidden = true;
+      try {
+        localStorage.removeItem("minidash-draft");
+      } catch {}
+    } else persist();
+    deviceSettings.bar();
+  },
+});
+
 const signals = () =>
   telemetry?.signals || [
     {
@@ -79,6 +114,39 @@ function changed() {
   persist();
   $("#savebar").hidden = false;
   appearance();
+  updateDisplayPreview();
+  deviceSettings.bar();
+}
+function updateDisplayPreview() {
+  if (!config) return;
+  const settings = config.device_settings.display;
+  let mode = settings.mode;
+  if (mode === "auto") {
+    const hour = Number(
+      new Intl.DateTimeFormat("en", {
+        timeZone: config.device_settings.general.timezone,
+        hour: "numeric",
+        hour12: false,
+      }).format(new Date()),
+    );
+    mode = hour >= 7 && hour < 20 ? "day" : "night";
+  }
+  const level =
+    mode === "day"
+      ? settings.day_brightness
+      : mode === "night"
+        ? settings.night_brightness
+        : settings.brightness;
+  document.querySelectorAll(".preview").forEach((el) => {
+    el.style.filter = `brightness(${level / 100})`;
+    const rotated = [90, 270].includes(settings.rotation);
+    el.style.setProperty(
+      "--ratio",
+      rotated
+        ? `${config.settings.display_height}/${config.settings.display_width}`
+        : `${config.settings.display_width}/${config.settings.display_height}`,
+    );
+  });
 }
 function appearance() {
   const setting = config.settings.appearance;
@@ -102,10 +170,15 @@ function select(label, name, options, value) {
 }
 function preview(s = currentScreen(), editable = false) {
   const t = theme();
-  return `<div class="preview" style="--display-bg:${t.background};--display-fg:${t.foreground};--display-accent:${t.accent};--warn:${t.warning};--critical:${t.critical};--spacing:${t.spacing}px;--display-font:${t.typography === "mono" ? "monospace" : "system-ui"};--gauge-radius:${t.gauge === "square" ? 0 : 10}px;--ratio:${config.settings.display_width}/${config.settings.display_height};grid-template-columns:repeat(${s.columns},minmax(0,1fr));${t.grid ? "background-image:linear-gradient(#8881 1px,transparent 1px),linear-gradient(90deg,#8881 1px,transparent 1px);background-size:16px 16px;" : ""}">${s.widgets.map((w) => `<button class="${w.type}" ${editable ? `data-widget="${e(w.id)}"` : ""} style="grid-column:${w.x + 1}/span ${w.width};grid-row:${w.y + 1}/span ${w.height}" aria-label="${e(w.label)}${editable ? " settings" : ""}"><span class="label">${e(w.label)}</span><span class="value" data-value="${e(w.signal)}" data-precision="${w.precision}" data-warning="${w.warning}" data-critical="${w.critical}">—</span><span class="unit">${e(w.units)}</span>${["gauge", "compact"].includes(w.type) ? `<span class="visual dial"><svg viewBox="0 0 100 52"><path d="M5 47 A45 45 0 0 1 95 47" fill="none" stroke="${t.foreground}33" stroke-width="7"/><path d="M5 47 A45 45 0 0 1 95 47" fill="none" stroke="${t.accent}" stroke-width="7" pathLength="100" data-gauge="${e(w.signal)}" data-min="${w.min}" data-max="${w.max}" stroke-dasharray="0 100"/></svg></span>` : w.type === "bar" ? `<span class="track"><i data-bar="${e(w.signal)}" data-min="${w.min}" data-max="${w.max}"></i></span>` : w.type === "graph" ? `<span class="visual"><svg viewBox="0 0 100 22" preserveAspectRatio="none"><polyline data-graph="${e(w.signal)}" data-min="${w.min}" data-max="${w.max}" fill="none" stroke="${t.accent}" stroke-width="2"/></svg></span>` : ""}</button>`).join("")}</div>`;
+  return `<div class="preview" style="--display-bg:${t.background};--display-fg:${t.foreground};--display-accent:${t.accent};--warn:${t.warning};--critical:${t.critical};--spacing:${t.spacing}px;--display-font:${t.typography === "mono" ? "monospace" : "system-ui"};--gauge-radius:${t.gauge === "square" ? 0 : 10}px;--ratio:${config.settings.display_width}/${config.settings.display_height};grid-template-columns:repeat(${s.columns},minmax(0,1fr));${t.grid ? "background-image:linear-gradient(#8881 1px,transparent 1px),linear-gradient(90deg,#8881 1px,transparent 1px);background-size:16px 16px;" : ""}">${s.widgets.map((w) => `<button class="${w.type}" ${editable ? `data-widget="${e(w.id)}"` : ""} style="grid-column:${w.x + 1}/span ${w.width};grid-row:${w.y + 1}/span ${w.height}" aria-label="${e(w.label)}${editable ? " settings" : ""}"><span class="label">${e(w.label)}</span><span class="value" data-value="${e(w.signal)}" data-precision="${w.precision}" data-warning="${w.warning}" data-critical="${w.critical}">—</span><span class="unit">${e(unitFor(w.units, config.device_settings.general))}</span>${["gauge", "compact"].includes(w.type) ? `<span class="visual dial"><svg viewBox="0 0 100 52"><path d="M5 47 A45 45 0 0 1 95 47" fill="none" stroke="${t.foreground}33" stroke-width="7"/><path d="M5 47 A45 45 0 0 1 95 47" fill="none" stroke="${t.accent}" stroke-width="7" pathLength="100" data-gauge="${e(w.signal)}" data-min="${w.min}" data-max="${w.max}" stroke-dasharray="0 100"/></svg></span>` : w.type === "bar" ? `<span class="track"><i data-bar="${e(w.signal)}" data-min="${w.min}" data-max="${w.max}"></i></span>` : w.type === "graph" ? `<span class="visual"><svg viewBox="0 0 100 22" preserveAspectRatio="none"><polyline data-graph="${e(w.signal)}" data-min="${w.min}" data-max="${w.max}" fill="none" stroke="${t.accent}" stroke-width="2"/></svg></span>` : ""}</button>`).join("")}</div>`;
 }
 function dashboard() {
-  const s = config.screens.find((s) => s.id === config.active_screen);
+  const active = dirty
+    ? config.active_screen
+    : telemetry?.active_screen || config.active_screen;
+  const s =
+    config.screens.find((s) => s.id === active) ||
+    config.screens.find((s) => s.id === config.active_screen);
   return `<div class="eyebrow">YOUR DRIVE · YOUR DISPLAY</div><h1>Ready at a glance</h1><p>Live signals and the controls you use most.</p><div class="columns"><section><div class="row"><h2>${e(s.name)}</h2><small>${s.widgets.length} widgets · ${config.settings.display_width} × ${config.settings.display_height}</small></div>${preview(s)}<small>Host preview · physical display sync unavailable</small><div class="actions" style="margin-top:16px">${button("Edit screens", "screens", "primary")}${button("Add a signal", "signals")}</div></section><section><div class="grid"><div class="stat"><small>CAN</small><strong data-status="can">—</strong></div><div class="stat"><small>Vehicle</small><strong data-status="vehicle">—</strong></div><div class="stat"><small>Uptime</small><strong data-status="uptime">—</strong></div><div class="stat"><small>ECUs</small><strong data-status="ecus">—</strong></div></div><div class="card"><h2>Trip recording</h2><p data-log-status>No recording</p>${button("Start recording", "record", "primary")}<p><small>Records configured signals on this host. No ECU writes.</small></p></div>${button("Device status", "device")}</section></div>`;
 }
 function screens() {
@@ -129,7 +202,7 @@ function signalCards() {
     ? rows
         .map(
           (s) =>
-            `<article class="card signal"><div class="name"><h3>${e(s.label || s.signal)}</h3><small>${e(s.signal)}</small></div><div><strong data-value="${e(s.signal)}" data-precision="1">—</strong> <small>${e(s.unit)}</small></div><div class="meta" data-meta="${e(s.signal)}">${e(s.source)} · ${e(s.quality)}</div><button data-add-signal="${e(s.signal)}">＋ Add to screen</button></article>`,
+            `<article class="card signal"><div class="name"><h3>${e(s.label || s.signal)}</h3><small>${e(s.signal)}</small></div><div><strong data-value="${e(s.signal)}" data-precision="1">—</strong> <small>${e(unitFor(s.unit, config.device_settings.general))}</small></div><div class="meta" data-meta="${e(s.signal)}">${e(s.source)} · ${e(s.quality)}</div><button data-add-signal="${e(s.signal)}">＋ Add to screen</button></article>`,
         )
         .join("")
     : '<div class="card">No signals match. Try a different search or source.</div>';
@@ -146,7 +219,7 @@ function renderLogs() {
     ? logs
         .map(
           (l) =>
-            `<article class="card"><div class="row"><h3>${e(new Date(l.date).toLocaleString())}</h3><small>${e(l.mode)}</small></div><p>${Math.round(l.duration)} s · ${l.samples} samples · ${(l.bytes / 1024).toFixed(1)} KB</p><small>${l.signals.map(e).join(" · ")}</small><div class="actions" style="margin-top:12px"><button data-log-graph="${l.id}">Graph</button><button data-log-download="${l.id}">Download</button><button class="danger" data-log-delete="${l.id}">Delete</button></div></article>`,
+            `<article class="card"><div class="row"><h3>${e(dateTime(l.date, config.device_settings.general))}</h3><small>${e(l.mode)}</small></div><p>${Math.round(l.duration)} s · ${l.samples} samples · ${(l.bytes / 1024).toFixed(1)} KB</p><small>${l.signals.map(e).join(" · ")}</small><div class="actions" style="margin-top:12px"><button data-log-graph="${l.id}">Graph</button><button data-log-download="${l.id}">Download</button><button class="danger" data-log-delete="${l.id}">Delete</button></div></article>`,
         )
         .join("")
     : '<div class="card"><h3>No recordings yet</h3><p>Start a recording to capture the signals configured on your screens.</p></div>';
@@ -154,8 +227,9 @@ function renderLogs() {
 const pair = (label, value) =>
   `<div class="pair"><span>${e(label)}</span><span>${e(value ?? "Unavailable")}</span></div>`;
 function device() {
-  return `<h1>Device & preferences</h1><p>Capabilities are reported by the connected backend.</p><div class="columns"><section><div class="card"><h2>Connected host</h2><div id="device-status"></div><details><summary>Advanced diagnostics</summary><div id="diagnostics"></div><p><small>ESP32 flash, PSRAM, heap, Wi-Fi RSSI, RX/TX, frame errors and storage metrics require firmware API support.</small></p></details></div><div class="card"><h2>Firmware update</h2><p>Unavailable: the existing ESP32 firmware has no Web OTA backend.</p><button disabled>Select firmware · unavailable</button><p><small>No upload or installation is performed by this host.</small></p></div></section><section><div class="card"><h2>Preferences</h2>${select("Appearance", "appearance", ["auto", "light", "dark"], config.settings.appearance)}${input("Vehicle profile / preference", "vehicle-profile", config.settings.vehicle_profile)}<div class="fields">${input("Preview width", "display-width", config.settings.display_width, "number", 'min="128" max="1024"')}${input("Preview height", "display-height", config.settings.display_height, "number", 'min="128" max="1024"')}</div><p><small>Host preferences only; acquisition configuration remains controlled by the runtime profile.</small></p></div><div class="card"><h2>Configuration backup</h2><p>Version 1 · settings, screens, themes, signals and thresholds.</p><div class="actions">${button("Export configuration", "export")}${button("Import configuration", "import")}</div><input id="config-file" type="file" accept="application/json,.json" hidden><div class="actions" style="margin-top:12px">${button("Reload saved", "reload")}${button("Reset configuration", "reset", "danger")}</div></div><div class="card"><h2>Connection testing</h2>${button("Pause simulated signals", "pause")}<p><small>Simulation only: paused signals become stale. Reconnect tests can stop and restart the host without losing drafts.</small></p><p id="pwa-note"></p></div></section></div>`;
+  return deviceSettings.page();
 }
+
 function render() {
   if (!config) return;
   main.innerHTML = {
@@ -174,6 +248,8 @@ function render() {
       ),
     );
   appearance();
+  updateDisplayPreview();
+  deviceSettings.bar();
   updateLive();
   if (page === "logs") loadLogs();
   if (page === "device")
@@ -192,12 +268,14 @@ function navigate(next) {
 function updateLive() {
   const map = new Map(signals().map((s) => [s.signal, s]));
   document.querySelectorAll("[data-value]").forEach((el) => {
-    const v = displayReading(map.get(el.dataset.value), connected);
+    const row = map.get(el.dataset.value);
+    const v = displayReading(row, connected);
+    const shown = preferred(v, row?.unit, config.device_settings.general).value;
     el.textContent =
       v === null
         ? "—"
         : typeof v === "number"
-          ? v.toFixed(Number(el.dataset.precision || 0))
+          ? shown.toFixed(Number(el.dataset.precision || 0))
           : v;
     el.classList.toggle("warn", v !== null && v >= Number(el.dataset.warning));
     el.classList.toggle(
@@ -252,6 +330,8 @@ function updateLive() {
     const s = map.get(el.dataset.meta);
     el.textContent = `${s?.source || "unavailable"} · ${connected ? s?.quality || "unavailable" : "stale · disconnected"} · age ${s?.age == null ? "unknown" : s.age.toFixed(1) + " s"} · ${s?.expected_period ? `${(1 / s.expected_period).toFixed(1)} Hz expected` : "rate unknown"} · range ${s?.min ?? "?"}–${s?.max ?? "?"}`;
   });
+  updateDisplayPreview();
+  deviceSettings.live(telemetry);
   if (!telemetry) return;
   document.querySelectorAll("[data-status]").forEach((el) => {
     const key = el.dataset.status;
@@ -324,7 +404,15 @@ function connect() {
   source = new EventSource("/api/events");
   source.onmessage = (event) => {
     try {
+      const previousActive = telemetry?.active_screen;
       telemetry = JSON.parse(event.data);
+      if (
+        config &&
+        page === "dashboard" &&
+        !dirty &&
+        previousActive !== telemetry.active_screen
+      )
+        render();
       const key = signals()
         .map((s) => s.signal)
         .join("|");
@@ -411,6 +499,7 @@ function download(data, name, type = "application/json") {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 async function save() {
+  if (deviceSettings.hasSettingsChanges()) return deviceSettings.apply();
   if (saving) return;
   saving = true;
   const pending = clone(config);
@@ -538,6 +627,22 @@ document.addEventListener("click", async (event) => {
     if (["screens", "signals", "device"].includes(a)) return navigate(a);
     if (a === "close-sheet") return sheet.close();
     if (a === "save") return await save();
+    if (a === "discard")
+      return ask(
+        "Discard unsaved changes?",
+        "Replace this draft with the last saved configuration. Unsaved passwords are forgotten.",
+        () => {
+          config = clone(base);
+          dirty = false;
+          deviceSettings.discard();
+          $("#savebar").hidden = true;
+          sheet.close();
+          try {
+            localStorage.removeItem("minidash-draft");
+          } catch {}
+          render();
+        },
+      );
     if (a === "record") {
       b.disabled = true;
       await api(
@@ -563,7 +668,10 @@ document.addEventListener("click", async (event) => {
       return;
     }
     if (a === "export")
-      return download(config, "minidash-configuration-v1.json");
+      return download(
+        config,
+        `minidash-configuration-v${config.schema_version}.json`,
+      );
     if (a === "import") return $("#config-file").click();
     if (a === "reload")
       return ask(
@@ -626,6 +734,8 @@ document.addEventListener("click", async (event) => {
       if (config.screens.length === 1) throw Error("Keep at least one screen");
       return ask("Delete screen?", s.name, () => {
         config.screens = config.screens.filter((x) => x.id !== s.id);
+        if (config.device_settings.general.startup_screen === s.id)
+          config.device_settings.general.startup_screen = config.screens[0].id;
         if (config.active_screen === s.id)
           config.active_screen = config.screens[0].id;
         screenId = config.screens[0].id;
@@ -868,7 +978,7 @@ document.addEventListener("change", async (event) => {
       const file = el.files[0];
       if (!file) return;
       if (file.size > 262144) throw Error("Import file too large");
-      const value = JSON.parse(await file.text());
+      let value = JSON.parse(await file.text());
       if (el.id === "theme-file") {
         const imported = { ...value, id: uid() };
         const trial = clone(config);
@@ -881,7 +991,10 @@ document.addEventListener("change", async (event) => {
         render();
         toast("Theme imported into draft");
       } else {
-        await api("configuration/validate", "POST", { configuration: value });
+        const validated = await api("configuration/validate", "POST", {
+          configuration: value,
+        });
+        value = validated.configuration;
         ask(
           "Import configuration?",
           "Replace this draft with the validated backup. Save to persist.",
@@ -942,13 +1055,14 @@ async function bootstrap() {
     }
     navigate(location.hash.slice(1) || "dashboard");
     connect();
+    deviceSettings.load();
   } catch (err) {
     connection(false);
     let cached = null;
     try {
       cached = JSON.parse(localStorage.getItem("minidash-draft"));
     } catch {}
-    if (cached?.configuration) {
+    if (cached?.configuration?.schema_version === 2) {
       config = cached.configuration;
       base = cached.base;
       revision = cached.revision;

@@ -538,3 +538,97 @@ dialog {
     padding-right: max(28px, env(safe-area-inset-right));
   }
 }
+
+.settings-cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+}
+.setting-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  margin: 0;
+  width: 100%;
+  min-height: 84px;
+  gap: 12px;
+}
+.setting-card strong {
+  display: block;
+  font-size: 18px;
+}
+.setting-card small {
+  display: block;
+  margin-top: 5px;
+}
+.matches {
+  color: var(--accent);
+}
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  color: var(--fg);
+  cursor: pointer;
+}
+.toggle input {
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+.setting-field {
+  margin: 16px 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.setting-field small {
+  display: block;
+  margin-top: 8px;
+}
+.setting-field input[type="range"] {
+  padding: 0;
+  accent-color: var(--accent);
+}
+.safe-badge {
+  display: inline-block;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 13px;
+}
+#settings-diagnostics {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+#wifi-networks button {
+  display: block;
+  margin-top: 8px;
+  width: 100%;
+  text-align: left;
+}
+#savebar span {
+  flex: 1;
+}
+#savebar [data-action="discard"] {
+  background: var(--surface);
+  color: var(--fg);
+}
+#savebar {
+  flex-wrap: wrap;
+}
+code {
+  overflow-wrap: anywhere;
+}
+@media (min-width: 760px) {
+  .settings-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

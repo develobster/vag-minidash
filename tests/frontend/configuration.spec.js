@@ -13,7 +13,7 @@ test("validated backup import, persistence and rejected unknown version", async 
     buffer: Buffer.from(JSON.stringify(imported)),
   });
   await page.getByRole("button", { name: "Confirm", exact: true }).click();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
   await expect(page.locator("#toast")).toContainText("saved");
   const result = await (await page.request.get("/api/configuration")).json();
   expect(result.configuration.screens[0].name).toBe("Backup restored");
@@ -48,7 +48,7 @@ test("service worker offline shell launches without cached live telemetry", asyn
   await expect(page.locator("#connection")).toContainText("Reconnecting");
   expect(
     await page.evaluate(async () => {
-      const cache = await caches.open("minidash-shell-v1");
+      const cache = await caches.open("minidash-shell-v2");
       return (await cache.keys()).some((r) =>
         new URL(r.url).pathname.startsWith("/api/"),
       );
