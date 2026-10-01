@@ -70,6 +70,7 @@ for (const size of [
       "Display → Brightness",
     );
     await open(page, "display");
+    await expect.poll(() => page.locator("#sheet").evaluate(el => el.scrollTop)).toBe(0);
     await expect(
       page.locator('[data-setting="display.auto_brightness"]'),
     ).toBeDisabled();

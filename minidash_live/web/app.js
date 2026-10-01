@@ -461,6 +461,7 @@ function ask(title, text, action) {
 function openSheet(html) {
   sheet.innerHTML = `<button class="close" data-action="close-sheet" aria-label="Close settings">✕</button>${html}`;
   sheet.showModal();
+  sheet.scrollTop = 0;
   sheet.setAttribute(
     "aria-label",
     sheet.querySelector("h2")?.textContent || "Settings",
