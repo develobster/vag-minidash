@@ -6,6 +6,7 @@ import {
   moveWidget,
   relayout,
   reading,
+  displayReading,
   draftIsCompatible,
   escape,
 } from "../../minidash_live/web/model.js";
@@ -72,3 +73,9 @@ test("draft restoration requires unchanged server configuration and revision", (
 });
 test("labels from backups cannot insert markup", () =>
   assert.equal(escape('<script>"&'), "&lt;script&gt;&quot;&amp;"));
+test("canonical enum values render without being treated as numeric telemetry", () => {
+  assert.equal(displayReading({ quality: "valid", value: "R" }), "R");
+  assert.equal(reading({ quality: "valid", value: "R" }), null);
+  assert.equal(displayReading({ quality: "candidate", value: "R" }), null);
+  assert.equal(displayReading({ quality: "valid", value: "R" }, false), null);
+});

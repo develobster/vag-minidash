@@ -1,6 +1,8 @@
 import copy
 import json
 import tempfile
+import importlib.util
+import time
 import unittest
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -9,6 +11,45 @@ from minidash_live.api import State, serve
 from minidash_live.configurator import Configurator, SimulationState, defaults, validate_config
 
 class ConfigurationTests(unittest.TestCase):
+    @unittest.skipUnless(all(importlib.util.find_spec(name) for name in ('can', 'isotp', 'cantools')),
+                         'VirtualBus dependencies required')
+    def test_virtual_runtime_arbitration_reaches_web_api(self):
+        from test_pipeline import PipelineIntegrationTests
+        fixture = PipelineIntegrationTests()
+        fixture.setUp()
+        session = server = None
+        try:
+            _, _, _, session, engine = fixture.runtime()
+            state = State(); state.mode = 'runtime'
+            with tempfile.TemporaryDirectory() as directory:
+                server, thread = serve(state, 0, data_dir=directory)
+                deadline = time.monotonic()+2
+                while time.monotonic() < deadline:
+                    engine.step()
+                    current = engine.snapshot()
+                    row = current['decisions']['engine.rpm']['selected']
+                    if row and row['value'] is not None: break
+                    time.sleep(.002)
+                state.update_runtime(current)
+                with urlopen(f'http://127.0.0.1:{server.server_port}/api/telemetry') as response:
+                    result=json.load(response)
+                rpm=next(r for r in result['signals'] if r['signal']=='engine.rpm')
+                self.assertEqual(current['decisions']['engine.rpm']['selected']['value'],801)
+                self.assertEqual(rpm['source'],'uds')
+                self.assertEqual(rpm['quality'],'candidate')
+                self.assertIsNone(rpm['value'])  # Candidate codecs must not look vehicle-validated.
+                engine.feed_can(0x0A8, bytes.fromhex('0000800c00000000'))
+                engine.step();state.update_runtime(engine.snapshot())
+                with urlopen(f'http://127.0.0.1:{server.server_port}/api/telemetry') as response:
+                    result=json.load(response)
+                rpm=next(r for r in result['signals'] if r['signal']=='engine.rpm')
+                self.assertEqual(rpm['source'],'can');self.assertIsNone(rpm['value'])
+                server.shutdown();thread.join(2);server.server_close();server=None
+        finally:
+            if server:server.shutdown();server.server_close()
+            if session:session.close()
+            fixture.tearDown()
+
     def test_default_and_old_version(self):
         config = defaults()
         self.assertEqual(validate_config(config), config)

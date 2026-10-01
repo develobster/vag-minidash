@@ -1,5 +1,15 @@
 # Экспериментальный runtime fork 0.10 от аудированной v0.9
 
+## Mobile Web Configurator
+
+`python -m minidash_live.configurator` → http://127.0.0.1:8765.
+Пять mobile-first страниц, canonical simulation/SSE, screens/widgets/themes,
+host logging и versioned backup. Для телефона в одной сети с ПК:
+`.\tools\Run-WebConfigurator.ps1 -Lan`. Существующий `watch` поддерживает
+`--web-port 8765`. Прямой ESP32 Wi-Fi/OTA и синхронизация физического дисплея
+пока недоступны; UI сообщает это явно. Возможности, API, проверки и ограничения:
+[web-configurator.md](docs/web-configurator.md).
+
 Первый дисплейный прототип ESP32-S3 (ST7789/ILI9341 backends), граница host/firmware и проверка
 проводки описаны в [display-prototype.md](docs/hardware/display-prototype.md).
 

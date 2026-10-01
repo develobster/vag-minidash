@@ -522,7 +522,19 @@ summary {
 nav span {
   font-size: 11px;
 }
-header { padding-top: calc(14px + env(safe-area-inset-top)); }
-main { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
-dialog { padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
-@media (min-width: 760px) { main { padding-left: max(28px, env(safe-area-inset-left)); padding-right: max(28px, env(safe-area-inset-right)); } }
+header {
+  padding-top: calc(14px + env(safe-area-inset-top));
+}
+main {
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+}
+dialog {
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
+}
+@media (min-width: 760px) {
+  main {
+    padding-left: max(28px, env(safe-area-inset-left));
+    padding-right: max(28px, env(safe-area-inset-right));
+  }
+}
