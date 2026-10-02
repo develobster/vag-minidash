@@ -25,6 +25,7 @@
 #include "ui_touch_nvs.h"
 #include "ui_theme.h"
 #include "xpt2046_touch.h"
+#include "vehicle_app.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -408,6 +409,19 @@ static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms)
     diagnostics.display_ready = s_display_ready;
     diagnostics.touch_ready = s_touch_ready;
     diagnostics.brightness_control = CONFIG_MINIDASH_LCD_PIN_BL >= 0;
+    md_vehicle_status_t vehicle;
+    if (md_vehicle_app_status(&vehicle)) {
+        diagnostics.transport_available=true;
+        snprintf(diagnostics.transport_state,sizeof(diagnostics.transport_state),"%s",md_acq_state_name(vehicle.state));
+        diagnostics.ecu_count_available=vehicle.configured;
+        diagnostics.ecu_count=vehicle.ecu_count;diagnostics.selected_ecu=vehicle.ecu_id;
+        diagnostics.can_rx=vehicle.rx;diagnostics.can_tx=vehicle.tx;
+        diagnostics.can_timeouts=vehicle.timeouts;diagnostics.can_dropped=vehicle.rx_dropped;
+        if(vehicle.dtc_valid && vehicle.dtc_count) {
+            char code[6];md_acq_format_dtc(vehicle.dtc[(now_ms/2000)%vehicle.dtc_count],code);
+            snprintf(diagnostics.dtc_text,sizeof(diagnostics.dtc_text),"%s (%u%s)",code,vehicle.dtc_count,vehicle.dtc_truncated?"+":"");
+        } else snprintf(diagnostics.dtc_text,sizeof(diagnostics.dtc_text),"%s",vehicle.dtc_valid?"0 STORED":"HOLD TO READ");
+    }
     render_metrics_read(&diagnostics.refreshes_per_second,
                         &diagnostics.average_render_ms,
                         &diagnostics.render_metrics_available);
@@ -542,6 +556,12 @@ static void apply_event(const ui_event_t *event,
         return;
     }
 
+    if (event->type==UI_EVENT_TOUCH_GESTURE && s_touch_calibrated &&
+        event->touch_gesture==MD_UI_TOUCH_LONG_PRESS &&
+        state->screen==MD_UI_SCREEN_DIAGNOSTICS && s_last_press_y>=36 &&
+        !state->sleeping && state->context!=MD_UI_CONTEXT_DRIVING) {
+        md_vehicle_app_scan(); return;
+    }
     md_ui_input_source_t source = event->source;
     md_ui_action_t action = event->action;
     int details_signal = event->type == UI_EVENT_ACTION &&
@@ -910,6 +930,28 @@ static void ui_task(void *argument)
             else if (lvgl_port_lock(20)) { md_ui_screens_config_credentials(md_ui_web_ssid(),md_ui_web_password()); md_ui_screens_show(state.screen,&settings); lvgl_port_unlock(); }
         }
         atomic_store(&s_visible_screen,state.screen);
+        uint32_t demand=0,warning_demand=0;
+        if(!state.sleeping) {
+            if(state.screen==MD_UI_SCREEN_FOCUS) demand=UINT32_C(1)<<state.focused_signal;
+            else {
+                md_ui_card_group_t group=md_ui_card_group_for_screen(state.screen,&settings);
+                if(group==MD_UI_CARD_GROUP_CUSTOM) {
+                    for(unsigned i=0;i<settings.widget_count;i++) {
+                        int id=md_ui_signal_id_from_name(settings.widgets[i].canonical_signal);
+                        if(id>=0 && id<MD_SIGNAL_COUNT)demand|=UINT32_C(1)<<id;
+                    }
+                } else if(group>=0 && group<MD_UI_CARD_GROUP_COUNT) {
+                    for(unsigned i=0;i<MD_UI_CARD_SLOTS_PER_GROUP;i++) {
+                        int id=md_ui_settings_card_signal(&settings,group,i);
+                        if(id>=0 && id<MD_SIGNAL_COUNT)demand|=UINT32_C(1)<<id;
+                    }
+                }
+            }
+        }
+        if(settings.warnings_enabled) for(unsigned i=0;i<MD_UI_MAX_WARNING_THRESHOLDS;i++) {
+            if(settings.warnings[i].enabled)warning_demand|=UINT32_C(1)<<settings.warnings[i].signal_id;
+        }
+        md_vehicle_app_demand(demand,warning_demand);
         md_brightness_set(&brightness,settings.brightness_pct); brightness.screen_on=!state.sleeping;
         uint8_t pwm;
         if (md_brightness_tick(&brightness,(uint32_t)(esp_timer_get_time()/1000),&pwm)) md_display_set_brightness(&display,pwm);

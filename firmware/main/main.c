@@ -22,8 +22,9 @@
 #include "display_app.h"
 #include "ui_web.h"
 #include "ui_core_selftest.h"
+#include "vehicle_app.h"
 
-/* No CAN setup and no GPIO pin is driven: the board pinout is not known yet. */
+/* Board self-tests are development tooling; CAN runs in its own task. */
 #define PSRAM_TEST_BYTES (6U * 1024U * 1024U)
 #define INTERNAL_TEST_BYTES 1024U
 
@@ -350,7 +351,7 @@ static bool test_task_watchdog(void)
     return passed;
 }
 
-static void run_self_test(void)
+static void __attribute__((unused)) run_self_test(void)
 {
     s_pass_count = 0;
     s_fail_count = 0;
@@ -396,10 +397,11 @@ void app_main(void)
     printf("MINIDASH_BOOT count=%lu reset=%s idf=%s\n",
            (unsigned long)s_boot_count,
            reset_reason_name(esp_reset_reason()), esp_get_idf_version());
-    printf("MINIDASH_INFO board=ESP32-S3 cores_expected=2 flash_expected_bytes=16777216 psram_expected_bytes=8388608 can=disabled\n");
+    printf("MINIDASH_INFO board=ESP32-S3 cores_expected=2 flash_expected_bytes=16777216 psram_expected_bytes=8388608\n");
     fflush(stdout);
     print_ready();
     md_display_app_start();
+    md_vehicle_app_start();
 
     char line[128];
     for (;;) {
@@ -420,13 +422,21 @@ void app_main(void)
         }
         line[strcspn(line, "\r\n")] = '\0';
         if (strncmp(line, "MDS1|", 5) == 0) {
+#if CONFIG_MINIDASH_HOST_INJECTION
             if (!md_display_app_publish_serial_sample(line)) {
                 printf("MINIDASH_SAMPLE status=REJECTED\n");
                 fflush(stdout);
             }
+#else
+            printf("MINIDASH_SAMPLE status=REJECTED reason=HOST_INJECTION_DISABLED\n");
+#endif
         } else if (strcmp(line, "run") == 0) {
+#if !CONFIG_MINIDASH_CAN_ENABLE
             if (!md_ui_web_active()) run_self_test();
             else printf("MINIDASH_TEST_REJECTED config_mode_active\n");
+#else
+            printf("MINIDASH_TEST_REJECTED standalone_runtime_active\n");
+#endif
             print_ready();
         } else if (strcmp(line, "status") == 0) {
             printf("MINIDASH_BOOT count=%lu reset=%s idf=%s\n",

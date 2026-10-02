@@ -1,10 +1,32 @@
 menu "MiniDash display and UI"
+    config MINIDASH_CAN_ENABLE
+        bool "Standalone CAN acquisition (review wiring first)"
+        default n
+    config MINIDASH_CAN_TX_GPIO
+        int "CAN TX GPIO"
+        depends on MINIDASH_CAN_ENABLE
+        default -1
+    config MINIDASH_CAN_RX_GPIO
+        int "CAN RX GPIO"
+        depends on MINIDASH_CAN_ENABLE
+        default -1
+    config MINIDASH_STANDARD_OBD
+        bool "Allow standard read-only OBD-II, 11-bit 500 kbit/s"
+        depends on MINIDASH_CAN_ENABLE
+        default n
+        help
+            Reviewed installation preset. No manufacturer profile ships enabled.
+            Disabled means hardware listen-only, with no ACK or diagnostic TX.
+    config MINIDASH_HOST_INJECTION
+        bool "Development USB telemetry injection"
+        depends on !MINIDASH_CAN_ENABLE
+        default y
     config MINIDASH_DISPLAY_ENABLE
         bool "Enable MiniDash SPI display and production UI"
         default n
         help
             Enable the display only after checking the module voltage and wiring.
-            The normal build uses the LVGL UI and keeps vehicle acquisition external.
+            Use sdkconfig.standalone to run CAN acquisition on this device.
 
     choice MINIDASH_LCD_CONTROLLER
         prompt "SPI display controller"

@@ -35,6 +35,7 @@ typedef enum {
     DIAG_SIGNALS,
     DIAG_STALE,
     DIAG_ERRORS,
+    DIAG_CAN_RX, DIAG_CAN_TX, DIAG_CAN_TIMEOUTS, DIAG_CAN_DROPS, DIAG_DTC,
 } diagnostic_key_t;
 
 typedef struct {
@@ -602,14 +603,14 @@ static void create_diagnostics_screen(screen_view_t *view)
         diagnostic_key_t key;
     } rows[] = {
         {"FIRMWARE", DIAG_FIRMWARE}, {"UPTIME", DIAG_UPTIME},
-        {"FREE HEAP", DIAG_HEAP_FREE}, {"MIN HEAP", DIAG_HEAP_MIN},
-        {"RENDERS / S", DIAG_REFRESH_RATE}, {"AVG RENDER", DIAG_RENDER_TIME},
+        {"CAN RX", DIAG_CAN_RX}, {"CAN TX", DIAG_CAN_TX},
+        {"TIMEOUTS", DIAG_CAN_TIMEOUTS}, {"RX DROPS", DIAG_CAN_DROPS},
         {"DISPLAY", DIAG_DISPLAY}, {"TOUCH", DIAG_TOUCH},
-        {"BRIGHTNESS", DIAG_BRIGHTNESS}, {"TRANSPORT", DIAG_TRANSPORT},
+        {"STORED DTC", DIAG_DTC}, {"TRANSPORT", DIAG_TRANSPORT},
         {"ECUS", DIAG_ECUS}, {"SAMPLES", DIAG_SIGNALS},
         {"STALE", DIAG_STALE}, {"ERRORS", DIAG_ERRORS},
     };
-    style_root(view, "SERVICE STATUS", "N/A = SOURCE NOT PROVIDED");
+    style_root(view, "SERVICE STATUS", "HOLD: READ DTC / RETRY CAN");
     for (unsigned i = 0; i < sizeof(rows) / sizeof(rows[0]); ++i) {
         const int column = (int)(i / UI_DIAG_ROWS);
         const int row = (int)(i % UI_DIAG_ROWS);
@@ -1380,8 +1381,13 @@ static void update_diagnostic_field(field_view_t *field,
         }
         break;
     case DIAG_ECUS:
-        if (diag->ecu_count_available) (void)snprintf(text, sizeof(text), "%u", diag->ecu_count);
+        if (diag->ecu_count_available) (void)snprintf(text, sizeof(text), "%u / %03X", diag->ecu_count, diag->selected_ecu);
         break;
+    case DIAG_CAN_RX: snprintf(text,sizeof(text),"%lu",(unsigned long)diag->can_rx);break;
+    case DIAG_CAN_TX: snprintf(text,sizeof(text),"%lu",(unsigned long)diag->can_tx);break;
+    case DIAG_CAN_TIMEOUTS: snprintf(text,sizeof(text),"%lu",(unsigned long)diag->can_timeouts);break;
+    case DIAG_CAN_DROPS: snprintf(text,sizeof(text),"%lu",(unsigned long)diag->can_dropped);break;
+    case DIAG_DTC: snprintf(text,sizeof(text),"%s",diag->dtc_text);break;
     case DIAG_SIGNALS:
         (void)snprintf(text, sizeof(text), "%u / %u", diag->signal_summary.sample_count,
                        MD_SIGNAL_COUNT);

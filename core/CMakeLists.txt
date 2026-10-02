@@ -7,7 +7,8 @@ add_library(minidash-core STATIC
     ${MD_CORE_DIR}/ui_core.c ${MD_CORE_DIR}/ui_theme.c
     ${MD_CORE_DIR}/ui_i18n.c ${MD_CORE_DIR}/ui_model.c
     ${MD_CORE_DIR}/ui_platform.c ${MD_CORE_DIR}/ui_configuration.c
-    ${MD_CORE_DIR}/ui_touch_map.c ${MD_CORE_DIR}/display_serial_protocol.c)
+    ${MD_CORE_DIR}/ui_touch_map.c ${MD_CORE_DIR}/display_serial_protocol.c
+    ${MD_CORE_DIR}/diagnostic_transport.c ${MD_CORE_DIR}/acquisition.c)
 target_include_directories(minidash-core PUBLIC ${MD_CORE_DIR})
 if(NOT MSVC)
     target_compile_options(minidash-core PRIVATE -Wall -Wextra -Werror)
@@ -16,6 +17,9 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(minidash-acquisition-tests test_acquisition.c)
+    target_link_libraries(minidash-acquisition-tests PRIVATE minidash-core)
+    add_test(NAME standalone-acquisition COMMAND minidash-acquisition-tests)
     add_executable(minidash-core-tests tests.c ${MD_CORE_DIR}/ui_platform_selftest.c)
     target_link_libraries(minidash-core-tests PRIVATE minidash-core)
     add_test(NAME portable-core COMMAND minidash-core-tests)

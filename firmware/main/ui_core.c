@@ -32,6 +32,8 @@ const md_ui_signal_definition_t md_ui_signal_definitions[MD_SIGNAL_COUNT] = {
     {MD_SIGNAL_TRANSMISSION_GEAR, "transmission.gear", "GEAR", "", MD_UI_UNIT_GEAR, 0},
     {MD_SIGNAL_AWD_CLUTCH_TEMPERATURE, "awd.clutch_temperature", "AWD CLUTCH", "degC", MD_UI_UNIT_TEMPERATURE, 0},
     {MD_SIGNAL_BATTERY_VOLTAGE, "vehicle.battery_voltage", "BATTERY", "V", MD_UI_UNIT_VOLTAGE, 1},
+    {MD_SIGNAL_ENGINE_MANIFOLD_PRESSURE, "engine.manifold_absolute_pressure", "MANIFOLD PRESSURE", "hPa", MD_UI_UNIT_PRESSURE, 0},
+    {MD_SIGNAL_ECU_SUPPLY_VOLTAGE, "engine.control_module_voltage", "ECU SUPPLY", "V", MD_UI_UNIT_VOLTAGE, 2},
 };
 
 static bool canonical_name_valid(const char *name)
