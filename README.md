@@ -1,11 +1,15 @@
 # MiniDash / vag-minidash
 
-Standalone automotive dashboard in development, using an ESP32-S3 display/touch
-prototype and an existing Python diagnostic runtime. The device UI works on the
-bench; autonomous vehicle acquisition on the MCU is not implemented yet.
+Standalone automotive dashboard in development. ESP32-S3 firmware now owns
+CAN/ISO-TP/OBD acquisition, scheduling and display publishing. Python remains a
+development/research tool, not a production dependency. The autonomous path is
+offline-tested; physical-board and vehicle acceptance are still required.
 
 ## Start here
 
+- [Standalone implementation, verification and remaining work](docs/research/standalone-final-2026-10-03.md)
+- [Source/license review and competitor matrix](docs/research/standalone-sources-and-matrix.md)
+- [First standalone bench/car test](REAL_CAR_TEST.md)
 - [Current feature status and evidence limits](docs/status.md)
 - [Build, tests and repository map](docs/development.md)
 - [Current architecture](docs/architecture/overview.md)
@@ -21,10 +25,14 @@ pages, layouts/themes/widgets and an explicit temporary local Wi-Fi Web editor.
 The Python runtime has identity-scoped knowledge, passive CAN/UDS acquisition,
 source arbitration, CLI/trace facilities and offline recorded CAN replay.
 
-The UI receives canonical samples through a publishing API or optional USB host
-bridge. Python transport/UDS/providers do not run inside ESP32 firmware. MCU CAN
-is disabled. BLE is bring-up work; live DTC read/clear and coding/adaptation are
-not product implementations. Backlight is powered from 3.3 V and shows FIXED.
+The UI receives canonical samples from the native CAN task. Default builds keep
+CAN disabled; explicit `sdkconfig.standalone` and `sdkconfig.listen-only` presets
+provision GPIO4 TX/GPIO5 RX for reviewed installation wiring, not assumed wiring.
+Standalone supports standard 11-bit/500-kbit OBD and stationary Mode03 stored
+emissions DTC reading from the selected ECU. No VAG profiles ship enabled; DTC
+clear, coding/adaptation and product BLE remain unimplemented. Backlight is
+powered from 3.3 V and shows FIXED. QUIET stops polling, not electrical power:
+use the physical switch until a protected automatic power system is validated.
 
 MQB/UDS candidates and synthetic replay are not vehicle validation. Only the
 documented F405 coolant decoder has exact Engine identity evidence from an

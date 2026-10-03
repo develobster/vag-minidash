@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "date_utc": "2026-10-03",
+  "parent_commit": "4904233c8ac65c1e028fa817e152ba2a1dccff5f",
+  "scope": "Recovered standalone firmware core; synthetic/offline validation only",
+  "environment": {
+    "esp-idf": "5.5.5",
+    "python-can": "4.6.1",
+    "can-isotp": "2.0.7",
+    "udsoncan": "1.26.1",
+    "cantools": "44.1.0",
+    "cmake": "4.4.3",
+    "gcc": "13.3.0",
+    "node": "24.19.0"
+  },
+  "checks": {
+    "python": {
+      "status": "PASS",
+      "tests": 164,
+      "skipped": 0
+    },
+    "ctest": {
+      "status": "PASS",
+      "tests": 3
+    },
+    "web": {
+      "status": "PASS",
+      "scope": "Node logic and C-derived fixture"
+    },
+    "standalone_virtualbus": {
+      "status": "PASS",
+      "tx_frames": 27,
+      "synthetic": true,
+      "exact_replay": true
+    },
+    "asan_ubsan": {
+      "status": "PASS",
+      "scenarios": 8,
+      "malformed_frames": 50000,
+      "leak_detection": false
+    },
+    "firmware": {
+      "status": "PENDING_TOOLCHAIN_RECOVERY"
+    },
+    "hardware": {
+      "status": "NOT_RUN"
+    },
+    "vehicle": {
+      "status": "NOT_RUN"
+    }
+  },
+  "commands": [
+    "python tools/verify_repository.py --output-dir artifacts/local/acceptance-recovered --native-build-dir core/build --cmake ../.venv/bin/cmake --ctest ../.venv/bin/ctest",
+    "ASAN_OPTIONS=detect_leaks=0 artifacts/local/acquisition-sanitized"
+  ],
+  "source_sha256": {
+    "firmware/main/acquisition.c": "ae473f574846e8fccf2cd12f149176b3dc959d74a7390123d8dc9cac546bdf40",
+    "firmware/main/acquisition.h": "95fa84df8c227a7a8a0bb45e94b7b59fc7356810d380bc14d4679fec7cf644b2",
+    "firmware/main/diagnostic_transport.c": "adc31d7a0a577b21cd5742e0bdf674f90f1b18fc4a2c2fa6319b867174ddb2f7",
+    "firmware/main/diagnostic_transport.h": "9d4ca46201cdb7e53b5781e262bf4fac2fdb3310b0971d0b4d8e620530cdaace",
+    "firmware/main/vehicle_app.c": "34067b7092cfe023a739f708087e073e6611116ae1c31a071a54c0f76403bc57",
+    "firmware/main/main.c": "8d3f25b5916b9d0f6f22269ed0817ec5f8a1c71491335c003bbd65bac95e3d7c",
+    "core/test_acquisition.c": "57a9a0e36f273c17095eec0300891497fe19826f5f9d2dd6d1ae00f00bc980d9",
+    "core/acquisition_harness.c": "6642123f45c90a921bf4e19d383cdfe2c023c5fc589b3f3a50e0ab598e43dd41",
+    "core/CMakeLists.txt": "b02d801c34bdee9e2db6068d0d196fc67e39c1d05850be9e125b3aebf08a3ff3",
+    "tools/verify_standalone.py": "65f4af48d6d1b290a6d205a98bee51e2168cd3a3d2812702072dc668ae2b39f4",
+    "tools/verify_repository.py": "d8c93a8e966e41970104daba0db7a1e46a1ea57bdfc65c584f95f98acd55c12e"
+  }
+}

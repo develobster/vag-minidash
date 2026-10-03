@@ -8,6 +8,7 @@ Dates/test counts in historical delivery reports are not current acceptance.
 
 | Topic | Documents |
 |---|---|
+| Standalone implementation / research / tests | [Current report](research/standalone-final-2026-10-03.md), [source/license matrix](research/standalone-sources-and-matrix.md), [verification JSON](research/standalone-verification-2026-10-03.json), [REAL_CAR_TEST](../REAL_CAR_TEST.md) |
 | Integration baseline / branches / acceptance | [Consolidation audit](research/repository-consolidation-2026-09-30.md) |
 | Feature evidence | [Status matrix](status.md), [UI implementation/hardware record](ui/status.md) |
 | Host diagnostic runtime | [End-to-end](runtime/end-to-end.md), [knowledge](architecture/vehicle-knowledge.md) |

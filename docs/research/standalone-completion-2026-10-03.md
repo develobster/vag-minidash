@@ -1,5 +1,8 @@
 # Standalone completion — 2026-10-03
 
+Historical hardening checkpoint. For current delivery/evidence and recovery
+limitations, see [the final report](standalone-final-2026-10-03.md).
+
 Continuation of `feature/standalone-acquisition`, exact recovered checkpoint
 `18095539db54161509ceeb66967579313f0ce4aa` (191 verified blobs; tree
 `67cd86649f9ba5a23df8644b70bdd3d85c2c0e32`). Existing source and history preserved.

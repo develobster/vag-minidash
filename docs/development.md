@@ -1,5 +1,9 @@
 # Developer entry and repeatable acceptance
 
+Current standalone branch: `feature/standalone-acquisition`; see the
+[current report](research/standalone-final-2026-10-03.md). The consolidation
+branch/history described below is the integration baseline, not the active task.
+
 Work in the existing repository/worktree. Read `AGENTS.md` and `git status`
 before editing. Use a feature branch; preserve other worktree changes. The
 integration base is `22a346b`, selected by ancestry and content, not timestamp.
@@ -11,7 +15,7 @@ branch/permission state; do not assume a proposal has been committed/pushed.
 
 | Path | Ownership / entry point |
 |---|---|
-| `minidash_live/` | Existing Python production diagnostic runtime, CLI (`python -m minidash_live`) |
+| `minidash_live/` | Preserved Python development/research diagnostic runtime, CLI (`python -m minidash_live`); not needed by standalone firmware |
 | `data/ecu_profiles`, `data/vehicles`, `data/external` | Reviewed identity/vehicle/provider knowledge and candidate provenance |
 | `profiles/` | Existing legacy and diagnostic profile formats; not interchangeable with all registry files |
 | `firmware/` | ESP-IDF ESP32-S3 application; `main/` includes model, renderer, web page and hardware adapters |
@@ -92,13 +96,36 @@ cmake -S core -B core/build-acceptance -G Ninja "-DCMAKE_C_COMPILER=$miniDashRoo
 Adjust executable/SDK paths for the machine and retain these cache/temp variables
 when running acceptance in the shell. No compiler binary or cache is committed.
 
-The runner executes Python, rebuilds native targets, verifies both CTest names,
+The runner executes Python, rebuilds native targets, verifies all three CTest names,
 generates a fresh Web fixture from `minidash-json-tests`, then runs
 `node core/test_webui.cjs`. Logs and `summary.json` go to a new directory;
 existing output is rejected. Missing optional dependencies, native build/test
 or editor checks produce a nonzero/incomplete result. `--cmake`, `--ctest`,
 `--node` accept installed executable paths. Firmware is a separate gate below.
 Node tests cover editor logic with a fake DOM, not browser rendering or a phone.
+
+The required `standalone_virtualbus` gate runs the actual firmware C acquisition
+engine through `core/acquisition_harness.c`, using python-can VirtualBus and a
+synthetic ECU. It checks VIN/DTC multi-frame responses, loss of ECU, no TX in
+QUIET, bus fault/reconnect and exact deterministic replay in a fresh process.
+No hardware interface or real vehicle trace is used. An absent harness is a
+failure, not a skipped success. To run it separately:
+
+```sh
+python tools/verify_standalone.py --harness core/build-acceptance/minidash-acquisition-harness
+```
+
+Portable memory-safety check (GCC/Clang, repository root):
+
+```sh
+mkdir -p artifacts/local
+gcc -std=c11 -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer -I firmware/main core/test_acquisition.c firmware/main/acquisition.c firmware/main/diagnostic_transport.c -o artifacts/local/acquisition-sanitized
+ASAN_OPTIONS=detect_leaks=0 artifacts/local/acquisition-sanitized
+```
+
+The leak detector is disabled because this execution environment previously
+blocked task metadata access. This is not a firmware heap/FreeRTOS test; the
+portable acquisition core itself does not dynamically allocate memory.
 
 ## ESP32-S3 configure/build
 
@@ -135,12 +162,29 @@ acceptance helper opens serial ports, CAN/VCI, executes a flash, or changes efus
 
 ## Bench/car acceptance next
 
+### Explicit standalone build presets
+
+From `firmware/` in ESP-IDF 5.5.5, use separate fresh build/config paths to avoid
+an existing sdkconfig overriding defaults. These commands only build:
+
+```sh
+idf.py -B build-standalone -D SDKCONFIG=sdkconfig.standalone.generated -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.standalone" build
+idf.py -B build-listen -D SDKCONFIG=sdkconfig.listen.generated -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.listen-only" build
+idf.py -B build-default -D SDKCONFIG=sdkconfig.default.generated -D SDKCONFIG_DEFAULTS=sdkconfig.defaults build
+```
+
+Check generated CAN/host-injection options; do not reuse these config filenames
+for a different preset. Factory backup, flash and physical acceptance are separate
+steps in [REAL_CAR_TEST](../REAL_CAR_TEST.md). No acceptance runner flashes a board.
+
+### Physical acceptance
+
 Bench: English/Russian labels, all dashboard long-hold pickers, three/four Custom
 pages NEXT/PREV wrap, Settings select without change, explicit CHANGE, Save/Cancel
 and reboot/NVS/calibration retention. Check touch targets physically; backlight
 must remain FIXED with current wiring. Record firmware hash and UI self-test.
 
-Car: confirm protected power/transceiver/listen-only wiring and the intended
+For the preserved host research workflow, confirm protected power/transceiver/listen-only wiring and the intended
 connection point; doctor/F190 and exact identity first, then only evidenced
 read-only signals. Capture with the tagged manifest, compare against a reference,
 replay offline and retain provenance. No clear/coding/unknown-button probing.

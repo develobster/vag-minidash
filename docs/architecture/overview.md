@@ -1,14 +1,20 @@
 # Current architecture
 
-Integration base: 22a346b, audited on 2026-09-30. Architecture and runtime source
-paths are retained. Consolidation changes documentation, ignore rules and checks.
+Updated 2026-10-03. Production runs on ESP32: transceiver/TWAI → native
+ISO-TP/OBD and evidence-gated UDS/passive → per-source samples/TTL/arbitration
+→ derived values → canonical publishing → physical UI. UI demand controls
+the native scheduler. No PC or Python dependency.
 
-```text
-Transport -> ECU discovery -> VehicleIdentity/EcuIdentity -> IdentityContext
-  -> Knowledge Providers -> Signal Registry -> Acquisition Planner
-  -> passive CAN / UDS polling -> SignalStore -> SourceArbitrator
-  -> UI / CLI / debug / optional USB canonical bridge
-```
+`vehicle_app.c` owns RTOS/CAN; `diagnostic_transport.c` owns bounded ISO-TP RX;
+`acquisition.c` owns discovery/identity/scheduling/store. Default disables CAN;
+the explicit installation preset enables standard OBD, not unverified VAG profiles.
+See [limits and verification](../research/standalone-final-2026-10-03.md).
+
+## Preserved host development/research architecture
+
+The host pipeline retains transport, configured ECU discovery, identity context,
+knowledge providers, signal registry, planning, passive/UDS acquisition, store and
+source arbitration. CLI/debug/replay/optional USB bridge remain development tools.
 
 | Boundary | Existing implementation | Contract |
 |---|---|---|
@@ -21,19 +27,20 @@ Transport -> ECU discovery -> VehicleIdentity/EcuIdentity -> IdentityContext
 | Offline replay | `replay.py`, `can_capture.py:CanTraceReader` | Existing engine feed/snapshot path; injected clock; no transport or ECU session |
 | Embedded model | `firmware/main/ui_core`, `ui_model`, `ui_configuration`, `ui_platform` | Canonical sample vocabulary, navigation/config/presentation; no vehicle IDs |
 | ESP32 adapters | `display_app`, `ui_screens`, `ui_web`, `*_nvs`, panel/touch backends | LVGL, NVS, temporary AP/HTTP, SPI hardware |
-| Native core | `core/CMakeLists.txt` | Compiles eight of the same physical C modules, without LVGL/ESP-IDF |
+| Native core | `core/CMakeLists.txt` | Compiles the same physical acquisition/transport/UI C modules, without LVGL/ESP-IDF |
 
 The embedded presentation store is not the host acquisition SignalStore or
-SourceArbitrator. The current firmware vocabulary contains twelve canonical
+SourceArbitrator. The current firmware vocabulary contains fourteen canonical
 signals; registering host candidates does not automatically expose them on the
 device. `core.py`, `diagnostics.py` and `transport_lab.py` are retained older
-simulator/lab paths, not live DTC/coding implementations.
+simulator/lab paths. Native Mode03 selected-ECU reading is a separate bounded path;
+coding/adaptation/clear are not enabled.
 
 Safety boundaries: default live UDS uses no explicit session change; extended
 session/keepalive require opt-in. Exact identity is rechecked on reconnect.
 Unsupported/candidate signals are not promoted by replay. Web configuration
 changes device settings only and has no diagnostic write endpoints. Driving
-gates lack a verified live vehicle-speed source today.
+gates now receive native speed/context; physical correctness still needs validation.
 
 Details: [knowledge](vehicle-knowledge.md), [end-to-end runtime](../runtime/end-to-end.md),
 [embedded UI](../ui/architecture.md), [configuration](../ui/configuration.md),

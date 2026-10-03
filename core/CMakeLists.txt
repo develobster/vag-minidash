@@ -17,6 +17,8 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(minidash-acquisition-harness acquisition_harness.c)
+    target_link_libraries(minidash-acquisition-harness PRIVATE minidash-core)
     add_executable(minidash-acquisition-tests test_acquisition.c)
     target_link_libraries(minidash-acquisition-tests PRIVATE minidash-core)
     add_test(NAME standalone-acquisition COMMAND minidash-acquisition-tests)

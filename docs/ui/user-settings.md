@@ -1,5 +1,17 @@
 # MiniDash embedded UI settings
 
+## Standalone vehicle status
+
+The explicit standalone CAN preset supplies canonical values without PC/USB.
+SERVICE STATUS shows acquisition state and counters. With calibrated touch,
+hold its working area below the title to read Mode03 stored emissions DTC while
+fresh speed is zero; in QUIET the same action retries discovery. Codes rotate
+every two seconds, max12 with truncation indication. No clear/coding/full ECU scan.
+Unavailable/unsupported data must not be interpreted as zero. QUIET does not
+switch power off: use the physical KCD11. See [first-car test](../../REAL_CAR_TEST.md).
+The optional Wi-Fi editor changes device configuration; it is not a phone-based
+CAN provider. Native RAM trace has a C snapshot API only in this version.
+
 ## Navigation
 
 The XPT2046 touch reader feeds the same semantic UI actions as the console and
