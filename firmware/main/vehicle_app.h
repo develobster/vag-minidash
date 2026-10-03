@@ -13,6 +13,9 @@ typedef struct {
     md_ui_signal_snapshot_t signals[MD_SIGNAL_COUNT];
     md_source_t sources[MD_SIGNAL_COUNT];
 } md_vehicle_status_t;
+/* Boot thread only: prepare before exposing status/trace to UI or HTTP;
+ * start the producer only after the display store has been initialized. */
+void md_vehicle_app_prepare(void);
 void md_vehicle_app_start(void);
 bool md_vehicle_app_status(md_vehicle_status_t *out);
 void md_vehicle_app_demand(uint32_t visible, uint32_t background);

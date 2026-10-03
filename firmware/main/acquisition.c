@@ -193,6 +193,18 @@ static bool response_matches(const md_acquisition_t *a,const uint8_t *d,size_t n
     }
     return n>=2 && d[1]==a->pid;
 }
+static bool response_length_matches(const md_acquisition_t *a,const uint8_t *d,size_t n)
+{
+    /* n is the declared complete payload, not just the first-frame prefix.
+     * Read only prefix bytes present in both single and first frames. */
+    if(d[0]==0x7f) return n==3;
+    if(a->service==3) return n>=2 && n==2U+(size_t)d[1]*2U;
+    if(a->state==MD_ACQ_CAPABILITIES) return n==6;
+    if(a->state==MD_ACQ_VIN) return n==20 && d[2]==1;
+    if(a->state==MD_ACQ_VERIFY_ECU) return n==3U+a->config.profile->identity_length;
+    if(a->did_request) return n==3U+a->config.profile->uds[a->job].bytes;
+    return a->service==1 && a->job<OBD_COUNT && n==2U+obd[a->job].bytes;
+}
 static void fail(md_acquisition_t *a, uint32_t now, bool unsupported)
 {
     a->active=false; md_tp_reset(&a->tp);
@@ -297,6 +309,12 @@ void md_acq_receive(md_acquisition_t *a,const md_can_frame_t *f,uint32_t now)
     if ((type==0 || type==1) && f->dlc==8 &&
         !response_matches(a,f->data+(type==0?1:2),type==0?((f->data[0]&15)<=7?(f->data[0]&15):0):6)) {
         a->rejected_count++;return;
+    }
+    if((type==0 || type==1) && f->dlc==8) {
+        size_t length=type==0?(f->data[0]&15):((size_t)(f->data[0]&15)<<8)|f->data[1];
+        if(!response_length_matches(a,f->data+(type==0?1:2),length)) {
+            a->rejected_count++;return;
+        }
     }
     md_tp_result_t r=md_tp_receive(&a->tp,f,now);
     if(r==MD_TP_FLOW) {

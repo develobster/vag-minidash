@@ -157,6 +157,9 @@ static void test_pending_and_validation(void)
     request_rpm(4600);unsigned before=count;
     md_can_frame_t f={.id=0x7e8,.dlc=8,.data={0x10,20,0x62,0x12,0x34,0,0,0}};
     md_acq_receive(&a,&f,4610);CHECK(count==before && a.rejected_count==1);
+    /* A matching service/PID with impossible total length must never elicit FC. */
+    f.data[2]=0x41;f.data[3]=0x0c;
+    md_acq_receive(&a,&f,4611);CHECK(count==before && a.rejected_count==2 && !a.tp.receiving);
     uint8_t wrong[]={0x41,0x0c,1,2};payload(0x7e9,wrong,4,4620);CHECK(a.active);
     neg[2]=0x12;payload(0x7e8,neg,3,4630);CHECK(a.failures[0]==3 && a.consecutive_failures==0);
     CHECK(!md_acq_request_dtc(&a,10000)); /* stale speed */

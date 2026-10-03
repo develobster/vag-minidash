@@ -105,7 +105,9 @@ static void vehicle_task(void *unused)
 #endif
     /* No VAG profile is shipped: existing community knowledge is not verified. */
     const md_acq_config_t config={.allow_standard_obd=allow_obd,.startup_ms=1500,.profile=NULL};
+    xSemaphoreTake(lock,portMAX_DELAY);
     md_acq_init(&engine,&config,send_can,NULL,now_ms());
+    xSemaphoreGive(lock);
     uint32_t recovery_at=0,last_publish=0,can_started=now_ms(),recovery_attempts=0;
     bool fault=false,first=true,was_quiet=false,motion_latched=false;
     for(;;) {
@@ -174,16 +176,28 @@ static void vehicle_task(void *unused)
     }
 }
 #endif
-void md_vehicle_app_start(void)
+void md_vehicle_app_prepare(void)
 {
+    if(lock) return;
     lock=xSemaphoreCreateMutex();if(!lock){ESP_LOGE(TAG,"Status mutex allocation failed");return;}
 #if CONFIG_MINIDASH_CAN_ENABLE
     status.configured=true;status.state=MD_ACQ_LISTEN;
-    if(xTaskCreate(vehicle_task,"vehicle",6144,NULL,5,NULL)!=pdPASS) {
-        status.state=MD_ACQ_FAULT;snprintf(status.fault,sizeof(status.fault),"TASK ALLOCATION");
-    }
 #else
     status.state=MD_ACQ_FAULT;snprintf(status.fault,sizeof(status.fault),"CAN NOT CONFIGURED");
     ESP_LOGI(TAG,"CAN disabled; provision reviewed hardware preset to enable");
+#endif
+}
+void md_vehicle_app_start(void)
+{
+#if CONFIG_MINIDASH_CAN_ENABLE
+    static bool started;
+    if(!lock || started) return;
+    /* UI readers already exist. Publish task-creation failure under the lock. */
+    xSemaphoreTake(lock,portMAX_DELAY);
+    started=xTaskCreate(vehicle_task,"vehicle",6144,NULL,5,NULL)==pdPASS;
+    if(!started) {
+        status.state=MD_ACQ_FAULT;snprintf(status.fault,sizeof(status.fault),"TASK ALLOCATION");
+    }
+    xSemaphoreGive(lock);
 #endif
 }

@@ -400,6 +400,7 @@ void app_main(void)
     printf("MINIDASH_INFO board=ESP32-S3 cores_expected=2 flash_expected_bytes=16777216 psram_expected_bytes=8388608\n");
     fflush(stdout);
     print_ready();
+    md_vehicle_app_prepare();
     md_display_app_start();
     md_vehicle_app_start();
 
