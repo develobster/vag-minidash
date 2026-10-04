@@ -1,12 +1,16 @@
 # Current architecture
 
-Updated 2026-10-03. Production runs on ESP32: transceiver/TWAI → native
+Updated 2026-10-04. Production runs on ESP32: transceiver/TWAI → native
 ISO-TP/OBD and evidence-gated UDS/passive → per-source samples/TTL/arbitration
-→ derived values → canonical publishing → physical UI. UI demand controls
+→ canonical SignalStore → DerivedSignalEngine → windows/events/session/trip
+→ canonical publication → physical UI. UI demand controls
 the native scheduler. No PC or Python dependency.
 
 `vehicle_app.c` owns RTOS/CAN; `diagnostic_transport.c` owns bounded ISO-TP RX;
-`acquisition.c` owns discovery/identity/scheduling/store. Default disables CAN;
+`acquisition.c` owns discovery/identity/scheduling/source samples.
+`derived_engine.c`, `window_statistics.c`, `performance_timer.c` consume canonical
+signals only; they never read CAN or issue requests. Fixed storage, zero sample
+allocation, PSRAM BSS on ESP32 and 100 ms ticks bound their work. Default disables CAN;
 the explicit installation preset enables standard OBD, not unverified VAG profiles.
 See [limits and verification](../research/standalone-final-2026-10-03.md).
 
@@ -30,8 +34,8 @@ source arbitration. CLI/debug/replay/optional USB bridge remain development tool
 | Native core | `core/CMakeLists.txt` | Compiles the same physical acquisition/transport/UI C modules, without LVGL/ESP-IDF |
 
 The embedded presentation store is not the host acquisition SignalStore or
-SourceArbitrator. The current firmware vocabulary contains fourteen canonical
-signals; registering host candidates does not automatically expose them on the
+SourceArbitrator. The current firmware vocabulary contains 92 canonical IDs,
+26 physical source slots and 66 derived nodes; registering host candidates does not automatically expose them on the
 device. `core.py`, `diagnostics.py` and `transport_lab.py` are retained older
 simulator/lab paths. Native Mode03 selected-ECU reading is a separate bounded path;
 coding/adaptation/clear are not enabled.
@@ -42,6 +46,8 @@ Unsupported/candidate signals are not promoted by replay. Web configuration
 changes device settings only and has no diagnostic write endpoints. Driving
 gates now receive native speed/context; physical correctness still needs validation.
 
-Details: [knowledge](vehicle-knowledge.md), [end-to-end runtime](../runtime/end-to-end.md),
+Details: [derived-engine design](../research/derived-engine-design-2026-10-04.md),
+[complete metrics and verification](../research/engine-analytics-delivery-2026-10-04.md),
+[knowledge](vehicle-knowledge.md), [end-to-end runtime](../runtime/end-to-end.md),
 [embedded UI](../ui/architecture.md), [configuration](../ui/configuration.md),
 [targets and shared core](targets.md), [replay](../runtime/can-replay.md).

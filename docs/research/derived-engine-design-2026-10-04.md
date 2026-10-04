@@ -106,12 +106,12 @@ one-byte A−40 on 5NA907115D/0003. DQ500 2104/gear 3816 and Haldex 2BF1 observa
 do not establish raw encodings or physical addresses. Native manufacturer profile
 stays NULL; signed scalar support adds codec capability, not a binding.
 
-## Checkpoint verification
+## Final verification
 
-Native six test groups PASS; analytics 343 assertions, 20,000 sample updates with
-zero allocator calls. Host size at this checkpoint: engine 53,632 B, statistics
-1,576 B/stream, event 48 B, canonical store 2,952 B. Full existing Python suite:
-191 PASS. Web editor logic PASS. Integrated baseline and first analytics standalone
-ESP-IDF 5.5.5 builds PASS with the committed hash-pinned dependency lock. Final
-replay, migration/HTTP coverage, all presets and final size/build measurements are
-still being extended; this checkpoint does not claim hardware/car acceptance.
+Six native groups PASS; analytics 733 assertions and 20,000 updates with zero
+allocator calls. Engine 53,872 B in PSRAM BSS, statistics 1,584 B/stream, event
+48 B, canonical store 2,952 B. Twelve C/Python replays, all 191 existing Python
+checks, Web editor and three ESP32 modes PASS. See the complete
+[delivery and limitations](engine-analytics-delivery-2026-10-04.md) and
+[measured verification JSON](engine-analytics-verification-2026-10-04.json).
+No hardware/car acceptance is claimed.

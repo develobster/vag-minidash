@@ -1,6 +1,12 @@
 # Current feature and evidence matrix
 
-Updated 2026-10-04, standalone branch on consolidation `3e5c6ca`.
+Updated 2026-10-04: `feature/engine-analytics`, integrated standalone + newer
+real-car/UI work on merge `6ae2ed4`. 92 canonical IDs / 66 derived nodes, six
+presets, fixed windows/events/performance timers, schema 4 migration. Native,
+replay and three ESP32 build modes PASS; manufacturer sources remain disabled.
+No new physical-board/car acceptance. See the [analytics delivery](research/engine-analytics-delivery-2026-10-04.md),
+[verification](research/engine-analytics-verification-2026-10-04.json), and
+[exact read-only evidence plan](validation/engine-analytics-car-evidence-2026-10-04.md).
 See [current report](research/standalone-final-2026-10-03.md) and
 [first autonomous car test](../REAL_CAR_TEST.md). Historical UI hardware results
 come from `6f436dd`; no new device/car test is claimed. Python modules below are
@@ -86,6 +92,7 @@ Registry confidence metadata alone does not grant a validation label.
 | MCD import | PARTIAL; OFFLINE TESTED FLOAT32/TEXTTABLE | `mcd_import.py`, `profiles.py`; `test_scalar_codecs.py`, typed fixture | Single byte-aligned leaf only; bounded enum/no defaults, no multi-field/mux/general formulas |
 | Acquisition planner / scheduler | IMPLEMENTED host/native; OFFLINE TESTED | `acquisition.c`, `pipeline.py`, `runtime.py` | Native visible/background priority, one active request, bounds; no measured physical bus-load budget |
 | SignalStore | IMPLEMENTED; OFFLINE TESTED | `runtime.py`; runtime/registry/pipeline/replay tests | Quality/TTL and source provenance; host store distinct from embedded presentation store |
+| Derived Metrics / events / performance | IMPLEMENTED; OFFLINE TESTED | `derived_engine`, `window_statistics`, `performance_timer`; 733 checks, 12 C/Python replays | 66 derived nodes; no manufacturer polling without evidence, user thresholds off by default |
 | SourceArbitrator | IMPLEMENTED; OFFLINE TESTED | `arbitration.py`, `pipeline.py`; knowledge/pipeline/replay tests | Offline replay does not promote evidence or publish a live source |
 | Replay | IMPLEMENTED; OFFLINE TESTED | `replay.py`, `CanTraceReader`, CLI; `test_can_replay.py`, `test_real_car_validation.py` | CAN uses existing decoder/store/arbitration; recorded UDS also uses production discovery/planner/scheduler with offline Transport; no DLL/bus I/O; private complete trace required |
 | DTC read | IMPLEMENTED native Mode03; OFFLINE TESTED | `acquisition.c`, `display_app.c`, core/VirtualBus tests | Selected emissions ECU, fresh speed=0, max12/truncation; no descriptions/full inventory/0x19 |

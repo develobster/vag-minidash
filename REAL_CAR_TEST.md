@@ -1,6 +1,6 @@
 # MiniDash: первый автономный тест
 
-Версия: ветка `feature/standalone-acquisition`, точный commit записать перед
+Версия: ветка `feature/engine-analytics`, точный commit записать перед
 прошивкой. Это инструкция для **непроверенного на машине прототипа**, не допуск
 к постоянной установке. Первый запуск — на неподвижной машине, P, стояночный
 тормоз. Не управлять интерфейсом во время движения.
@@ -24,7 +24,8 @@
 - Не соединять одновременно USB-питание и питание машины без проверки защиты
   от обратного тока. OBD pin1 не считать универсальным сигналом зажигания.
 - Сохранить factory backup, NVS и текущую рабочую конфигурацию. Не делать
-  `erase_flash`, не менять partitions. Подсветка пока FIXED: LED связан с 3.3 V.
+  `erase_flash`, не менять partitions. GPIO4 — подтверждённая PWM-подсветка, не CAN TX. Проверить
+  новую предложенную распайку TX15 отдельно.
 
 ## 2. Однократная сборка и прошивка
 
@@ -107,3 +108,10 @@ Commit, preset, hash прошивки, схему/фото проводки, м�
 параметры, эталонные значения, перезапуск/отключение ECU, NVS/calibration retention.
 VIN и реальные traces хранить приватно. Без этих данных не объявлять REAL-CAR PASS.
 Не проверять coding/adaptation/security/flash/clear и не отправлять сырые команды.
+
+## 7. Derived Analytics acceptance
+
+Сначала проверить новые стандартные IAT/ambient/STFT/LTFT capability gates,
+пики, state propagation, presets/Focus и RAM reset. Manufacturer retard/misfire,
+requested/actual charge, DSG и Haldex пока disabled. Точная read-only процедура
+ODIS/VNCI и критерии включения: [analytics evidence](docs/validation/engine-analytics-car-evidence-2026-10-04.md).

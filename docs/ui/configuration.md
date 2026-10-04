@@ -1,5 +1,9 @@
 # Device configuration and local editor
 
+Current (2026-10-04): schema 4, 92 stable canonical IDs, six analytics presets
+and configurable event/context rules. See [delivery](../research/engine-analytics-delivery-2026-10-04.md).
+Dated update paragraphs below describe prior versions.
+
 Focus update (2026-10-01): Volkswagen/Porsche now show a value-driven needle
 only in single-signal Focus; ordinary cards have no instrument arcs. Five
 reference vehicle profiles, Tiguan fallback and Auto/manual ranges use schema 3.
@@ -57,8 +61,8 @@ Export is versioned JSON and contains no calibration or Wi-Fi credentials.
 
 ## Focus scale settings
 
-Schema 3 adds `common.gauge_auto` (default true) and `common.gauge_ranges`,
-12 min/max pairs in canonical signal-registry order. Auto selects the volatile
+Schema 4 retains `common.gauge_auto` (default true) and `common.gauge_ranges`,
+92 min/max pairs in canonical signal-registry order. Auto selects the volatile
 recognized profile or Tiguan fallback; manual mode uses the stored ranges.
 The local Web editor exposes this mode and ranges; local theme/language/rotation
 edits preserve them. Schema 1/2 imports initialize these fields and retain all
@@ -70,7 +74,7 @@ existing common settings and relative schema-2 rotation. See the
 - `GET /api/config`, `/api/defaults`, `/api/device`, `/api/signals`,
   `/api/layouts`, `/api/themes`; `/api/session` returns a volatile session token.
 - `POST /api/preview`, `POST /api/cancel`, `PUT /api/config` accept the complete
-  schema-3 configuration with its current `revision`.
+  schema-4 configuration with its current `revision`.
 - Mutations require `X-MiniDash-Session`, JSON content type and same AP Origin
   when Origin is present. No CORS access is granted. Request bodies are bounded
   to 16 KiB, nesting to eight levels, and duplicate/unknown keys are rejected.
@@ -92,7 +96,7 @@ revision remain unchanged.
 ## Storage / migration
 
 Legacy settings v1/v2/v3/v4 remain readable through the existing migration adapter.
-The canonical schema-3 `MDC1` blob is little-endian, length-bounded and CRC32
+The canonical schema-4 `MDC1` blob is little-endian, length-bounded and CRC32
 protected; it is stored as `minidash_ui/configuration`. Legacy `settings` and
 the separate touch-calibration key are retained. Invalid/unknown canonical
 records are not erased; runtime uses a legacy/default fallback. A failed write
@@ -135,3 +139,38 @@ Normal migration and Reset UI do not invoke this recovery command.
 AUTO brightness has no verified ambient provider or adaptive algorithm.
 The current owner-confirmed GPIO4 control and electrical acceptance are recorded
 in [the backlight report](../hardware/backlight-pwm-2026-09-30.md).
+
+## Analytics presets, rules and RAM resets
+
+`GET /api/signals` includes provenance/derived/dependencies; `GET /api/presets`
+returns six native-generated eight-widget pages: ENGINE, KNOCK/RETARD, MISFIRE,
+BOOST, THERMAL and TRIP/PERFORMANCE. Applying one replaces the active Custom
+page only; it can be edited normally, or any fixed-screen card can bind the same
+metrics through the paged on-device Widget Picker (12 objects, eight pages).
+Existing Numeric/Bar/Status/Mini graph types are reused. Focus shows current,
+observed history min/max, state and LOCAL/OBD CAN/ECU/CANDIDATE source context.
+Compact preset captions support eight cards; physical readability is still a gate.
+
+`common.analytics` stores eight optional event rules and idle/load/warmup/heat-soak/
+X–Y context settings. Every new rule/context defaults off. Thresholds are canonical
+units, not universal vehicle safety limits. Evidence-only counter widths/wrap flags
+are deliberately absent from the Web schema and rejected if injected. Standard
+warning rules can bind any of the 92 IDs and select high/low direction.
+
+`GET /api/analytics` exposes at most 32 events and overwrite/rate-limit metadata;
+missing snapshot fields are null. `POST /api/reset-trip` and
+`POST /api/reset-session` use the same revision/session/origin/driving guards as
+settings mutations; they reset RAM statistics, not ECU counters or DTCs, and do
+not write NVS. Reconfiguring analytics starts a fresh engine session, including
+Preview/Cancel threshold changes. Ordinary UI edits preserve analytics settings.
+
+Schema-1/2 records migrate to default ranges/rules. Both real historical schema-3
+variants (12 and 14 gauge ranges) migrate preserving old ranges, layout, rotation,
+labels and bindings. Schema-4 stores the range count, then 92 ranges and 177 bytes
+of analytics settings; CRC/length validation is transactional. Explicit Save
+persists configuration only; no sample/event/trip is written to flash. Browser
+import permits 32 KiB pretty exports; compact HTTP bodies remain bounded at 16 KiB
+and eight levels. Four-page export/parse size is tested.
+
+Named event direction/sign validation keeps OVERBOOST/UNDERBOOST/RETARD semantics
+consistent. Generic trim episodes and UI warning rules retain either direction.

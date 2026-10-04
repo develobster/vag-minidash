@@ -1,8 +1,11 @@
 # Developer entry and repeatable acceptance
 
-Current standalone branch: `feature/standalone-acquisition`; see the
-[current report](research/standalone-final-2026-10-03.md). The consolidation
-branch/history described below is the integration baseline, not the active task.
+Current branch: `feature/engine-analytics`, integration merge `6ae2ed4` preserves
+standalone `ab1c09c` and diverged real-car/UI `bf7e8ba`. See the
+[analytics delivery](research/engine-analytics-delivery-2026-10-04.md) and
+[branch audit](research/analytics-integration-2026-10-04.md). Older dated sections
+below retain their historical context. Current configuration is schema 4.
+
 Focus update (2026-10-01): Volkswagen/Porsche now show a value-driven needle
 only in single-signal Focus; ordinary cards have no instrument arcs. Five
 reference vehicle profiles, Tiguan fallback and Auto/manual ranges use schema 3.
@@ -241,7 +244,8 @@ remain supported outside this recovery workflow.
 Bench: English/Russian labels, all dashboard long-hold pickers, three/four Custom
 pages NEXT/PREV wrap, Settings select without change, explicit CHANGE, Save/Cancel
 and reboot/NVS/calibration retention. Check touch targets physically; backlight
-must remain FIXED with current wiring. Record firmware hash and UI self-test.
+must retain the owner-accepted GPIO4 PWM wiring. CAN TX15 is a proposed
+separate installation pin, not physical acceptance. Record firmware hash and UI self-test.
 
 For the preserved host research workflow, confirm protected power/transceiver/listen-only wiring and the intended
 connection point; doctor/F190 and exact identity first, then only evidenced
@@ -258,3 +262,29 @@ JSON while the MCU compiles the generated numeric table. Native CTest adds
 wrap). Python `tests.test_instruments` covers observed-vs-seed identity and
 repeated bridge profiles; device Web tests additionally verify range validation,
 NVS roundtrip and local changes preserving manual ranges.
+
+## Derived Analytics offline gates
+
+Same `firmware/main` C files compile on ESP32 and natively. No CAN/serial/VCI is
+opened by either replay verifier. Run the existing common acceptance command
+with a cJSON-enabled native build; it now also requires all six native groups
+and runs `tools/verify_analytics.py` against `minidash-analytics-harness`.
+
+```sh
+cmake -S core -B core/build-analytics -D MD_JSON_SOURCE_DIR="$IDF_PATH/components/json/cJSON"
+cmake --build core/build-analytics
+python tools/verify_repository.py --output-dir .local/analytics-acceptance --native-build-dir core/build-analytics
+python tools/verify_analytics.py --harness core/build-analytics/minidash-analytics-harness
+```
+
+`--synthetic` belongs only to the native harness: test thresholds and counter
+widths never enter firmware defaults. Regenerate reviewed append-only catalogue
+with `scripts/generate_analytics_catalog.py`, traces with
+`scripts/generate_analytics_traces.py`; do not move old signal IDs. The engine's
+RAM storage uses `EXT_RAM_BSS_ATTR` and requires the existing board PSRAM setup
+plus `CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY=y`. Engine tick has no heap
+allocation; Web JSON allocation is bounded and outside the sample path.
+
+Optional ASan/UBSan native build uses `-fsanitize=address,undefined`. On this
+sandbox LeakSanitizer could not enumerate `/proc` threads; final address/undefined
+checks ran with `ASAN_OPTIONS=detect_leaks=0`. This is not a claimed leak check.

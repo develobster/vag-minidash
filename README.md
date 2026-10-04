@@ -1,12 +1,14 @@
 # MiniDash / vag-minidash
 
 Standalone automotive dashboard in development. ESP32-S3 firmware now owns
-CAN/ISO-TP/OBD acquisition, scheduling and display publishing. Python remains a
+CAN/ISO-TP/OBD acquisition, bounded derived analytics and display publishing. Python remains a
 development/research tool, not a production dependency. The autonomous path is
 offline-tested; physical-board and vehicle acceptance are still required.
 
 ## Start here
 
+- [Derived Analytics delivery, metrics, tests and remaining work](docs/research/engine-analytics-delivery-2026-10-04.md)
+- [Read-only CZPA/DQ500/Haldex evidence procedure](docs/validation/engine-analytics-car-evidence-2026-10-04.md)
 - [Standalone implementation, verification and remaining work](docs/research/standalone-final-2026-10-03.md)
 - [Source/license review and competitor matrix](docs/research/standalone-sources-and-matrix.md)
 - [First standalone bench/car test](REAL_CAR_TEST.md)
@@ -29,13 +31,17 @@ pages, layouts/themes/widgets and an explicit temporary local Wi-Fi Web editor.
 The Python runtime has identity-scoped knowledge, passive CAN/UDS acquisition,
 source arbitration, CLI/trace facilities and offline recorded CAN replay.
 
+The UI has 92 canonical IDs (66 derived), six analytics presets, a paged Widget
+Picker, Focus min/max/history/source and configurable events. Schema 4 migrates
+older UI settings. Statistics/events stay bounded in RAM; all new thresholds
+default off and manufacturer bindings stay disabled.
+
 The UI receives canonical samples from the native CAN task. Default builds keep
 CAN disabled; explicit `sdkconfig.standalone` and `sdkconfig.listen-only` presets
-provision GPIO4 TX/GPIO5 RX for reviewed installation wiring, not assumed wiring.
+provision GPIO15 TX/GPIO5 RX for reviewed installation wiring, not assumed wiring.
 Standalone supports standard 11-bit/500-kbit OBD and stationary Mode03 stored
 emissions DTC reading from the selected ECU. No VAG profiles ship enabled; DTC
-clear, coding/adaptation and product BLE remain unimplemented. Backlight is
-powered from 3.3 V and shows FIXED. QUIET stops polling, not electrical power:
+clear, coding/adaptation and product BLE remain unimplemented. GPIO4 retains the owner-accepted PWM backlight. QUIET stops polling, not electrical power:
 use the physical switch until a protected automatic power system is validated.
 
 MQB/UDS candidates and synthetic replay are not vehicle validation. Only the
