@@ -113,13 +113,7 @@ static void update_status(uint32_t now)
     status.dtc_count=engine.dtc_count;status.dtc_valid=engine.dtc_valid;
     status.dtc_truncated=engine.dtc_truncated;status.dtc_ms=engine.dtc_ms;
     memcpy(status.dtc,engine.dtc,sizeof(status.dtc));memcpy(status.vin,engine.vin,sizeof(status.vin));
-    for(unsigned i=0;i<MD_SIGNAL_RAW_COUNT;i++) {
-        if(i==MD_SIGNAL_ENGINE_BOOST) continue;
-        md_ui_signal_snapshot_t s=md_acq_snapshot(&engine,i,now,&status.sources[i]);
-        uint32_t ttl=1000;
-        if(s.state==MD_UI_SIGNAL_VALID && status.sources[i]<MD_SOURCE_COUNT) ttl=engine.samples[i][status.sources[i]].ttl_ms;
-        md_ui_signal_store_publish_id(&canonical,i,s.value,s.state,now-s.age_ms,ttl,false);
-    }
+    md_acq_publish_canonical(&engine,&canonical,status.sources,now);
     static uint32_t last_derived;
     if((uint32_t)(now-last_derived)>=100 || engine.state==MD_ACQ_FAULT) {
         last_derived=now;md_derived_tick(&analytics,&canonical,now);

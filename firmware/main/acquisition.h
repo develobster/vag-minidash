@@ -81,5 +81,9 @@ bool md_acq_request_dtc(md_acquisition_t *a, uint32_t now_ms);
 md_ui_signal_snapshot_t md_acq_snapshot(const md_acquisition_t *a,
     md_ui_signal_id_t signal, uint32_t now_ms, md_source_t *source);
 const char *md_acq_state_name(md_acq_state_t state);
+/* Shared production/replay source bridge. Derived values never enter here.
+ * sources may be NULL or an array of at least MD_SIGNAL_RAW_COUNT entries. */
+void md_acq_publish_canonical(const md_acquisition_t *a,
+    md_ui_signal_store_t *store, md_source_t *sources, uint32_t now_ms);
 void md_acq_format_dtc(uint16_t code, char text[6]);
 bool md_acq_profile_valid(const md_vehicle_profile_t *profile);

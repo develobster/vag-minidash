@@ -128,6 +128,20 @@ void md_acq_set_demand(md_acquisition_t *a, uint32_t visible, uint32_t backgroun
         a->background|=BIT(MD_SIGNAL_ENGINE_MANIFOLD_PRESSURE)|BIT(MD_SIGNAL_ENGINE_AMBIENT_PRESSURE);
     }
 }
+void md_acq_publish_canonical(const md_acquisition_t *a, md_ui_signal_store_t *store,
+                              md_source_t *sources, uint32_t now)
+{
+    if(!a || !store)return;
+    for(unsigned id=0;id<MD_SIGNAL_RAW_COUNT;id++) {
+        if(id==MD_SIGNAL_ENGINE_BOOST)continue;
+        md_source_t source;
+        md_ui_signal_snapshot_t s=md_acq_snapshot(a,id,now,&source);
+        uint32_t ttl=s.state==MD_UI_SIGNAL_VALID && source<MD_SOURCE_COUNT?
+            a->samples[id][source].ttl_ms:1000;
+        (void)md_ui_signal_store_publish_id(store,id,s.value,s.state,now-s.age_ms,ttl,false);
+        if(sources)sources[id]=source;
+    }
+}
 static void publish(md_acquisition_t *a, md_ui_signal_id_t id, md_source_t source,
                     double value, uint32_t ttl, uint32_t now)
 {
@@ -395,19 +409,40 @@ void md_acq_tick(md_acquisition_t *a,uint32_t now)
         md_ui_signal_snapshot_t speed=md_acq_snapshot(a,MD_SIGNAL_VEHICLE_SPEED,now,NULL);
         if(speed.state==MD_UI_SIGNAL_VALID && speed.value==0) {(void)begin(a,3,0,a->request_id,a->response_id,now);return;}
     }
-    /* Round-robin among due jobs. Visible > background rate; fresh passive > UDS > OBD. */
+    /* Round-robin among eligible due jobs, with freshness rescue under pressure.
+     * Speed needs headroom below the analytics 1 s gap limit; RPM keeps driving/
+     * idle context. These are technical deadlines, not vehicle thresholds.
+     * Remaining signals are rescued at 75% TTL. No request bypasses the TX floor. */
     unsigned uds_count=a->profile_matched?(unsigned)a->config.profile->uds_count:0;
     unsigned total=(unsigned)OBD_COUNT+uds_count;
+    unsigned selected=total;bool selected_urgent=false;uint32_t selected_lateness=0;
     for(unsigned n=0;n<total;n++) {
-        unsigned i=a->cursor%total; a->cursor=(a->cursor+1)%total; a->job=i<OBD_COUNT?i:i-OBD_COUNT;
+        unsigned i=(a->cursor+n)%total, job=i<OBD_COUNT?i:i-OBD_COUNT;
         bool is_uds=i>=OBD_COUNT;
-        md_ui_signal_id_t signal=is_uds?a->config.profile->uds[a->job].signal:obd[i].signal;
+        md_ui_signal_id_t signal=is_uds?a->config.profile->uds[job].signal:obd[i].signal;
         if(!((a->visible|a->background)&BIT(signal))) continue;
         if(!is_uds && (!has_pid(a,obd[i].pid) || a->failures[i]>=RETRY_LIMIT)) continue;
-        if(is_uds && a->uds_failures[a->job]>=RETRY_LIMIT) continue;
+        if(is_uds && a->uds_failures[job]>=RETRY_LIMIT) continue;
         if(fresh(&a->samples[signal][MD_SOURCE_PASSIVE],now) || (!is_uds && fresh(&a->samples[signal][MD_SOURCE_UDS],now))) continue;
-        uint32_t *when=is_uds?&a->uds_due[a->job]:&a->due[i];
+        uint32_t *when=is_uds?&a->uds_due[job]:&a->due[i];
         if(!due(now,*when)) continue;
+        const md_acq_sample_t *sample=&a->samples[signal][is_uds?MD_SOURCE_UDS:MD_SOURCE_OBD];
+        uint32_t ttl=is_uds?a->config.profile->uds[job].ttl_ms:obd[i].ttl_ms;
+        uint32_t budget=ttl*3/4;
+        if(signal==MD_SIGNAL_VEHICLE_SPEED && budget>500)budget=500;
+        if(signal==MD_SIGNAL_ENGINE_RPM && budget>1000)budget=1000;
+        uint32_t age=now-(sample->valid?sample->updated_ms:a->started_ms);
+        bool urgent=age>=budget;
+        uint32_t lateness=urgent?age-budget:0;
+        if(selected==total || (urgent && (!selected_urgent || lateness>selected_lateness))) {
+            selected=i;selected_urgent=urgent;selected_lateness=lateness;
+        }
+    }
+    if(selected<total) {
+        unsigned i=selected;a->cursor=(i+1)%total;a->job=i<OBD_COUNT?i:i-OBD_COUNT;
+        bool is_uds=i>=OBD_COUNT;
+        md_ui_signal_id_t signal=is_uds?a->config.profile->uds[a->job].signal:obd[i].signal;
+        uint32_t *when=is_uds?&a->uds_due[a->job]:&a->due[i];
         uint32_t period=is_uds?a->config.profile->uds[a->job].period_ms:obd[i].fast_ms;
         if(!(a->visible&BIT(signal)) && period<1000) period=1000;
         *when=now+period;
