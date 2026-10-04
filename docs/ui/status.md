@@ -1,5 +1,33 @@
 # MiniDash embedded UI status
 
+Focus update (2026-10-01): Volkswagen/Porsche now show a value-driven needle
+only in single-signal Focus; ordinary cards have no instrument arcs. Five
+reference vehicle profiles, Tiguan fallback and Auto/manual ranges use schema 3.
+Automatic matching is connected through host discovery → USB, not autonomous
+MCU CAN acquisition. See [implementation, sources and acceptance](focus-instruments-2026-10-01.md).
+
+Wi-Fi/theme update (2026-10-01): local settings remain editable with AP enabled;
+Wi-Fi shows an ON/OFF indicator. Eleven themes now include Volkswagen/Porsche,
+monospaced retro fonts and distinct frames/instrument artwork. See
+[implementation, tests and remaining checks](wifi-and-instrument-themes-2026-10-01.md).
+
+Rotation update (2026-09-30): Settings supports 0/90/180/270 degrees, with
+portrait card/grid reflow and transformed calibrated touch. Configuration schema
+2 migrates old build-only orientation to relative 0 without changing common
+settings. See [implementation, migration and verification](rotation-and-portrait-2026-09-30.md).
+
+Theme/startup update (2026-09-30): nine presets including Terminal, Matrix,
+Fallout, Amber CRT, Cyberpunk and Arctic; boot-only CRT reveal with autonomous
+LEDC fade (~2 s) to saved brightness; new-settings default is now 70%.
+See [implementation and acceptance](themes-and-crt-startup-2026-09-30.md).
+
+Current backlight update (2026-09-30): GPIO4 is owner-confirmed and enabled for
+LEDC PWM (5 kHz, 12 bit, gamma 2.0), using the existing Brightness setting and
+NVS. Manual Settings control, 10% readable minimum, reboot persistence and cold
+USB boot have passed physical bench acceptance. Prior FIXED/3V3 descriptions
+below record the preceding wiring. See [backlight implementation and acceptance](../hardware/backlight-pwm-2026-09-30.md).
+
+
 UI delivery record updated 2026-09-30. Original work branch: `feature/ui-ux-touch-zones`, based on
 `feature/production-ui` at `00c6317c08b055ae0f56791ed250225c14b4301e`.
 
@@ -11,9 +39,9 @@ contains no CAN identifiers, DIDs, ECU selection or vehicle-specific decoding.
 CAN remains disabled and no live vehicle data provider is connected.
 
 Hardware profile: ESP32-S3, 16 MiB flash, 8 MiB PSRAM, ST7789 ESP-IDF panel
-backend, logical rotation 2, XPT2046 touch on shared SPI. The LCD silicon
-marking is not confirmed. The LED backlight is wired directly to 3.3 V, so
-software dimming is unavailable and Settings now shows `FIXED`.
+backend, four relative rotations over the verified panel orientation, XPT2046 touch on shared SPI. The LCD silicon
+marking is not confirmed. The backlight now uses owner-confirmed GPIO4 PWM;
+Settings exposes 10–100% and boot restores the saved brightness with a CRT fade.
 
 ## Implemented
 
@@ -41,7 +69,7 @@ software dimming is unavailable and Settings now shows `FIXED`.
 - OEM, Sport and Minimal themes, day/night palettes, metric/imperial conversion,
   and configurable warning enable switches. Warning thresholds remain disabled
   by default and are not vehicle-validated.
-- Canonical schema-1 CRC configuration stores four pages of eight widgets, logical geometry, type/range/precision/labels, palettes and warning settings. Legacy v1/v2/v3 settings and separate touch calibration remain intact.
+- Canonical schema-3 CRC configuration stores four pages of eight widgets, logical geometry, type/range/precision/labels, palettes and warning settings. Legacy v1/v2/v3 settings and separate touch calibration remain intact.
 - Explicit temporary WPA2 AP hosts a mobile Web editor with firmware registries, layouts/themes, import/export, Preview/Save/Cancel and resets. Preview switches to Custom; Save/Cancel restores the previous screen. Ten-minute absolute timeout, session token, revision checks, bounded strict JSON and no diagnostic write routes.
 - Eight portable C modules compile without LVGL/ESP-IDF. Button debounce/long-press/repeat/lockout, renderer abstraction, logical presentation slicing and capability-gated brightness transitions exist. Physical GPIO/OLED/automotive adapters remain future work.
 - Optional USB Serial/JTAG host bridge from `minidash_live watch`; it forwards
@@ -77,12 +105,11 @@ Current integration acceptance and host counts: [repository report](../research/
 - Four Custom pages, numeric/bar/status/graph widgets and Web configuration are implemented. Gauge/dial widgets remain future work. Browser visual inspection and sustained render timing remain unverified.
 - No physical GPIO buttons or car-button CAN/LIN adapter is implemented. No
   vehicle button IDs or illumination signals are assumed.
-- Brightness control is locked because of the confirmed current wiring. PWM
-  must wait for a verified control input or an external LED driver.
+- GPIO4 PWM brightness is enabled and owner-tested at 10–100%; sleep switches it off.
 - Warning presets are existing firmware values, disabled by default and not
   validated as vehicle safety limits.
 - AP cycles measured internal free memory 115,331 before / 115,259 after, minimum 39,488 bytes. Sustained rendering latency remains unmeasured.
-- AUTO brightness has capability gates but no adaptive algorithm or verified ambient input. Only current rotation 2 is accepted by configuration writes.
+- AUTO brightness has capability gates but no adaptive algorithm or verified ambient input. All four relative rotations (0/90/180/270) are accepted by configuration writes.
 - Native CTest 2/2 executables passed (eight portable groups plus JSON); Node editor logic tests passed. Four consecutive on-device real AP/HTTP cycles passed 24/24 each. Reboot retained original Russian settings and one Custom page; UI tests again passed 25/25.
 - Eight modules compile to Cortex-M3 objects totaling 22,546 bytes of text; this is not a linked Lite firmware or complete memory budget.
 - Stress tests exposed and fixed NULL diagnostic-label retheme and freed static-text buffers during Custom rebuild. A failed intermediate test persisted its synthetic pages; untouched legacy settings restored user configuration before final tests. No calibration key was overwritten.

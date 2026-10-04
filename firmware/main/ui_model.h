@@ -41,6 +41,7 @@ typedef struct {
     bool display_ready;
     bool touch_ready;
     bool brightness_control;
+    bool wifi_active;
     bool transport_available;
     char transport_state[16];
     bool ecu_count_available;
@@ -84,3 +85,11 @@ void md_brightness_init(md_brightness_t *brightness, const md_target_profile_t *
 bool md_brightness_set(md_brightness_t *brightness, uint8_t level);
 bool md_brightness_mode(md_brightness_t *brightness, md_brightness_mode_t mode);
 bool md_brightness_tick(md_brightness_t *brightness, uint32_t now_ms, uint8_t *output);
+
+/* Logical 320x240 scene coordinates, scaled only after portrait reflow. */
+typedef struct { int x,y,width,height; } md_ui_rect_t;
+void md_ui_fixed_portrait_rect(md_ui_card_group_t group, uint8_t slot, md_ui_rect_t *rect);
+md_ui_rect_t md_ui_widget_rect(const md_ui_widget_binding_t *widget, bool portrait);
+
+/* Presentation bounds in canonical units, never warning/safety thresholds. */
+bool md_ui_focus_gauge_range(md_ui_signal_id_t signal, float *low, float *high);

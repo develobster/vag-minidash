@@ -94,6 +94,7 @@ static esp_err_t get_handler(httpd_req_t *req)
             for (unsigned i=0;i<MD_UI_THEME_COUNT;++i) {
                 config->common.theme=i; config->common.palette=md_ui_theme_palette(i,false);
                 cJSON *o=md_configuration_json(config,revision);
+                md_ui_theme_json_metadata(o,i);
                 cJSON_AddItemToArray(root,o);
             }
         }
@@ -304,6 +305,65 @@ static bool web_selftest_run(void)
         CHECK("cancel_restores_pages",candidate->common.page_count==original->common.page_count);
     } else ++failed;
     free(json); json=NULL;
+    if (!md_display_configuration_read(candidate,&revision,NULL)) { ++failed; goto done; }
+    root=md_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); cJSON_Delete(root);
+    const uint8_t local_brightness=original->platform.brightness==70 ? 80 : 70;
+    CHECK("local_brightness_queue_with_wifi",md_display_app_set_brightness(local_brightness));
+    vTaskDelay(pdMS_TO_TICKS(350));
+    CHECK("local_brightness_applied_with_wifi",md_display_configuration_read(candidate,&revision,NULL) &&
+        candidate->platform.brightness==local_brightness && md_ui_web_active());
+    CHECK("local_edit_invalidates_web_revision",json && request("/api/preview",HTTP_METHOD_POST,json,s_token,&capture)==409);
+    free(json); json=NULL;
+    root=md_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); cJSON_Delete(root);
+    CHECK("cancel_keeps_local_edit",json && request("/api/cancel",HTTP_METHOD_POST,json,s_token,&capture)==200 &&
+        md_display_configuration_read(candidate,&revision,NULL) && candidate->platform.brightness==local_brightness);
+    free(json); json=NULL;
+    candidate->platform.brightness=50;
+    root=md_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); cJSON_Delete(root);
+    CHECK("http_preview_before_local_takeover",json && request("/api/preview",HTTP_METHOD_POST,json,s_token,&capture)==200);
+    free(json); json=NULL;
+    vTaskDelay(pdMS_TO_TICKS(250));
+    CHECK("local_takeover_queue",md_display_app_set_brightness(local_brightness));
+    vTaskDelay(pdMS_TO_TICKS(350));
+    CHECK("local_takeover_discards_preview",md_display_configuration_read(candidate,&revision,NULL) &&
+        candidate->platform.brightness==local_brightness && candidate->common.page_count==original->common.page_count);
+    CHECK("local_settings_actions_with_wifi",
+        md_display_app_dispatch(MD_UI_INPUT_CONSOLE,MD_UI_ACTION_OPEN_SETTINGS) &&
+        md_display_app_dispatch(MD_UI_INPUT_CONSOLE,MD_UI_ACTION_NEXT_ITEM) &&
+        md_display_app_dispatch(MD_UI_INPUT_CONSOLE,MD_UI_ACTION_INCREMENT));
+    bool local_theme_applied=false;
+    for(unsigned i=0;i<40 && !local_theme_applied;i++) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+        local_theme_applied=md_display_configuration_read(candidate,&revision,NULL) &&
+            candidate->common.theme==(original->common.theme+1)%MD_UI_THEME_COUNT;
+    }
+    CHECK("local_theme_applied_with_wifi",local_theme_applied && md_ui_web_active());
+    if (!md_display_configuration_read(candidate,&revision,NULL)) { ++failed; goto done; }
+    candidate->common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum=0;
+    root=md_configuration_json(original,revision);
+    cJSON *range=cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(root,"common"),"gauge_ranges"),0);
+    cJSON_ReplaceItemInObjectCaseSensitive(range,"maximum",cJSON_CreateNumber(0));
+    json=cJSON_PrintUnformatted(root); cJSON_Delete(root);
+    CHECK("http_invalid_gauge_range",json && request("/api/preview",HTTP_METHOD_POST,json,s_token,&capture)==400);
+    free(json); json=NULL;
+    candidate->common.gauge_auto=false;
+    candidate->common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum=10000;
+    root=md_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); cJSON_Delete(root);
+    CHECK("http_save_manual_gauge",json && request("/api/config",HTTP_METHOD_PUT,json,s_token,&capture)==200);
+    free(json); json=NULL;
+    md_target_profile_t gauge_target={0};
+    CHECK("nvs_manual_gauge_roundtrip",md_display_configuration_read(candidate,&revision,&gauge_target) &&
+        md_configuration_storage_load(candidate,&gauge_target) && !candidate->common.gauge_auto &&
+        candidate->common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum==10000);
+    const uint8_t gauge_local_brightness=local_brightness==70 ? 80 : 70;
+    const bool gauge_local_queued=md_display_app_set_brightness(gauge_local_brightness);
+    vTaskDelay(pdMS_TO_TICKS(400));
+    CHECK("local_action_preserves_gauge_ranges",gauge_local_queued &&
+        md_display_configuration_read(candidate,&revision,NULL) && candidate->platform.brightness==gauge_local_brightness && !candidate->common.gauge_auto &&
+        candidate->common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum==10000);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    CHECK("nvs_manual_gauge_after_local_edit",md_configuration_storage_load(candidate,&gauge_target) &&
+        !candidate->common.gauge_auto && candidate->common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum==10000);
     /* Always save the captured original, never the last preview if cancel
        or a config read failed. Tests must not persist synthetic pages. */
     if (!md_display_configuration_read(candidate,&revision,NULL)) { ++failed; goto done; }

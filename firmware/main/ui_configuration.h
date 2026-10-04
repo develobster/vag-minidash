@@ -1,7 +1,7 @@
 #pragma once
 #include "ui_model.h"
 
-#define MD_CONFIG_SCHEMA_VERSION 1U
+#define MD_CONFIG_SCHEMA_VERSION 3U
 #define MD_CONFIG_MAX_PAGES 4U
 #define MD_CONFIG_TEXT_SIZE 32U
 #define MD_CONFIG_WIRE_MAX 2304U
@@ -19,10 +19,11 @@ typedef struct {
 typedef struct {
     uint8_t dashboard, theme, day_night, units, temperature_unit, language, last_screen;
     uint8_t page_count, active_page;
-    bool warnings_enabled, custom_theme;
+    bool warnings_enabled, custom_theme, gauge_auto;
     md_ui_warning_threshold_t warnings[MD_UI_MAX_WARNING_THRESHOLDS];
     uint8_t fixed_card_overrides[MD_UI_FIXED_CARD_OVERRIDES_COUNT];
     md_ui_palette_t palette;
+    struct { float minimum, maximum; } gauge_ranges[MD_SIGNAL_COUNT];
     md_ui_dashboard_page_t pages[MD_CONFIG_MAX_PAGES];
 } md_common_configuration_t;
 typedef struct {

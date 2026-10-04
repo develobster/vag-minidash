@@ -8,7 +8,7 @@ class Element {
     replaceChildren(...nodes){this.children=[...nodes]}
     click(){return this.onclick?.()}
 }
-const ids=['message','general','hardware','pages','add','delete','resetpage','pageform','preview','widgets','themes','customtheme','colors','resettheme','warnings','export','import','resetui','try','save','cancel','reload'];
+const ids=['message','general','gaugemode','gauges','hardware','pages','add','delete','resetpage','pageform','preview','widgets','themes','customtheme','colors','resettheme','warnings','export','import','resetui','try','save','cancel','reload'];
 const elements=Object.fromEntries(ids.map(id=>[id,new Element(['add','delete','resetpage','resettheme','export','resetui','try','save','cancel','reload'].includes(id)?'button':'div')]));
 const document={getElementById:id=>elements[id],createElement:tag=>new Element(tag),querySelectorAll:tag=>Object.values(elements).filter(e=>e.tagName===tag.toUpperCase())};
 let current=structuredClone(fixture.config),saved=structuredClone(current);
@@ -28,6 +28,32 @@ const selectOf=id=>elements[id].children.flatMap(x=>x.children).find(x=>x.tagNam
 const change=(select,value)=>{select.value=String(value);select.onchange()};
 (async()=>{
     await tick();assert.equal(elements.message.textContent,'Соединение с устройством установлено');
+    const rotation=()=>elements.general.children.find(x=>x.textContent==='Поворот экрана').children[0];
+    assert.equal(rotation().children.length,4);
+    for(const r of [1,2,3,0]) {
+        change(rotation(),r);
+        assert.equal(elements.preview.style.gridTemplateColumns,'repeat('+(r%2?8:12)+',1fr)');
+        assert.equal(elements.preview.style.gridTemplateRows,'repeat('+(r%2?12:8)+',20px)');
+    }
+    change(rotation(),3); await elements.try.click(); assert.equal(current.platform.rotation,3);
+    await elements.cancel.click(); assert.equal(current.platform.rotation,0);
+    change(rotation(),1); await elements.save.click(); assert.equal(saved.platform.rotation,1);
+    change(rotation(),0); await elements.save.click();
+    assert.equal(elements.gauges.children.length,fixture.signals.length);
+    change(selectOf('gaugemode'),0);
+    const gaugeMax=elements.gauges.children[0].children[2].children[0];gaugeMax.value='10000';gaugeMax.onchange();
+    await elements.try.click();assert.equal(current.common.gauge_ranges[0].maximum,10000);assert.equal(current.common.gauge_auto,false);
+    await elements.cancel.click();assert.equal(current.common.gauge_ranges[0].maximum,8000);
+    assert.equal(selectOf('themes').children.length,11);
+    assert.equal(selectOf('themes').children[4].textContent,'Matrix');
+    change(selectOf('themes'),4);
+    assert.equal(elements.preview.children[0].style.borderRadius,'0px');
+    assert.match(elements.preview.children[0].style.backgroundImage,/repeating-linear-gradient/);
+    change(selectOf('themes'),8);
+    assert.equal(elements.preview.children[0].style.borderRadius,'18px');
+    assert.equal(selectOf('themes').children[9].textContent,'Volkswagen');
+    assert.equal(selectOf('themes').children[10].textContent,'Porsche');
+    change(selectOf('themes'),0);
     assert.equal(elements.widgets.children.length,4);assert.equal(elements.delete.disabled,true);
     elements.add.click();elements.add.click();elements.add.click();assert.equal(elements.add.disabled,true);
     assert.equal(selectOf('pages').children.length,4);

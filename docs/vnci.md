@@ -1,5 +1,12 @@
 # VNCI 6154A: определение интерфейса
 
+**Обновление Windows 2026-09-30:** локально исследованы установленные VW D-PDU
+OS/OE x64 и MDF, а также VAS6154 Driver/VNCI Device Manager. PassThru registrations
+не найдены; DLL имеют PDU exports без PassThru. MiniDash D-PDU/passive VNCI adapter
+пока отсутствуют. См. [текущий runbook](validation/first-real-car-session.md) и
+[отчёт](validation/real-car-preparation-2026-09-30.md). Упоминание Linux ниже —
+исторический контекст первоначального исследования.
+
 ## Подтверждено / неизвестно
 
 По реальной сессии 2026-09-22 ODIS Engineering 17.0.1 успешно работал с

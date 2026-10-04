@@ -1,5 +1,27 @@
 # ESP32-S3 display prototype (Rev.A software)
 
+Wi-Fi/theme update (2026-10-01): local settings remain editable with AP enabled;
+Wi-Fi shows an ON/OFF indicator. Eleven themes now include Volkswagen/Porsche,
+monospaced retro fonts and distinct frames/instrument artwork. See
+[implementation, tests and remaining checks](../ui/wifi-and-instrument-themes-2026-10-01.md).
+
+Rotation update (2026-09-30): Settings supports 0/90/180/270 degrees, with
+portrait card/grid reflow and transformed calibrated touch. Configuration schema
+2 migrates old build-only orientation to relative 0 without changing common
+settings. See [implementation, migration and verification](../ui/rotation-and-portrait-2026-09-30.md).
+
+Theme/startup update (2026-09-30): nine presets including Terminal, Matrix,
+Fallout, Amber CRT, Cyberpunk and Arctic; boot-only CRT reveal with autonomous
+LEDC fade (~2 s) to saved brightness; new-settings default is now 70%.
+See [implementation and acceptance](../ui/themes-and-crt-startup-2026-09-30.md).
+
+Current backlight update (2026-09-30): GPIO4 is owner-confirmed and enabled for
+LEDC PWM (5 kHz, 12 bit, gamma 2.0), using the existing Brightness setting and
+NVS. Manual Settings control, 10% readable minimum, reboot persistence and cold
+USB boot have passed physical bench acceptance. Prior FIXED/3V3 descriptions
+below record the preceding wiring. See [backlight implementation and acceptance](backlight-pwm-2026-09-30.md).
+
+
 ## Scope and boundary
 
 The existing Python host runtime owns transport, ISO-TP, UDS, discovery, identity,

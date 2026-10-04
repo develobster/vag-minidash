@@ -5,6 +5,50 @@ See [current report](research/standalone-final-2026-10-03.md) and
 [first autonomous car test](../REAL_CAR_TEST.md). Historical UI hardware results
 come from `6f436dd`; no new device/car test is claimed. Python modules below are
 preserved development/research tools, not dependencies of standalone operation.
+Current branch/acceptance and actionable next work (2026-10-01):
+[project status and phased practical plan](validation/practical-next-work-2026-10-01.md).
+The latest UI additions pass the common build gates; physical Focus readability,
+backlight-load measurement and real VNCI transport remain acceptance blockers.
+
+Focus update (2026-10-01): Volkswagen/Porsche now show a value-driven needle
+only in single-signal Focus; ordinary cards have no instrument arcs. Five
+reference vehicle profiles, Tiguan fallback and Auto/manual ranges use schema 3.
+Automatic matching is connected through host discovery → USB, not autonomous
+MCU CAN acquisition. See [implementation, sources and acceptance](ui/focus-instruments-2026-10-01.md).
+
+Wi-Fi/theme update (2026-10-01): local settings remain editable with AP enabled;
+Wi-Fi shows an ON/OFF indicator. Eleven themes now include Volkswagen/Porsche,
+monospaced retro fonts and distinct frames/instrument artwork. See
+[implementation, tests and remaining checks](ui/wifi-and-instrument-themes-2026-10-01.md).
+
+Rotation update (2026-09-30): Settings supports 0/90/180/270 degrees, with
+portrait card/grid reflow and transformed calibrated touch. Configuration schema
+2 migrates old build-only orientation to relative 0 without changing common
+settings. See [implementation, migration and verification](ui/rotation-and-portrait-2026-09-30.md).
+
+Theme/startup update (2026-09-30): nine presets including Terminal, Matrix,
+Fallout, Amber CRT, Cyberpunk and Arctic; boot-only CRT reveal with autonomous
+LEDC fade (~2 s) to saved brightness; new-settings default is now 70%.
+See [implementation and acceptance](ui/themes-and-crt-startup-2026-09-30.md).
+
+Current backlight update (2026-09-30): GPIO4 is owner-confirmed and enabled for
+LEDC PWM (5 kHz, 12 bit, gamma 2.0), using the existing Brightness setting and
+NVS. Manual Settings control, 10% readable minimum, reboot persistence and cold
+USB boot have passed physical bench acceptance. Prior FIXED/3V3 descriptions
+below record the preceding wiring. See [backlight implementation and acceptance](hardware/backlight-pwm-2026-09-30.md).
+
+
+Audited 2026-09-30 against integration base `22a346b`. See the
+[consolidation report](research/repository-consolidation-2026-09-30.md) for fresh
+acceptance results and actual delivery state. Historical hardware results below
+come from the UI delivery `6f436dd`; no new device/car test is claimed.
+
+The worktree subsequently synced cleanly to consolidation `3e5c6ca`; see the
+[real-car preparation report](validation/real-car-preparation-2026-09-30.md)
+for new strict recording/replay tools, tests and driver inspection. The current
+[first-session runbook](validation/first-real-car-session.md) reports **BLOCKED**:
+VW D-PDU x64 DLLs are installed, J2534 FunctionLibrary is not evidenced, Windows
+VNCI passive capture and exact identity probe layouts remain unavailable.
 
 Labels are independent: **IMPLEMENTED** describes code; **OFFLINE TESTED** is a
 synthetic/native contract; **HARDWARE TESTED** is a recorded bench delivery;
@@ -14,7 +58,7 @@ Registry confidence metadata alone does not grant a validation label.
 
 | Component | Status / evidence | Code and tests | Limits |
 |---|---|---|---|
-| Display | IMPLEMENTED; HARDWARE TESTED for ST7789 backend | `firmware/main/st7789_backend.c`, `display_manager.c`, `ui_screens.c`; UI delivery record | 320x240 rotation 2; LCD marking unconfirmed; ILI9341 backend exists but is not the validated current panel |
+| Display | IMPLEMENTED; HARDWARE TESTED for ST7789 backend | `firmware/main/st7789_backend.c`, `display_manager.c`, `ui_screens.c`; UI delivery record | 320x240 baseline with 0/90/180/270 user rotation; LCD marking unconfirmed; ILI9341 backend exists but is not the validated current panel |
 | XPT2046 touch | IMPLEMENTED; HARDWARE TESTED | `xpt2046_touch.c`, `ui_touch_map.c`, `ui_touch_nvs.c`; `core/tests.c`, device UI record | Five-point affine/NVS; calibration independent of UI config; physical edge/readability checks remain |
 | Multiple screens | IMPLEMENTED; OFFLINE/HARDWARE TESTED UI | `ui_core.c`, `ui_screens.c`, `acquisition.c` | Native OBD source added; acquisition not car-validated |
 | Layouts / four Custom pages | IMPLEMENTED; OFFLINE TESTED; prior device contracts | `ui_configuration.c`, `ui_model.c`, `ui_screens.c`; `core/tests.c`, `core/test_json.c` | 1/2/4/6/8 and mixed layouts; dense readability not physically accepted |
@@ -25,8 +69,8 @@ Registry confidence metadata alone does not grant a validation label.
 | BLE / phone app | PARTIAL bring-up; NOT IMPLEMENTED product app | `firmware/main/main.c` bring-up | ESP32-S3 BLE, no Classic SPP or product configuration protocol |
 | Wi-Fi | IMPLEMENTED; prior HARDWARE TESTED AP contracts | `ui_web.c`, `main.c`; prior four AP cycles | Explicit temporary AP; no always-on remote service |
 | Web UI | IMPLEMENTED; OFFLINE TESTED; prior HARDWARE TESTED HTTP | `ui_web.c`, `webui.html`; native JSON/Node tests | WPA2/session/revision/bounds; native speed gate still needs physical validation; local HTTP plaintext |
-| Device settings | IMPLEMENTED; OFFLINE/HARDWARE TESTED persistence | `ui_configuration*.c`, `ui_settings_nvs.c`; JSON/native/device tests | Schema 1 CRC, legacy migration, separate touch key; no arbitrary new rotations |
-| Backlight/manual PWM | PARTIAL; OFFLINE TESTED controller | `ui_platform.c`, `display_manager.c` | Current BL is 3.3 V power, FIXED; hardware PWM/AUTO blocked; no confirmed vehicle illumination signal |
+| Device settings | IMPLEMENTED; OFFLINE/HARDWARE TESTED persistence | `ui_configuration*.c`, `ui_settings_nvs.c`; JSON/native/device tests | Schema 2 CRC, legacy migration, separate touch key; four display orientations |
+| Backlight/manual PWM | IMPLEMENTED; OWNER HARDWARE TESTED | `backlight_controller.c`, `display_manager.c`; backlight delivery report | GPIO4 LEDC 5 kHz/12 bit, 10–100%, sleep-off, saved boot fade; AUTO has no ambient source |
 | Passive CAN acquisition | IMPLEMENTED host and gated native core; OFFLINE TESTED | `acquisition.c`, `passive.py`, `dbc.py`; core/MQB tests | No enabled native profile; OBD visibility/checksum/counters and hardware listen-only unverified |
 | UDS polling | IMPLEMENTED host and gated native core; OFFLINE TESTED | `acquisition.c`, `uds.py`, `runtime.py` | No enabled native manufacturer profile; exact VIN/identity/endpoint/evidence required |
 | Transport / J2534 / VNCI | PARTIAL; OFFLINE TESTED ABI/lifecycle | `transports.py`, `j2534.py`; `test_live.py`, `test_transport.py` | Driver inventory/evidenced routes exist; MiniDash physical VCI route not proven |
@@ -43,7 +87,7 @@ Registry confidence metadata alone does not grant a validation label.
 | Acquisition planner / scheduler | IMPLEMENTED host/native; OFFLINE TESTED | `acquisition.c`, `pipeline.py`, `runtime.py` | Native visible/background priority, one active request, bounds; no measured physical bus-load budget |
 | SignalStore | IMPLEMENTED; OFFLINE TESTED | `runtime.py`; runtime/registry/pipeline/replay tests | Quality/TTL and source provenance; host store distinct from embedded presentation store |
 | SourceArbitrator | IMPLEMENTED; OFFLINE TESTED | `arbitration.py`, `pipeline.py`; knowledge/pipeline/replay tests | Offline replay does not promote evidence or publish a live source |
-| Replay | IMPLEMENTED; OFFLINE TESTED | `replay.py`, `CanTraceReader`, CLI; `test_can_replay.py` | Existing decoder/store/arbitration; Classical CAN recorder JSONL, not BLF/ASC/FD; no transport/scheduler I/O |
+| Replay | IMPLEMENTED; OFFLINE TESTED | `replay.py`, `CanTraceReader`, CLI; `test_can_replay.py`, `test_real_car_validation.py` | CAN uses existing decoder/store/arbitration; recorded UDS also uses production discovery/planner/scheduler with offline Transport; no DLL/bus I/O; private complete trace required |
 | DTC read | IMPLEMENTED native Mode03; OFFLINE TESTED | `acquisition.c`, `display_app.c`, core/VirtualBus tests | Selected emissions ECU, fresh speed=0, max12/truncation; no descriptions/full inventory/0x19 |
 | DTC clear | NOT IMPLEMENTED live product | Simulator paths only | No 0x14 production workflow/confirmation/vehicle guard acceptance |
 | Coding/adaptation | RESEARCH ONLY / simulator groundwork | `core.py`, legacy profiles/journal tests | No live allowlist/write service; no Web endpoint |

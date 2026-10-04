@@ -12,10 +12,12 @@ Dates/test counts in historical delivery reports are not current acceptance.
 | Integration baseline / branches / acceptance | [Consolidation audit](research/repository-consolidation-2026-09-30.md) |
 | Feature evidence | [Status matrix](status.md), [UI implementation/hardware record](ui/status.md) |
 | Host diagnostic runtime | [End-to-end](runtime/end-to-end.md), [knowledge](architecture/vehicle-knowledge.md) |
+| Focus needles and vehicle scales | [Current delivery, catalogue sources, migration and acceptance](ui/focus-instruments-2026-10-01.md) |
 | Device architecture / portability | [UI architecture](ui/architecture.md), [targets](architecture/targets.md) |
 | Configuration / settings | [Configuration](ui/configuration.md), [settings](ui/user-settings.md), [USB bridge](ui/host-bridge.md) |
 | Hardware and display/touch | [ESP32 bring-up](hardware/esp32s3-bringup.md), [display prototype](hardware/display-prototype.md) |
-| First physical vehicle gate | [Tiguan first live](runtime/tiguan-first-live.md), [MQB validation](runtime/tiguan-mqb-live-validation.md), [manifest](runtime/tiguan-mqb-validation-manifest.json) |
+| First physical vehicle gate | [Current first-session runbook](validation/first-real-car-session.md), [preparation/readiness report](validation/real-car-preparation-2026-09-30.md); earlier [Tiguan first live](runtime/tiguan-first-live.md), [MQB validation](runtime/tiguan-mqb-live-validation.md), [manifest](runtime/tiguan-mqb-validation-manifest.json) |
+| Practical next work | [Current project state, verified build and phased bench/vehicle plan](validation/practical-next-work-2026-10-01.md) |
 | Offline evidence processing | [CAN replay](runtime/can-replay.md), [artifacts](artifacts.md), [fixture notices](../tests/fixtures/README.md) |
 
 ## Research: preserve, check against code before implementation

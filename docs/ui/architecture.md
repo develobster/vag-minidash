@@ -1,5 +1,33 @@
 # Embedded UI architecture
 
+Focus update (2026-10-01): Volkswagen/Porsche now show a value-driven needle
+only in single-signal Focus; ordinary cards have no instrument arcs. Five
+reference vehicle profiles, Tiguan fallback and Auto/manual ranges use schema 3.
+Automatic matching is connected through host discovery → USB, not autonomous
+MCU CAN acquisition. See [implementation, sources and acceptance](focus-instruments-2026-10-01.md).
+
+Wi-Fi/theme update (2026-10-01): local settings remain editable with AP enabled;
+Wi-Fi shows an ON/OFF indicator. Eleven themes now include Volkswagen/Porsche,
+monospaced retro fonts and distinct frames/instrument artwork. See
+[implementation, tests and remaining checks](wifi-and-instrument-themes-2026-10-01.md).
+
+Rotation update (2026-09-30): Settings supports 0/90/180/270 degrees, with
+portrait card/grid reflow and transformed calibrated touch. Configuration schema
+2 migrates old build-only orientation to relative 0 without changing common
+settings. See [implementation, migration and verification](rotation-and-portrait-2026-09-30.md).
+
+Theme/startup update (2026-09-30): nine presets including Terminal, Matrix,
+Fallout, Amber CRT, Cyberpunk and Arctic; boot-only CRT reveal with autonomous
+LEDC fade (~2 s) to saved brightness; new-settings default is now 70%.
+See [implementation and acceptance](themes-and-crt-startup-2026-09-30.md).
+
+Current backlight update (2026-09-30): GPIO4 is owner-confirmed and enabled for
+LEDC PWM (5 kHz, 12 bit, gamma 2.0), using the existing Brightness setting and
+NVS. Manual Settings control, 10% readable minimum, reboot persistence and cold
+USB boot have passed physical bench acceptance. Prior FIXED/3V3 descriptions
+below record the preceding wiring. See [backlight implementation and acceptance](../hardware/backlight-pwm-2026-09-30.md).
+
+
 ## Boundary
 
 The Python runtime remains the authority for transport, ISO-TP, UDS, discovery,
@@ -85,11 +113,11 @@ hardware adapters yet.
 
 ## Settings and warnings
 
-The shared schema-1 configuration validates up to four pages of eight widgets,
+The shared schema-3 configuration validates up to four pages of eight widgets,
 logical geometry, bindings, types, ranges/precision, colors and warnings.
 Its bounded explicit little-endian CRC blob is committed to NVS before publication.
 Legacy v1/v2/v3 records are retained; touch calibration has an independent key.
-Local writes are deferred 1.5 seconds and are blocked during preview/editor sessions.
+Local writes are deferred 1.5 seconds and remain available during AP sessions. Local editing ends a temporary Web preview before changing the saved baseline.
 Revision checks prevent stale edits. Invalid records are retained without erase.
 See [configuration](configuration.md) for Preview/Save/Cancel and HTTP contracts.
 
@@ -103,15 +131,14 @@ The Custom dashboard supports eight value bindings on a 12 by 8 grid. Built-in
 layout presets include 1, 2, 4, 6 and 8 widgets plus 1-large/2-small,
 1-large/4-small and 2-large/4-small mixed arrangements. Layout geometry is
 stored independently from canonical signal names. Settings provides a six-page
-layout and per-slot signal selector. Numeric, bar, quality-status and graph widgets render in LVGL. Four Custom pages support validated free logical geometry and a local mobile Web editor. Gauge widgets are not implemented. The 8-widget layout has not
+layout and per-slot signal selector. Numeric, bar, quality-status and graph widgets render in LVGL. Four Custom pages support validated free logical geometry and a local mobile Web editor. Independent grid gauge widgets are not implemented; Volkswagen/Porsche render fresh-value analogue instruments only in Focus, using the shared vehicle-profile catalogue and Auto/manual ranges. The 8-widget layout has not
 yet passed a physical readability review.
 
 Warnings are disabled by default and apply only to fresh valid values. Thresholds
 are configurable through `md_display_app_set_warning()` for the four supported
 warning slots. Settings exposes the global warning switch and per-signal enable
-switches; numeric threshold values are editable through the Web editor and are not validated on a vehicle. Brightness is shown as FIXED and its control is locked on the
-current board because the backlight is wired directly to 3.3 V. No GPIO drives
-the LED load.
+switches; numeric threshold values are editable through the Web editor and are not validated on a vehicle. Brightness uses owner-confirmed GPIO4 LEDC PWM with a 10% minimum,
+sleep-off and boot fade. Calibration remains in its independent NVS key.
 
 ## Build and verification
 

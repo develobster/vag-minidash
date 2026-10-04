@@ -22,6 +22,7 @@ from .discovery import (
     verify_discovered_identity,
 )
 from .display_bridge import UI_SIGNAL_NAMES, open_serial_display_bridge
+from .instruments import PROFILES as INSTRUMENT_PROFILES, select_instrument_profile
 from .identity import EcuIdentity, VehicleIdentity
 from .knowledge import registry_from_providers
 from .pipeline import (
@@ -424,6 +425,10 @@ def run_watch(args):
             if args.display_port else None
         if display_bridge is not None:
             resources.callback(display_bridge.close)
+        instrument_profile = getattr(args, 'display_instrument_profile', 'auto')
+        if instrument_profile == 'auto':
+            instrument_profile = select_instrument_profile(snapshot,
+                market=getattr(args, 'display_market', 'eu'))
         next_print, next_display = 0, 0
         display_error_reported = False
         emit({"kind": "discovery", **snapshot.as_dict(redact_sensitive=True)})
@@ -445,7 +450,9 @@ def run_watch(args):
             engine.step()
             now = time.monotonic()
             if display_bridge is not None and now >= next_display:
-                display_bridge.publish(engine.snapshot(), args.signal)
+                display_bridge.publish(engine.snapshot(), args.signal,
+                    instrument_profile=instrument_profile,
+                    profile_ttl_ms=min(60000,max(3000,int(args.display_interval*3000))))
                 if display_bridge.error is not None and not display_error_reported:
                     print(f"Display serial bridge stopped: {display_bridge.error}", file=sys.stderr)
                     display_error_reported = True
@@ -627,6 +634,11 @@ def main(argv=None):
     watch.add_argument("--trace", help="New structured JSONL trace; never overwritten")
     watch.add_argument("--json", action="store_true")
     watch.add_argument("--display-port", help="Optional USB Serial/JTAG port for the embedded display")
+    watch.add_argument('--display-market', choices=['eu','other'], default='eu',
+                       help='Instrument catalogue market; other disables automatic matching')
+    watch.add_argument('--display-instrument-profile', default='auto',
+                       choices=['auto','default',*INSTRUMENT_PROFILES],
+                       help='Presentation scale override; auto uses discovered engine plus model generation')
     watch.add_argument("--display-interval", type=float, default=.1,
                        help="Embedded display update interval in seconds (default: 0.1)")
     replay = commands.add_parser('replay-can',

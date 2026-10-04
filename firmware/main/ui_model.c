@@ -1,4 +1,5 @@
 #include "ui_model.h"
+#include "ui_instrument_profiles.h"
 #include <math.h>
 #include <string.h>
 
@@ -106,7 +107,7 @@ void md_brightness_init(md_brightness_t *b, const md_target_profile_t *target, u
 }
 bool md_brightness_set(md_brightness_t *b, uint8_t level)
 {
-    if (!b || !b->dimming || level > b->maximum || (level && level < b->minimum)) return false;
+    if (!b || !b->dimming || level > b->maximum || level < b->minimum) return false;
     b->target = level; return true;
 }
 bool md_brightness_mode(md_brightness_t *b, md_brightness_mode_t mode)
@@ -124,4 +125,34 @@ bool md_brightness_tick(md_brightness_t *b, uint32_t now, uint8_t *output)
     b->last_step_ms = now;
     b->current += goal > b->current ? 1 : -1;
     *output = b->current; return true;
+}
+
+void md_ui_fixed_portrait_rect(md_ui_card_group_t group, uint8_t slot, md_ui_rect_t *r)
+{
+    if (!r || slot>=MD_UI_CARD_SLOTS_PER_GROUP || group>=MD_UI_CARD_GROUP_COUNT) return;
+    if(group<=MD_UI_CARD_GROUP_DASHBOARD_MINIMAL) {
+        *r=(md_ui_rect_t){slot==2?165:10,slot==0?39:(slot==3?180:130),
+                          slot==0||slot==3?300:145,slot==0?85:(slot==3?34:45)};
+    } else *r=(md_ui_rect_t){10+(slot%2)*155,39+(slot/2)*85,145,80};
+}
+md_ui_rect_t md_ui_widget_rect(const md_ui_widget_binding_t *w, bool portrait)
+{
+    if (!w) return (md_ui_rect_t){0};
+    return (md_ui_rect_t){
+        2+(portrait?w->row*320/MD_UI_GRID_ROWS:w->column*320/MD_UI_GRID_COLUMNS),
+        39+(portrait?w->column*168/MD_UI_GRID_COLUMNS:w->row*168/MD_UI_GRID_ROWS),
+        (portrait?w->rows*320/MD_UI_GRID_ROWS:w->columns*320/MD_UI_GRID_COLUMNS)-3,
+        (portrait?w->columns*168/MD_UI_GRID_COLUMNS:w->rows*168/MD_UI_GRID_ROWS)-3};
+}
+
+bool md_ui_focus_gauge_range(md_ui_signal_id_t signal, float *low, float *high)
+{
+    static const float bounds[MD_SIGNAL_COUNT][2]={
+        {0,0},{0,0},{0,0},{-40,160},{0,100},{0,4000},
+        {800,1200},{-1000,3000},{-40,160},{0,8},{-40,160},{8,18},
+        {0,5000},{8,18}
+    };
+    if(!low || !high || signal<0 || signal>=MD_SIGNAL_COUNT) return false;
+    if(md_instrument_profile_range(md_instrument_profile_default(),signal,low,high)) return true;
+    *low=bounds[signal][0]; *high=bounds[signal][1]; return true;
 }

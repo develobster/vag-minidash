@@ -71,6 +71,8 @@ static const translation_t s_translations[] = {
     {"Wi-Fi configuration", "Настройка Wi-Fi"},
     {"BACK TO RETURN | AP TIMEOUT 10 MIN", "НАЗАД | WI-FI НА 10 МИН"},
     {"Language", "Язык"},
+    {"ON", "ВКЛ"}, {"OFF", "ВЫКЛ"},
+    {"Screen rotation", "Поворот экрана"},
     {"Widget 1 signal", "Сигнал виджета 1"},
     {"Widget 2 signal", "Сигнал виджета 2"},
     {"Widget 3 signal", "Сигнал виджета 3"},

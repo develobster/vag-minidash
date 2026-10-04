@@ -1,3 +1,4 @@
+#include "backlight_controller.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <fcntl.h>
@@ -10,6 +11,7 @@
 #include "esp_bt.h"
 #include "esp_chip_info.h"
 #include "esp_err.h"
+#include "esp_log.h"
 #include "esp_flash.h"
 #include "esp_heap_caps.h"
 #include "esp_intr_alloc.h"
@@ -390,6 +392,10 @@ static void print_ready(void)
 
 void app_main(void)
 {
+    if (!md_backlight_init()) {
+        ESP_LOGE("md_backlight", "Early backlight initialization failed");
+        return;
+    }
     ++s_boot_count;
     const int input_flags = fcntl(STDIN_FILENO, F_GETFL, 0);
     s_console_input_blocking = input_flags >= 0 &&
@@ -422,12 +428,19 @@ void app_main(void)
             continue;
         }
         line[strcspn(line, "\r\n")] = '\0';
-        if (strncmp(line, "MDS1|", 5) == 0) {
+        if(strncmp(line,"MDV1|",5)==0 || strncmp(line,"MDS1|",5)==0) {
 #if CONFIG_MINIDASH_HOST_INJECTION
+        if(strncmp(line,"MDV1|",5)==0) {
+            if(!md_display_app_publish_instrument_profile(line)) {
+                printf("MINIDASH_INSTRUMENT status=REJECTED\n");
+                fflush(stdout);
+            }
+        } else if (strncmp(line, "MDS1|", 5) == 0) {
             if (!md_display_app_publish_serial_sample(line)) {
                 printf("MINIDASH_SAMPLE status=REJECTED\n");
                 fflush(stdout);
             }
+        }
 #else
             printf("MINIDASH_SAMPLE status=REJECTED reason=HOST_INJECTION_DISABLED\n");
 #endif
@@ -447,6 +460,21 @@ void app_main(void)
         } else if (strcmp(line, "config-legacy") == 0) {
             printf("MINIDASH_CONFIG_RECOVERY status=%s\n",md_display_app_restore_legacy()?"SAVED":"REJECTED");
             fflush(stdout);
+        } else if (strcmp(line, "backlight-status") == 0) {
+            md_backlight_report();
+        } else if (strncmp(line, "brightness ", 11) == 0) {
+            unsigned percent; char extra;
+            const bool valid = sscanf(line + 11, "%u %c", &percent, &extra) == 1 && percent >= 10 && percent <= 100;
+            printf("MINIDASH_BRIGHTNESS_COMMAND status=%s\n",
+                   valid && md_display_app_set_brightness((uint8_t)percent) ? "QUEUED" : "REJECTED");
+            fflush(stdout);
+        } else if(strcmp(line,"gauge-status")==0) {
+            if(!md_display_app_gauge_dump()) printf("MINIDASH_GAUGE status=BUSY\n");
+        } else if (strncmp(line,"focus ",6)==0) {
+            const int signal=md_ui_signal_id_from_name(line+6);
+            printf("MINIDASH_FOCUS_COMMAND status=%s\n",signal>=0 &&
+                md_display_app_open_details(MD_UI_INPUT_CONSOLE,signal) ? "QUEUED" : "REJECTED");
+            fflush(stdout);
         } else if (strcmp(line, "config-export") == 0) {
             md_display_app_configuration_dump();
         } else if (strcmp(line, "config") == 0) {
@@ -455,6 +483,7 @@ void app_main(void)
             md_ui_web_selftest();
         } else if (strcmp(line, "ui-test") == 0) {
             (void)md_ui_core_selftest_run();
+            printf("MINIDASH_UI_VIEW_TEST cached_text_and_single_selection=%s\n",md_display_app_view_selftest()?"PASS":"FAIL");
             print_ready();
         } else if (strcmp(line, "reboot") == 0) {
             printf("MINIDASH_REBOOT_REQUESTED\n");

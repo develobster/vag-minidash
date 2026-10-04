@@ -3,6 +3,33 @@
 Current standalone branch: `feature/standalone-acquisition`; see the
 [current report](research/standalone-final-2026-10-03.md). The consolidation
 branch/history described below is the integration baseline, not the active task.
+Focus update (2026-10-01): Volkswagen/Porsche now show a value-driven needle
+only in single-signal Focus; ordinary cards have no instrument arcs. Five
+reference vehicle profiles, Tiguan fallback and Auto/manual ranges use schema 3.
+Automatic matching is connected through host discovery → USB, not autonomous
+MCU CAN acquisition. See [implementation, sources and acceptance](ui/focus-instruments-2026-10-01.md).
+
+Wi-Fi/theme update (2026-10-01): local settings remain editable with AP enabled;
+Wi-Fi shows an ON/OFF indicator. Eleven themes now include Volkswagen/Porsche,
+monospaced retro fonts and distinct frames/instrument artwork. See
+[implementation, tests and remaining checks](ui/wifi-and-instrument-themes-2026-10-01.md).
+
+Rotation update (2026-09-30): Settings supports 0/90/180/270 degrees, with
+portrait card/grid reflow and transformed calibrated touch. Configuration schema
+2 migrates old build-only orientation to relative 0 without changing common
+settings. See [implementation, migration and verification](ui/rotation-and-portrait-2026-09-30.md).
+
+Theme/startup update (2026-09-30): nine presets including Terminal, Matrix,
+Fallout, Amber CRT, Cyberpunk and Arctic; boot-only CRT reveal with autonomous
+LEDC fade (~2 s) to saved brightness; new-settings default is now 70%.
+See [implementation and acceptance](ui/themes-and-crt-startup-2026-09-30.md).
+
+Current backlight update (2026-09-30): GPIO4 is owner-confirmed and enabled for
+LEDC PWM (5 kHz, 12 bit, gamma 2.0), using the existing Brightness setting and
+NVS. Manual Settings control, 10% readable minimum, reboot persistence and cold
+USB boot have passed physical bench acceptance. Prior FIXED/3V3 descriptions
+below record the preceding wiring. See [backlight implementation and acceptance](hardware/backlight-pwm-2026-09-30.md).
+
 
 Work in the existing repository/worktree. Read `AGENTS.md` and `git status`
 before editing. Use a feature branch; preserve other worktree changes. The
@@ -220,3 +247,14 @@ For the preserved host research workflow, confirm protected power/transceiver/li
 connection point; doctor/F190 and exact identity first, then only evidenced
 read-only signals. Capture with the tagged manifest, compare against a reference,
 replay offline and retain provenance. No clear/coding/unknown-button probing.
+
+## Instrument catalogue consistency
+
+After editing `data/ui/instrument-profiles.json`, run
+`python scripts/generate_instrument_profiles.py`, then
+`python scripts/generate_instrument_profiles.py --check`. The host uses the same
+JSON while the MCU compiles the generated numeric table. Native CTest adds
+`instrument-profile-contract` (matching ranges, strict frames, expiry and clock
+wrap). Python `tests.test_instruments` covers observed-vs-seed identity and
+repeated bridge profiles; device Web tests additionally verify range validation,
+NVS roundtrip and local changes preserving manual ranges.

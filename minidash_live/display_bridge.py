@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import math
 import queue
 import threading
+from .instruments import encode_instrument_profile
 
 
 PROTOCOL_PREFIX = "MDS1"
@@ -131,8 +132,11 @@ class SerialDisplayBridge:
         with self._lock:
             return self._error
 
-    def publish(self, snapshot, signal_names):
+    def publish(self, snapshot, signal_names, *, instrument_profile=None, profile_ttl_ms=3000):
         frames = encode_snapshot(snapshot, signal_names)
+        if instrument_profile is not None:
+            # Repeat with every retained batch: a full queue must not drop identity.
+            frames = (encode_instrument_profile(instrument_profile, profile_ttl_ms),) + frames
         if not frames:
             return True
         with self._lock:

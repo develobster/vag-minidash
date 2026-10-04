@@ -6,7 +6,9 @@
 #include <string.h>
 
 #include "display_manager.h"
+#include "backlight_controller.h"
 #include "display_serial_protocol.h"
+#include "ui_instrument_profiles.h"
 #include "esp_app_desc.h"
 #include "esp_heap_caps.h"
 #include "esp_lvgl_port.h"
@@ -24,6 +26,7 @@
 #include "ui_touch_map.h"
 #include "ui_touch_nvs.h"
 #include "ui_theme.h"
+#include "ui_startup.h"
 #include "xpt2046_touch.h"
 #include "vehicle_app.h"
 #include "freertos/FreeRTOS.h"
@@ -36,7 +39,9 @@
 #define UI_TOUCH_SAMPLE_PERIOD_MS 25U
 
 typedef enum {
-    UI_EVENT_CONFIG_MODE,
+    UI_EVENT_SET_BRIGHTNESS = 7,
+    UI_EVENT_INSTRUMENT_PROFILE = 8,
+    UI_EVENT_CONFIG_MODE = 0,
     UI_EVENT_ACTION = 1,
     UI_EVENT_TOUCH_GESTURE,
     UI_EVENT_SET_WARNING,
@@ -56,6 +61,8 @@ typedef struct {
     md_ui_context_t vehicle_context;
     bool context_verified;
     char canonical_signal[MD_UI_SIGNAL_NAME_LEN];
+    uint8_t brightness_pct;
+    uint32_t profile_ttl_ms;
     bool warning_enabled;
     md_ui_threshold_direction_t threshold_direction;
     int32_t warning_milli;
@@ -71,7 +78,10 @@ static SemaphoreHandle_t s_config_mutex;
 static md_device_configuration_t s_configuration, s_saved_configuration;
 static md_target_profile_t s_target;
 static uint32_t s_config_revision;
-static bool s_config_ready, s_config_driving, s_config_preview;
+static bool s_config_ready, s_config_driving, s_config_preview, s_preview_ended_locally;
+static lv_display_t *s_lv_display;
+static uint8_t s_applied_rotation;
+static uint16_t s_ui_width, s_ui_height;
 
 bool md_display_configuration_read(md_device_configuration_t *config, uint32_t *revision,
                                    md_target_profile_t *target)
@@ -98,10 +108,15 @@ int md_display_configuration_apply(const md_device_configuration_t *config, uint
     if (!s_config_ready || revision!=s_config_revision) result=409;
     else if (!cancel && (!md_ui_web_active() || s_config_driving)) result=403;
     else if (!cancel && (!md_configuration_validate(config,&s_target) ||
-        config->platform.present!=s_configuration.platform.present ||
-        config->platform.rotation!=s_configuration.platform.rotation)) result=400;
+        config->platform.present!=s_configuration.platform.present)) result=400;
+    else if (cancel && !s_config_preview) { /* Keep pending local edits when AP stops. */ }
+    else if (!save && !cancel && !s_config_preview &&
+             memcmp(&s_configuration,&s_saved_configuration,sizeof(s_configuration)) &&
+             !md_configuration_storage_save(&s_configuration)) result=500;
     else if (save && !md_configuration_storage_save(config)) result=500;
     else {
+        /* Checkpoint the local baseline before the first temporary Web preview. */
+        if (!cancel && !save && !s_config_preview) s_saved_configuration=s_configuration;
         if (cancel) { s_configuration=s_saved_configuration; s_config_preview=false; }
         else { s_configuration=*config; s_config_preview=!save; if (save) s_saved_configuration=*config; }
         ++s_config_revision;
@@ -422,6 +437,7 @@ static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms)
             snprintf(diagnostics.dtc_text,sizeof(diagnostics.dtc_text),"%s (%u%s)",code,vehicle.dtc_count,vehicle.dtc_truncated?"+":"");
         } else snprintf(diagnostics.dtc_text,sizeof(diagnostics.dtc_text),"%s",vehicle.dtc_valid?"0 STORED":"HOLD TO READ");
     }
+    diagnostics.wifi_active = md_ui_web_active();
     render_metrics_read(&diagnostics.refreshes_per_second,
                         &diagnostics.average_render_ms,
                         &diagnostics.render_metrics_available);
@@ -436,13 +452,57 @@ static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms)
 
 static void enqueue_settings_save(const md_ui_settings_t *settings)
 {
-    if (!s_settings_save_queue || !settings || md_ui_web_active()) return;
+    if (!s_settings_save_queue || !settings) return;
     if (xSemaphoreTake(s_config_mutex,portMAX_DELAY)==pdTRUE) {
         if (md_configuration_update_legacy(&s_configuration,settings)) {
             ++s_config_revision; xQueueOverwrite(s_settings_save_queue,&s_config_revision);
         }
         xSemaphoreGive(s_config_mutex);
     }
+}
+
+static bool end_preview_for_local(md_ui_settings_t *settings)
+{
+    bool ended=false;
+    if(xSemaphoreTake(s_config_mutex,portMAX_DELAY)==pdTRUE) {
+        if(s_config_preview) {
+            s_configuration=s_saved_configuration; s_config_preview=false;
+            s_preview_ended_locally=true; ++s_config_revision;
+            md_configuration_to_legacy(&s_configuration,settings); ended=true;
+        }
+        xSemaphoreGive(s_config_mutex);
+    }
+    return ended;
+}
+
+static bool apply_rotation(const md_ui_settings_t *settings, md_ui_screen_t screen,
+                           const md_ui_palette_t *palette)
+{
+    if (s_applied_rotation==settings->rotation) return true;
+    if (!lvgl_port_lock(100)) return false;
+    /* Complete outstanding refresh before changing panel address orientation. */
+    lv_refr_now(s_lv_display);
+    lv_display_set_rotation(s_lv_display,(lv_display_rotation_t)settings->rotation);
+    const uint16_t width=lv_display_get_horizontal_resolution(s_lv_display);
+    const uint16_t height=lv_display_get_vertical_resolution(s_lv_display);
+    const bool geometry_changed=width!=s_ui_width || height!=s_ui_height;
+    s_ui_width=width; s_ui_height=height;
+    const bool ok=!geometry_changed || md_ui_screens_resize(width,height,settings,palette,screen);
+    if (geometry_changed) md_ui_screens_set_calibrated(s_touch_calibrated);
+    if (ok) s_applied_rotation=settings->rotation;
+    s_last_press_x=s_last_press_y=-1;
+    ESP_LOGI(TAG,"ROTATION degrees=%u size=%ux%u screens=%s", settings->rotation*90,
+             s_ui_width,s_ui_height,ok ? "ready" : "failed");
+    lvgl_port_unlock();
+    return ok;
+}
+
+static bool map_touch(uint16_t raw_x, uint16_t raw_y, int16_t *x, int16_t *y)
+{
+    if (!md_touch_map_apply(&s_touch_map,raw_x,raw_y,x,y)) return false;
+    float a=*x,b=*y;
+    md_touch_rotate_point(&a,&b,s_touch_map.width,s_touch_map.height,s_applied_rotation,false);
+    *x=(int16_t)a; *y=(int16_t)b; return true;
 }
 
 static void apply_event(const ui_event_t *event,
@@ -452,6 +512,29 @@ static void apply_event(const ui_event_t *event,
                         const md_display_profile_t *profile,
                         md_ui_palette_t *palette)
 {
+    /* Local interaction takes over an unsaved Web preview; stale Web writes
+       then fail revision checking rather than replacing the local change. */
+    if(event->type==UI_EVENT_SET_BRIGHTNESS ||
+       (event->type==UI_EVENT_ACTION && (event->action==MD_UI_ACTION_OPEN_SETTINGS ||
+        event->action==MD_UI_ACTION_INCREMENT || event->action==MD_UI_ACTION_DECREMENT ||
+        event->action==MD_UI_ACTION_SELECT)) ||
+       (event->type==UI_EVENT_TOUCH_GESTURE && event->touch_gesture==MD_UI_TOUCH_LONG_PRESS))
+        (void)end_preview_for_local(settings);
+    if(event->type==UI_EVENT_INSTRUMENT_PROFILE) {
+        if(lvgl_port_lock(20)) {
+            md_ui_screens_instrument_profile(event->canonical_signal,event->profile_ttl_ms,(uint32_t)(esp_timer_get_time()/1000));
+            lvgl_port_unlock();
+        }
+        return;
+    }
+    if (event->type == UI_EVENT_SET_BRIGHTNESS) {
+        if (!md_target_has(&s_target, MD_CAP_DIMMING)) return;
+        settings->brightness_pct = event->brightness_pct;
+        enqueue_settings_save(settings);
+        ESP_LOGI(TAG, "Manual brightness=%u source=console", settings->brightness_pct);
+        return;
+    }
+
     if (event->type == UI_EVENT_CONFIG_MODE) {
         if (state->context == MD_UI_CONTEXT_DRIVING || state->sleeping) return;
         if (md_ui_web_active()) md_ui_web_stop();
@@ -475,7 +558,7 @@ static void apply_event(const ui_event_t *event,
         int16_t x, y;
         s_last_press_x = s_last_press_y = -1;
         if (s_touch_calibrated &&
-            md_touch_map_apply(&s_touch_map, event->raw_x, event->raw_y, &x, &y)) {
+            map_touch(event->raw_x, event->raw_y, &x, &y)) {
             s_last_press_x = x;
             s_last_press_y = y;
             if (state->screen == MD_UI_SCREEN_SETTINGS && lvgl_port_lock(20)) {
@@ -489,7 +572,7 @@ static void apply_event(const ui_event_t *event,
                 lvgl_port_unlock();
             } else if (state->screen < MD_UI_SCREEN_SETTINGS && lvgl_port_lock(20)) {
                 const md_touch_hit_t hit = md_touch_hit_zone(x, y,
-                                                            profile->width, profile->height);
+                                                            s_ui_width, s_ui_height);
                 md_ui_screens_nav_pressed(state->screen, settings,
                     hit == MD_TOUCH_HIT_PREVIOUS ? -1 :
                     (hit == MD_TOUCH_HIT_NEXT ? 1 : 0));
@@ -510,8 +593,9 @@ static void apply_event(const ui_event_t *event,
         md_touch_cal_point_t *point = &s_calibration_points[s_calibration_step];
         *point = (md_touch_cal_point_t){
             .raw_x = event->raw_x, .raw_y = event->raw_y,
-            .screen_x = (float)targets[s_calibration_step][0] * profile->width / 320.0f,
-            .screen_y = (float)targets[s_calibration_step][1] * profile->height / 240.0f};
+            .screen_x = (float)targets[s_calibration_step][0] * s_ui_width / 320.0f,
+            .screen_y = (float)targets[s_calibration_step][1] * s_ui_height / 240.0f};
+        md_touch_rotate_point(&point->screen_x,&point->screen_y,profile->width,profile->height,s_applied_rotation,true);
         ++s_calibration_step;
         if (s_calibration_step < MD_TOUCH_CAL_POINTS) {
             if (lvgl_port_lock(20)) {
@@ -574,8 +658,7 @@ static void apply_event(const ui_event_t *event,
         bool setting_action_pressed = false;
         bool setting_page_pressed = false;
         bool setting_previous_pressed = false;
-        if (!s_touch_calibrated || !md_touch_map_apply(&s_touch_map,
-            event->raw_x, event->raw_y, &x, &y)) return;
+        if (!s_touch_calibrated || !map_touch(event->raw_x, event->raw_y, &x, &y)) return;
         if (!lvgl_port_lock(20)) return;
         md_ui_screens_nav_pressed(state->screen, settings, 0);
         md_ui_screens_touch_feedback(state->screen, settings, x, y, false);
@@ -629,15 +712,15 @@ static void apply_event(const ui_event_t *event,
         } else {
             const int dx = x - s_last_press_x;
             const int dy = y - s_last_press_y;
-            if (s_last_press_x >= 0 && abs(dx) >= (int)(profile->width * 70 / 320) &&
+            if (s_last_press_x >= 0 && abs(dx) >= (int)(s_ui_width * 70 / 320) &&
                 abs(dx) > 2 * abs(dy)) {
                 action = dx < 0 ? MD_UI_ACTION_NEXT_SCREEN
                                 : MD_UI_ACTION_PREVIOUS_SCREEN;
             } else {
             const md_touch_hit_t hit = md_touch_hit_zone(x, y,
-                                                        profile->width, profile->height);
+                                                        s_ui_width, s_ui_height);
             if (hit != md_touch_hit_zone(s_last_press_x, s_last_press_y,
-                                          profile->width, profile->height)) return;
+                                          s_ui_width, s_ui_height)) return;
             if (hit == MD_TOUCH_HIT_PREVIOUS) action = MD_UI_ACTION_PREVIOUS_SCREEN;
             else if (hit == MD_TOUCH_HIT_NEXT) action = MD_UI_ACTION_NEXT_SCREEN;
             else if (hit == MD_TOUCH_HIT_CONTENT) {
@@ -653,7 +736,7 @@ static void apply_event(const ui_event_t *event,
         }
     } else if (event->type == UI_EVENT_TOUCH_GESTURE && s_touch_calibrated &&
                event->touch_gesture == MD_UI_TOUCH_LONG_PRESS &&
-               state->screen < MD_UI_SCREEN_SETTINGS && !md_ui_web_active()) {
+               state->screen < MD_UI_SCREEN_SETTINGS) {
         if (s_last_press_x >= 0 && s_last_press_y >= 0 &&
             lvgl_port_lock(20)) {
             const int slot = md_ui_screens_widget_slot_at(state->screen, settings,
@@ -692,17 +775,17 @@ static void apply_event(const ui_event_t *event,
         return;
     }
     if (!md_ui_input_valid(source, action)) return;
+    if(state->screen==MD_UI_SCREEN_SETTINGS && (action==MD_UI_ACTION_SELECT ||
+       action==MD_UI_ACTION_INCREMENT || action==MD_UI_ACTION_DECREMENT))
+        (void)end_preview_for_local(settings);
     if (state->screen==MD_UI_SCREEN_SETTINGS && state->selected_setting==22 && action==MD_UI_ACTION_SELECT) {
         if (state->context==MD_UI_CONTEXT_DRIVING) return;
         if (md_ui_web_active()) md_ui_web_stop();
         else if (md_ui_web_start()) { state->screen=MD_UI_SCREEN_CONFIG_MODE; }
         return;
     }
-    if (md_ui_web_active() && ((state->screen==MD_UI_SCREEN_SETTINGS &&
-        (action==MD_UI_ACTION_SELECT || action==MD_UI_ACTION_INCREMENT || action==MD_UI_ACTION_DECREMENT)) ||
-        (state->screen==MD_UI_SCREEN_WIDGET_PICKER && action!=MD_UI_ACTION_BACK && action!=MD_UI_ACTION_HOME))) return;
     if ((state->screen==MD_UI_SCREEN_CUSTOM || (state->screen==MD_UI_SCREEN_DASHBOARD && settings->dashboard==MD_UI_DASHBOARD_CUSTOM)) && !state->sleeping &&
-        (action==MD_UI_ACTION_NEXT_SCREEN || action==MD_UI_ACTION_PREVIOUS_SCREEN) && !md_ui_web_active()) {
+        (action==MD_UI_ACTION_NEXT_SCREEN || action==MD_UI_ACTION_PREVIOUS_SCREEN)) {
         if (xSemaphoreTake(s_config_mutex,portMAX_DELAY)==pdTRUE) {
             int next=(int)s_configuration.common.active_page + (action==MD_UI_ACTION_NEXT_SCREEN ? 1 : -1);
             if (next>=0 && next<s_configuration.common.page_count) {
@@ -754,7 +837,7 @@ static void apply_event(const ui_event_t *event,
     if (previous_theme != settings->theme || previous_day_night != settings->day_night) {
         *palette = md_ui_theme_palette(settings->theme, effective_day_mode(settings));
         if (lvgl_port_lock(100)) {
-            md_ui_screens_retheme(palette);
+            md_ui_screens_retheme(palette, settings->theme);
             lvgl_port_unlock();
         }
     }
@@ -769,7 +852,7 @@ static void apply_event(const ui_event_t *event,
 
 
     if (previous_screen==MD_UI_SCREEN_DASHBOARD && state->screen==MD_UI_SCREEN_CUSTOM &&
-        action==MD_UI_ACTION_PREVIOUS_SCREEN && !md_ui_web_active()) {
+        action==MD_UI_ACTION_PREVIOUS_SCREEN) {
         if (xSemaphoreTake(s_config_mutex,portMAX_DELAY)==pdTRUE) {
             s_configuration.common.active_page=s_configuration.common.page_count-1;
             md_configuration_to_legacy(&s_configuration,settings);
@@ -784,8 +867,45 @@ static void apply_event(const ui_event_t *event,
             lvgl_port_unlock();
         }
     }
+    if (previous_settings.rotation != settings->rotation)
+        (void)apply_rotation(settings,state->screen,palette);
     if (memcmp(settings, &previous_settings, sizeof(*settings)) != 0)
         enqueue_settings_save(settings);
+}
+
+static void startup_effect(md_display_manager_t *display, lv_display_t *lv_display, uint8_t target)
+{
+    bool visual=false;
+    (void)md_display_set_brightness(display,0);
+    if(lvgl_port_lock(0)) {
+        visual=md_ui_screens_startup_begin();
+        lv_refr_now(lv_display); /* Flush the dark masked frame before lighting it. */
+        lvgl_port_unlock();
+    }
+    const int64_t started=esp_timer_get_time();
+    const bool fade_ok=md_backlight_startup_fade(target,MD_UI_STARTUP_DURATION_MS);
+    uint8_t applied=0;
+    ESP_LOGI(TAG,"STARTUP begin duration_ms=%u target=%u visual=%s",
+             MD_UI_STARTUP_DURATION_MS,target,visual ? "CRT" : "fade_only");
+    for(;fade_ok;) {
+        const uint32_t elapsed=(uint32_t)((esp_timer_get_time()-started)/1000);
+        const md_ui_startup_frame_t frame=md_ui_startup_frame(elapsed,1,1,target);
+        if(visual && lvgl_port_lock(20)) {
+            md_ui_screens_startup_frame(elapsed);
+            lvgl_port_unlock();
+        }
+        if(frame.complete) {
+            if(md_display_set_brightness(display,target)) applied=target;
+            break;
+        }
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }
+    if(lvgl_port_lock(0)) {
+        md_ui_screens_startup_end();
+        lvgl_port_unlock();
+    }
+    ESP_LOGI(TAG,"STARTUP end elapsed_ms=%lu brightness=%u",
+             (unsigned long)((esp_timer_get_time()-started)/1000),applied);
 }
 
 static void ui_task(void *argument)
@@ -817,13 +937,13 @@ static void ui_task(void *argument)
     s_target.hardware |= MD_CAP_DIMMING;
 #endif
     (void)md_configuration_storage_load(&s_configuration,&s_target);
-    s_configuration.platform.rotation=CONFIG_MINIDASH_DISPLAY_ROTATION;
+    /* platform.rotation is now relative to the verified board orientation. */
     s_saved_configuration=s_configuration; s_config_revision=1; s_config_ready=true;
     (void)md_configuration_to_legacy(&s_configuration,&settings);
     md_device_configuration_t *visible_config=malloc(sizeof(*visible_config));
     if (!visible_config) { vTaskDelete(NULL); return; }
     *visible_config=s_configuration; uint32_t seen_revision=s_config_revision;
-    md_brightness_t brightness; md_brightness_init(&brightness,&s_target,settings.brightness_pct);
+    uint8_t applied_brightness = settings.brightness_pct;
     md_ui_state_t state;
     md_ui_state_init(&state, &settings);
     bool was_preview=false; md_ui_screen_t preview_return_screen=state.screen;
@@ -864,6 +984,7 @@ static void ui_task(void *argument)
         .color_format = LV_COLOR_FORMAT_RGB565,
     };
     lv_display_t *lv_display = lvgl_port_add_disp(&display_config);
+    s_lv_display = lv_display;
     if (!lv_display) {
         ESP_LOGE(TAG, "Could not attach LCD to LVGL");
         vTaskDelete(NULL);
@@ -876,8 +997,12 @@ static void ui_task(void *argument)
     }
     lv_display_add_event_cb(lv_display, render_event_cb, LV_EVENT_RENDER_START, NULL);
     lv_display_add_event_cb(lv_display, render_event_cb, LV_EVENT_RENDER_READY, NULL);
+    lv_display_set_rotation(lv_display, (lv_display_rotation_t)settings.rotation);
+    s_applied_rotation=settings.rotation;
+    s_ui_width=lv_display_get_horizontal_resolution(lv_display);
+    s_ui_height=lv_display_get_vertical_resolution(lv_display);
     md_ui_screens_configuration(visible_config);
-    const bool screens_ready = md_ui_screens_create(profile.width, profile.height,
+    const bool screens_ready = md_ui_screens_create(s_ui_width, s_ui_height,
                                                      &settings, &palette);
     if (screens_ready) {
         md_ui_screens_set_calibrated(s_touch_calibrated);
@@ -890,8 +1015,8 @@ static void ui_task(void *argument)
         return;
     }
 
+    startup_effect(&display,lv_display,settings.brightness_pct);
     s_display_ready = true;
-    (void)md_display_set_brightness(&display, settings.brightness_pct);
     ESP_LOGI(TAG, "UI ready with %u x %u partial buffers and %u ms model refresh",
              profile.width, profile.height, UI_UPDATE_PERIOD_MS);
 
@@ -911,14 +1036,15 @@ static void ui_task(void *argument)
                 *visible_config=s_configuration;
                 if (s_config_preview && !was_preview) preview_return_screen=state.screen;
                 if (s_config_preview) state.screen=MD_UI_SCREEN_CUSTOM;
-                else if (was_preview) state.screen=preview_return_screen;
+                else if (was_preview && !s_preview_ended_locally) state.screen=preview_return_screen;
+                s_preview_ended_locally=false;
                 was_preview=s_config_preview;
                 md_configuration_to_legacy(visible_config,&settings);
                 if (lvgl_port_lock(100)) {
                     md_ui_screens_configuration(visible_config);
                     palette=visible_config->common.custom_theme ? visible_config->common.palette :
                         md_ui_theme_palette(settings.theme,effective_day_mode(&settings));
-                    md_ui_screens_retheme(&palette); md_ui_screens_rebuild_custom(&settings);
+                    md_ui_screens_retheme(&palette, settings.theme); md_ui_screens_rebuild_custom(&settings);
                     md_ui_lvgl_renderer()->show(NULL,state.screen,&settings); seen_revision=s_config_revision; lvgl_port_unlock();
                 }
             }
@@ -952,9 +1078,12 @@ static void ui_task(void *argument)
             if(settings.warnings[i].enabled)warning_demand|=UINT32_C(1)<<settings.warnings[i].signal_id;
         }
         md_vehicle_app_demand(demand,warning_demand);
-        md_brightness_set(&brightness,settings.brightness_pct); brightness.screen_on=!state.sleeping;
-        uint8_t pwm;
-        if (md_brightness_tick(&brightness,(uint32_t)(esp_timer_get_time()/1000),&pwm)) md_display_set_brightness(&display,pwm);
+        (void)apply_rotation(&settings,state.screen,&palette);
+        if (applied_brightness != settings.brightness_pct) {
+            if (md_display_set_brightness(&display, settings.brightness_pct))
+                applied_brightness = settings.brightness_pct;
+            else ESP_LOGE(TAG, "Backlight update failed");
+        }
         ui_event_t event;
         if (xQueueReceive(s_ui_event_queue, &event, pdMS_TO_TICKS(20)) == pdTRUE) {
             apply_event(&event, &state, &settings, &display, &profile, &palette);
@@ -1022,6 +1151,13 @@ bool md_display_app_open_details(md_ui_input_source_t source,
     const ui_event_t event = {.type = UI_EVENT_ACTION, .source = source,
         .action = MD_UI_ACTION_OPEN_DETAILS, .signal_id = signal};
     return xQueueSend(s_ui_event_queue, &event, 0) == pdTRUE;
+}
+
+bool md_display_app_publish_instrument_profile(const char *frame)
+{
+    ui_event_t event={.type=UI_EVENT_INSTRUMENT_PROFILE};
+    if(!s_ui_event_queue || !md_instrument_frame_decode(frame,event.canonical_signal,sizeof(event.canonical_signal),&event.profile_ttl_ms)) return false;
+    return xQueueSend(s_ui_event_queue,&event,0)==pdTRUE;
 }
 
 bool md_display_app_set_vehicle_context(md_ui_context_t context, bool verified)
@@ -1128,4 +1264,25 @@ bool md_display_app_restore_legacy(void)
         if (ok) { s_configuration=s_saved_configuration=*config; s_config_preview=false; ++s_config_revision; }
     }
     free(config); xSemaphoreGive(s_config_mutex); return ok;
+}
+
+bool md_display_app_set_brightness(uint8_t percent)
+{
+    if (!s_ui_event_queue || !s_display_ready || percent < 10 || percent > 100 ||
+        !md_target_has(&s_target, MD_CAP_DIMMING)) return false;
+    const ui_event_t event = {.type = UI_EVENT_SET_BRIGHTNESS, .brightness_pct = percent};
+    return xQueueSend(s_ui_event_queue, &event, 0) == pdTRUE;
+}
+
+bool md_display_app_view_selftest(void)
+{
+    if(!s_display_ready || !lvgl_port_lock(500)) return false;
+    const bool ok=md_ui_screens_selftest(); lvgl_port_unlock(); return ok;
+}
+
+bool md_display_app_gauge_dump(void)
+{
+    if(!s_ui_task || !lvgl_port_lock(200)) return false;
+    md_ui_screens_gauge_dump((md_ui_screen_t)atomic_load(&s_visible_screen));
+    lvgl_port_unlock(); return true;
 }

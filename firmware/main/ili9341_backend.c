@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include "driver/gpio.h"
-#include "driver/ledc.h"
+#include "backlight_controller.h"
 #include "driver/spi_master.h"
 #include "esp_heap_caps.h"
 #include "esp_lcd_ili9341.h"
@@ -23,8 +23,6 @@ typedef struct {
     uint16_t *line_buffer;
     uint16_t width;
     uint16_t height;
-    uint8_t brightness_pct;
-    bool powered;
 } ili9341_context_t;
 
 static ili9341_context_t context;
@@ -46,18 +44,7 @@ static bool on_color_transfer_done(esp_lcd_panel_io_handle_t io,
 static bool set_brightness(md_display_backend_t *backend, uint8_t brightness_pct)
 {
     (void)backend;
-    if (brightness_pct > 100) return false;
-    context.brightness_pct = brightness_pct;
-#if CONFIG_MINIDASH_LCD_PIN_BL >= 0
-    const uint32_t effective_pct = context.powered ? brightness_pct : 0U;
-    uint32_t duty = (effective_pct * 1023U + 50U) / 100U;
-    if (!CONFIG_MINIDASH_LCD_BL_ACTIVE_HIGH) duty = 1023U - duty;
-    if (ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty) != ESP_OK ||
-        ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0) != ESP_OK) return false;
-    return true;
-#else
-    return false;
-#endif
+    return md_backlight_set(brightness_pct);
 }
 
 static bool pins_are_valid(void)
@@ -98,6 +85,7 @@ static bool open_panel(md_display_backend_t *backend,
     md_display_orientation_t orientation;
     if (!md_display_orientation_select(profile, &orientation)) return false;
 
+    if (!md_backlight_init()) return false;
     context.width = profile->width;
     context.height = profile->height;
 #if CONFIG_MINIDASH_DISPLAY_SMOKE_TEST
@@ -144,27 +132,6 @@ static bool open_panel(md_display_backend_t *backend,
         return false;
     }
 
-#if CONFIG_MINIDASH_LCD_PIN_BL >= 0
-    const ledc_timer_config_t timer = {
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        .duty_resolution = LEDC_TIMER_10_BIT,
-        .timer_num = LEDC_TIMER_0,
-        .freq_hz = 5000,
-        .clk_cfg = LEDC_AUTO_CLK,
-    };
-    if (!GPIO_IS_VALID_OUTPUT_GPIO(CONFIG_MINIDASH_LCD_PIN_BL) ||
-        ledc_timer_config(&timer) != ESP_OK) return false;
-    const ledc_channel_config_t channel = {
-        .gpio_num = CONFIG_MINIDASH_LCD_PIN_BL,
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        .channel = LEDC_CHANNEL_0,
-        .intr_type = LEDC_INTR_DISABLE,
-        .timer_sel = LEDC_TIMER_0,
-        .duty = CONFIG_MINIDASH_LCD_BL_ACTIVE_HIGH ? 0 : 1023,
-        .hpoint = 0,
-    };
-    if (ledc_channel_config(&channel) != ESP_OK) return false;
-#endif
 
 #if CONFIG_MINIDASH_DISPLAY_SMOKE_TEST
     const esp_lcd_panel_io_callbacks_t callbacks = {
@@ -191,12 +158,7 @@ static bool open_panel(md_display_backend_t *backend,
         esp_lcd_panel_disp_on_off(context.panel, true) != ESP_OK) {
         return false;
     }
-#if CONFIG_MINIDASH_LCD_PIN_BL >= 0
-    context.powered = true;
-    if (!set_brightness(NULL, context.brightness_pct ? context.brightness_pct : 100)) return false;
-#else
-    context.powered = true;
-#endif
+
     return true;
 }
 
@@ -231,10 +193,8 @@ static void set_panel_power(md_display_backend_t *backend, bool on)
     if (!context.panel) {
         return;
     }
-    context.powered = on;
     esp_lcd_panel_disp_on_off(context.panel, on);
-    if (on) (void)set_brightness(backend, context.brightness_pct);
-    else (void)set_brightness(backend, 0);
+    (void)md_backlight_power(on);
 }
 
 static esp_lcd_panel_handle_t panel_handle(md_display_backend_t *backend)

@@ -7,7 +7,7 @@
 #define MD_UI_MAX_WIDGETS 8
 #define MD_UI_SIGNAL_NAME_LEN 48
 #define MD_UI_MAX_WARNING_THRESHOLDS 4
-#define MD_UI_SETTINGS_ROWS 23U
+#define MD_UI_SETTINGS_ROWS 24U
 #define MD_UI_SETTINGS_ROWS_PER_PAGE 4U
 #define MD_UI_GRID_COLUMNS 12
 #define MD_UI_GRID_ROWS 8
@@ -144,6 +144,14 @@ typedef enum {
     MD_UI_THEME_OEM = 0,
     MD_UI_THEME_SPORT,
     MD_UI_THEME_MINIMAL,
+    MD_UI_THEME_TERMINAL,
+    MD_UI_THEME_MATRIX,
+    MD_UI_THEME_FALLOUT,
+    MD_UI_THEME_AMBER,
+    MD_UI_THEME_CYBERPUNK,
+    MD_UI_THEME_ARCTIC,
+    MD_UI_THEME_VOLKSWAGEN,
+    MD_UI_THEME_PORSCHE,
     MD_UI_THEME_COUNT,
 } md_ui_theme_id_t;
 
@@ -212,6 +220,7 @@ typedef struct {
     md_ui_temperature_unit_t temperature_unit;
     md_ui_language_t language;
     uint8_t brightness_pct;
+    uint8_t rotation; /* Quarter turns clockwise from board default orientation. */
     uint8_t last_screen;
     uint8_t widget_count;
     bool warnings_enabled;

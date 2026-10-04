@@ -80,3 +80,113 @@ class ReplayTransport:
 
     def close(self):
         self.queue.clear()
+
+
+class RecordedUdsTransport:
+    """Sequential private captured PDUs, reusable across discovery/session opens.
+
+    No DLL/bus initialization; requests must match order and ECU exactly. Clock
+    follows captured receive times; offline execution never promotes evidence.
+    The same instance must be shared by successive transport factories.
+    """
+    def __init__(self, path, *, ecu='engine', clock=None, max_records=100000):
+        from .validation import strict_json, read_request
+        if ecu != 'engine':
+            raise ValueError('First recorded session supports engine only')
+        path = Path(path)
+        if path.stat().st_size > 32 * 1024 * 1024:
+            raise ValueError('Recorded UDS file exceeds 32 MiB')
+        self.rows, self.index, self.ecu, self.clock = [], 0, ecu, clock
+        previous, active = -1.0, False
+        metadata, ended = None, False
+        with path.open(encoding='utf-8') as source:
+            for number, line in enumerate(source):
+                if number >= max_records or len(line) > 1024 * 1024:
+                    raise ValueError('Recorded UDS record limit exceeded')
+                row = strict_json(line)
+                if not isinstance(row, dict) or ended:
+                    raise ValueError('Invalid/trailing recorded UDS record')
+                stamp = row.get('monotonic')
+                if isinstance(stamp, bool) or not isinstance(stamp, (int, float)) \
+                        or not math.isfinite(stamp) or stamp < previous:
+                    raise ValueError('Invalid/non-monotonic recorded timestamp')
+                previous = stamp
+                if number == 0:
+                    if row.get('kind') != 'metadata' or type(row.get('schema')) is not int \
+                            or row['schema'] != 1 or row.get('format') != 'recorded_uds_v1':
+                        raise ValueError('Missing recorded_uds_v1 metadata')
+                    metadata = row
+                    self.origin = stamp
+                    continue
+                kind = row.get('kind')
+                if kind == 'pdu':
+                    if row.get('ecu') != ecu or row.get('payload_redacted'):
+                        raise ValueError('Unknown ECU or redacted non-replayable payload')
+                    value = row.get('pdu')
+                    if value is not None and (not isinstance(value, str) or len(value) > 8190
+                            or len(value) % 2 or any(c not in '0123456789abcdefABCDEF' for c in value)):
+                        raise ValueError('Invalid PDU hex')
+                    pdu = bytes.fromhex(value) if value is not None else None
+                    if row.get('direction') == 'tx':
+                        if active or pdu is None:
+                            raise ValueError('Unfinished exchange or empty request')
+                        read_request(pdu)
+                        active = True
+                    elif row.get('direction') == 'rx':
+                        if not active:
+                            raise ValueError('Response without request')
+                        active = pdu == b'\x7f\x22\x78'
+                    else:
+                        raise ValueError('Unknown PDU direction')
+                    self.rows.append(row)
+                elif kind == 'fault':
+                    if row.get('ecu') != ecu or not isinstance(row.get('error'), str):
+                        raise ValueError('Invalid recorded transport fault')
+                    self.rows.append(row)
+                    active = False
+                elif kind == 'end':
+                    ended = True
+                elif kind not in ('discovery', 'plan', 'source', 'selection', 'acquisition', 'evidence', 'summary'):
+                    raise ValueError('Unknown recorded UDS record kind')
+        if metadata is None or not ended or active:
+            raise ValueError('Incomplete recorded UDS trace; preserve it for manual fault analysis')
+        self.metadata = metadata
+
+    def _next(self):
+        if self.index >= len(self.rows):
+            raise EOFError('Recorded UDS trace exhausted')
+        return self.rows[self.index]
+
+    def _advance(self, row):
+        if self.clock:
+            self.clock.advance_to(row['monotonic'] - self.origin)
+        self.index += 1
+
+    def send(self, pdu, timeout):
+        row = self._next()
+        if row.get('direction') != 'tx' or row['pdu'].lower() != bytes(pdu).hex():
+            raise ValueError('Recorded request order mismatch')
+        self._advance(row)
+        if self.index < len(self.rows) and self.rows[self.index]['kind'] == 'fault':
+            self._fault(self.rows[self.index])
+
+    def _fault(self, row):
+        self._advance(row)
+        raise OSError('Recorded transport fault: ' + row['error'])
+
+    def recv(self, timeout):
+        row = self._next()
+        if row['kind'] == 'fault':
+            self._fault(row)
+        if row.get('direction') != 'rx':
+            raise ValueError('Recorded response order mismatch')
+        self._advance(row)
+        return None if row['pdu'] is None else bytes.fromhex(row['pdu'])
+
+    @property
+    def exhausted(self):
+        return self.index == len(self.rows)
+
+    def close(self):
+        # Logical connection ends; chronology remains across reconnects.
+        pass

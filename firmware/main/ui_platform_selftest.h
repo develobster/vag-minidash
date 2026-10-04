@@ -10,3 +10,7 @@ bool md_ui_test_brightness(void);
 bool md_ui_test_target_capabilities(void);
 
 bool md_ui_test_widget_precision(void);
+
+bool md_ui_test_themes_and_startup(void);
+
+bool md_ui_test_rotation(void);

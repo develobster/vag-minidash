@@ -10,7 +10,7 @@
 - Проверить распиновку **своего** OBD-разъёма и платы мультиметром/документацией:
   OBD6 CAN-H, OBD14 CAN-L, OBD16 питание, OBD4/5 ground. Не ориентироваться только
   на цвета жил или вид разъёма на фотографии.
-- Installation preset: GPIO4 ESP32 → TXD SN65HVD230, GPIO5 ← RXD; transceiver
+- Installation preset: GPIO15 ESP32 → TXD SN65HVD230, GPIO5 ← RXD; transceiver
   питается от 3.3 V, общая сигнальная земля. Проверить маркировку модуля и RS.
   Это предложенная распайка, не утверждение, что она уже собрана.
 - Не подавать 12 V на ESP32/transceiver. Питание прототипа: входной
@@ -41,7 +41,7 @@
 idf.py -B build-listen -D SDKCONFIG=sdkconfig.listen.generated -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.listen-only" build
 ```
 
-Проверить generated config: CAN enabled, TX4/RX5, STANDARD_OBD disabled,
+Проверить generated config: CAN enabled, TX15/RX5, STANDARD_OBD disabled,
 HOST_INJECTION disabled. Выбрать **фактический** serial port платы и прошить:
 
 ```sh

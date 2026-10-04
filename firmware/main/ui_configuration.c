@@ -60,8 +60,9 @@ bool md_configuration_from_legacy(md_device_configuration_t *c, const md_ui_sett
                                    const md_target_profile_t *target)
 {
     if (!c || !md_ui_settings_validate(s)) return false;
-    memset(c, 0, sizeof(*c)); c->schema_version = MD_CONFIG_SCHEMA_VERSION;
+    memset(c, 0, sizeof(*c)); c->schema_version = MD_CONFIG_SCHEMA_VERSION; c->common.gauge_auto=true;
     copy_common_from_settings(&c->common, s);
+    for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) md_ui_focus_gauge_range(i,&c->common.gauge_ranges[i].minimum,&c->common.gauge_ranges[i].maximum);
     c->common.page_count = 1;
     snprintf(c->common.pages[0].title, MD_CONFIG_TEXT_SIZE, "CUSTOM");
     for (unsigned i = 0; i < MD_UI_MAX_WIDGETS; ++i) c->common.pages[0].widgets[i].signal = UINT8_MAX;
@@ -69,7 +70,9 @@ bool md_configuration_from_legacy(md_device_configuration_t *c, const md_ui_sett
     c->common.palette = md_ui_theme_palette(s->theme, s->day_night == MD_UI_DAY_NIGHT_DAY);
     if (md_target_has(target, MD_CAP_COLOR)) {
         c->platform.present = MD_CAP_COLOR;
-        c->platform.brightness = s->brightness_pct;
+        c->platform.brightness = md_target_has(target, MD_CAP_DIMMING) && s->brightness_pct < 10
+            ? 10 : s->brightness_pct;
+        c->platform.rotation = s->rotation;
         c->platform.brightness_mode = md_target_has(target, MD_CAP_DIMMING)
             ? MD_BRIGHTNESS_MANUAL : MD_BRIGHTNESS_FIXED;
         if (md_target_has(target, MD_CAP_DIMMING)) c->platform.present |= MD_CAP_DIMMING;
@@ -89,6 +92,7 @@ static bool settings_for_page(const md_device_configuration_t *c, uint8_t page_i
     memcpy(s->warnings, common->warnings, sizeof(s->warnings));
     memcpy(s->fixed_card_overrides, common->fixed_card_overrides, sizeof(s->fixed_card_overrides));
     s->brightness_pct = c->platform.present ? c->platform.brightness : 100;
+    s->rotation = c->platform.present ? c->platform.rotation : 0;
     const md_ui_dashboard_page_t *page = &common->pages[page_index];
     s->layout = page->layout; s->widget_count = page->widget_count;
     if (page->widget_count > MD_UI_MAX_WIDGETS) return false;
@@ -112,7 +116,7 @@ bool md_configuration_update_legacy(md_device_configuration_t *c, const md_ui_se
     if (c->common.theme!=s->theme || c->common.day_night!=s->day_night) c->common.custom_theme=false;
     copy_common_from_settings(&c->common, s);
     page_from_settings(&c->common.pages[c->common.active_page], s);
-    if (c->platform.present) c->platform.brightness = s->brightness_pct;
+    if (c->platform.present) { c->platform.brightness = s->brightness_pct; c->platform.rotation = s->rotation; }
     return true;
 }
 bool md_configuration_set_layout(md_ui_dashboard_page_t *page, md_ui_layout_t layout)
@@ -139,9 +143,15 @@ bool md_configuration_validate(const md_device_configuration_t *c, const md_targ
         c->common.page_count > MD_CONFIG_MAX_PAGES || c->common.active_page >= c->common.page_count ||
         (c->platform.present & ~(MD_CAP_COLOR | MD_CAP_DIMMING)) || c->platform.rotation > 3 ||
         c->platform.brightness > 100 || c->platform.brightness_mode > MD_BRIGHTNESS_AUTO) return false;
+    if (target && md_target_has(target, MD_CAP_DIMMING) && c->platform.present &&
+        c->platform.brightness < 10) return false;
     if (target && ((c->platform.present & target->hardware) != c->platform.present ||
         (c->platform.brightness_mode != MD_BRIGHTNESS_FIXED && !md_target_has(target, MD_CAP_DIMMING)) ||
         (c->platform.brightness_mode == MD_BRIGHTNESS_AUTO && !md_target_has(target, MD_CAP_AMBIENT_SOURCE)))) return false;
+    for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) {
+        const float low=c->common.gauge_ranges[i].minimum,high=c->common.gauge_ranges[i].maximum;
+        if(!isfinite(low) || !isfinite(high) || high<=low || fabsf(low)>1000000 || fabsf(high)>1000000) return false;
+    }
     uint32_t colors[sizeof(c->common.palette) / sizeof(uint32_t)];
     memcpy(colors, &c->common.palette, sizeof(colors));
     for (unsigned i = 0; i < sizeof(c->common.palette) / sizeof(uint32_t); ++i)
@@ -207,6 +217,8 @@ bool md_configuration_encode(const md_device_configuration_t *c, uint8_t *wire, 
     }
     put32(&w, c->platform.present);
     if (c->platform.present) { put8(&w, c->platform.brightness); put8(&w, c->platform.brightness_mode); put8(&w, c->platform.rotation); }
+    put8(&w,s->gauge_auto);
+    for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) { put32(&w,floatbits(s->gauge_ranges[i].minimum)); put32(&w,floatbits(s->gauge_ranges[i].maximum)); }
     if (!w.ok || w.offset + 4 > capacity) return false;
     put32(&w, checksum(wire, w.offset));
     if (written) *written = w.offset;
@@ -218,7 +230,9 @@ bool md_configuration_decode(const uint8_t *wire, size_t length, md_device_confi
     reader_t tail = {wire + length - 4, 4, 0, true};
     if (get32(&tail) != checksum(wire, length - 4)) return false;
     reader_t r = {wire, length - 4, 0, true};
-    if (get32(&r) != 0x3143444dU || get8(&r) != MD_CONFIG_SCHEMA_VERSION) return false;
+    if (get32(&r) != 0x3143444dU) return false;
+    const uint8_t version = get8(&r);
+    if (version < 1 || version > MD_CONFIG_SCHEMA_VERSION) return false;
     md_device_configuration_t result = {0}; result.schema_version = MD_CONFIG_SCHEMA_VERSION;
     md_common_configuration_t *s = &result.common;
     s->dashboard = get8(&r); s->theme = get8(&r); s->day_night = get8(&r); s->units = get8(&r);
@@ -250,6 +264,15 @@ bool md_configuration_decode(const uint8_t *wire, size_t length, md_device_confi
     }
     result.platform.present = get32(&r);
     if (result.platform.present) { result.platform.brightness = get8(&r); result.platform.brightness_mode = get8(&r); result.platform.rotation = get8(&r); }
+    if (result.platform.rotation > 3) return false;
+    if (version == 1) result.platform.rotation = 0; /* Old rotation was build-only. */
+    const uint8_t gauge_auto=version>=3 ? get8(&r) : 1;
+    if(gauge_auto>1) return false;
+    s->gauge_auto=gauge_auto;
+    for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) {
+        if(version>=3) { s->gauge_ranges[i].minimum=bitsfloat(get32(&r)); s->gauge_ranges[i].maximum=bitsfloat(get32(&r)); }
+        else md_ui_focus_gauge_range(i,&s->gauge_ranges[i].minimum,&s->gauge_ranges[i].maximum);
+    }
     if (!r.ok || r.offset != r.size || !md_configuration_validate(&result, NULL)) return false;
     *config = result; return true;
 }

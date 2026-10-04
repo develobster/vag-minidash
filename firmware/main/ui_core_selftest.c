@@ -240,12 +240,13 @@ static bool test_navigation_and_console_mapping(void)
         state.screen != MD_UI_SCREEN_SETTINGS) return false;
     if (!md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_NEXT_ITEM) ||
         state.selected_setting != 1U) return false;
+    settings.brightness_pct = 100; /* Exercise wrap independently of boot default. */
     if (!md_ui_state_select_setting(&state, 5) ||
         state.selected_setting != 5U || settings.brightness_pct != 100U ||
         md_ui_state_select_setting(&state, MD_UI_SETTINGS_ROWS) ||
         md_ui_state_select_setting(&state, 5) ||
         !md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_SELECT) ||
-        settings.brightness_pct != 0U) return false;
+        settings.brightness_pct != 10U) return false;
     if (!md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_BACK) ||
         state.screen != MD_UI_SCREEN_CUSTOM) return false;
     if (md_ui_state_select_setting(&state, 0)) return false;
@@ -566,6 +567,8 @@ bool md_ui_core_selftest_run(void)
     report(&totals, "history_freshness_and_demo", md_ui_test_history());
     report(&totals, "button_debounce_long_repeat_lockout", md_ui_test_buttons());
     report(&totals, "brightness_capability_and_ramp", md_ui_test_brightness());
+    report(&totals, "theme_presets_and_crt_startup", md_ui_test_themes_and_startup());
+    report(&totals, "rotation_migration_touch", md_ui_test_rotation());
     report(&totals, "target_capabilities", md_ui_test_target_capabilities());
     printf("MINIDASH_UI_TEST_SUMMARY pass=%u fail=%u\n", totals.passed, totals.failed);
     return totals.failed == 0;
