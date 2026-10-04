@@ -4,7 +4,9 @@ Updated 2026-10-04. Production runs on ESP32: transceiver/TWAI → native
 ISO-TP/OBD and evidence-gated UDS/passive → per-source samples/TTL/arbitration
 → canonical SignalStore → DerivedSignalEngine → windows/events/session/trip
 → canonical publication → physical UI. UI demand controls
-the native scheduler. No PC or Python dependency.
+the native scheduler, with bounded freshness rescue under sampling pressure.
+The production/replay canonical bridge is `md_acq_publish_canonical`; see the
+[pipeline follow-up](../research/analytics-pipeline-scheduling-2026-10-04.md). No PC or Python dependency.
 
 `vehicle_app.c` owns RTOS/CAN; `diagnostic_transport.c` owns bounded ISO-TP RX;
 `acquisition.c` owns discovery/identity/scheduling/source samples.

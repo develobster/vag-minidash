@@ -7,6 +7,8 @@ offline-tested; physical-board and vehicle acceptance are still required.
 
 ## Start here
 
+- [Latest CAN/OBD → Analytics pipeline and scheduling fix](docs/research/analytics-pipeline-scheduling-2026-10-04.md)
+
 - [Derived Analytics delivery, metrics, tests and remaining work](docs/research/engine-analytics-delivery-2026-10-04.md)
 - [Read-only CZPA/DQ500/Haldex evidence procedure](docs/validation/engine-analytics-car-evidence-2026-10-04.md)
 - [Standalone implementation, verification and remaining work](docs/research/standalone-final-2026-10-03.md)

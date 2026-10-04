@@ -267,7 +267,7 @@ NVS roundtrip and local changes preserving manual ranges.
 
 Same `firmware/main` C files compile on ESP32 and natively. No CAN/serial/VCI is
 opened by either replay verifier. Run the existing common acceptance command
-with a cJSON-enabled native build; it now also requires all six native groups
+with a cJSON-enabled native build; it now also requires all seven native groups
 and runs `tools/verify_analytics.py` against `minidash-analytics-harness`.
 
 ```sh
@@ -288,3 +288,8 @@ allocation; Web JSON allocation is bounded and outside the sample path.
 Optional ASan/UBSan native build uses `-fsanitize=address,undefined`. On this
 sandbox LeakSanitizer could not enumerate `/proc` threads; final address/undefined
 checks ran with `ASAN_OPTIONS=detect_leaks=0`. This is not a claimed leak check.
+
+The native `analytics-acquisition-pipeline` group uses the same raw/canonical
+bridge as firmware, exercises complete supported-PID collection under normal
+and overloaded latency, and requires loss/reconnect timing invalidation. See
+[pipeline scheduling follow-up](research/analytics-pipeline-scheduling-2026-10-04.md).

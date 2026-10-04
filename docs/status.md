@@ -1,5 +1,8 @@
 # Current feature and evidence matrix
 
+Latest continuation: shared native CAN/OBD → Analytics integration and freshness
+rescue scheduling; seven native groups. See [pipeline follow-up](research/analytics-pipeline-scheduling-2026-10-04.md).
+
 Updated 2026-10-04: `feature/engine-analytics`, integrated standalone + newer
 real-car/UI work on merge `6ae2ed4`. 92 canonical IDs / 66 derived nodes, six
 presets, fixed windows/events/performance timers, schema 4 migration. Native,
