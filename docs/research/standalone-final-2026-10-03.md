@@ -1,6 +1,6 @@
 # MiniDash standalone: итог реализации и границы проверки
 
-Обновлено при восстановлении 2026-10-03 UTC / 2026-10-04 Minsk.
+Обновлено при завершении восстановления 2026-10-04 UTC / Minsk.
 Ветка `feature/standalone-acquisition`. Baseline consolidation `3e5c6ca`, runtime
 `18095539`, startup/ISO-TP hardening `4904233`. Main не меняется.
 
@@ -92,15 +92,36 @@ diff. Через GitHub подтверждён `4904233`, локальный tre
 | Firmware integration | Actual C engine + python-can VirtualBus: VIN/DTC ISO-TP, loss, no-TX quiet, fault/reconnect, exact synthetic replay |
 | Web | Node + C-derived fixture; не browser/device visual test |
 | Memory safety | Portable ASan/UBSan; leak detector disabled из-за ограничений task metadata |
-| Firmware | Исторический ESP-IDF5.5.5 standalone PASS сохранён в runtime report; свежая сборка после последней очистки не выполнена |
+| Firmware | Свежий ESP-IDF5.5.5 PASS 2026-10-04: standalone, listen-only, CAN-disabled; SHA256/config в verification JSON |
 | Board/car | Не выполнено; ни одна плата этим продолжением не прошивалась |
 
-Предыдущая сессия также выполняла три firmware builds и получила standalone
-1629712, listen-only1629616, default1721616 bytes. Но те build artifacts/toolchain
-утрачены, и они включали поздний HTTP export: **эти размеры не являются измерением
-текущего дерева**. Не использовать их как release hashes или новый build PASS.
-Потерянные логи не пересоздаются задним числом. Команды повторной сборки и тестов —
-в [development](../development.md); новый JSON фиксирует только доступные проверки.
+Предыдущие build artifacts/toolchain утрачены; старые размеры не используются
+как измерение текущего дерева. 2026-10-04 toolchain восстановлен, компоненты
+скачаны строго по lockfile и сверены по hash. `prepare_locked_components.py`
+использует download/hash API менеджера2.5.2, без version solver. Сборка через
+официальные `IDF_COMPONENT_MANAGER=0`/`EXTRA_COMPONENT_DIRS` не требует инспекции
+процесса CMake и не меняет firmware dependencies. Подтверждены cmake_utilities0.5.3,
+esp_lcd_ili9341 2.0.2, esp_lvgl_port2.9.0 и LVGL9.5.0. Команды — в
+[development](../development.md), результаты — в
+[verification JSON](standalone-verification-2026-10-03.json).
+
+Неудачные промежуточные configure/build не считаются PASS: manager2.5.2/2.4.11
+не видел process metadata, 2.2.2 не понимал optional Kconfig, в опытах с2.4.2
+resolver создавал смешанное дерево LVGL9.5/9.6 и менял lockfile. Менять pydantic
+оказалось недостаточно. Эти пути не включены в рекомендованную процедуру; SDK
+и project sources не патчились, исходный lockfile сохранён без изменения.
+
+Свежие образы (app version `f86224b`; последующие изменения только tools/docs):
+
+| Preset | Binary bytes | Free factory bytes | CAN / OBD / USB injection |
+|---|---:|---:|---|
+| standalone | 1627680 | 1518048 | on / on / off |
+| listen-only | 1627568 | 1518160 | on / off / off |
+| default | 1719616 | 1426112 | off / off / on |
+
+Standalone link: DIRAM227611/341760 bytes, BSS111792, flash code1058446,
+flash rodata436616. Хеши относятся к этим конкретным сборкам, не обещают
+побитовую воспроизводимость при другой дате/toolchain/пути сборки.
 
 Native acquisition state был измерен как3504 bytes (host ABI), включая RAM trace
 96×24=2304 bytes. CAN task stack6144 bytes; queue/status/UI/AP добавляют память.
@@ -117,13 +138,12 @@ Native acquisition state был измерен как3504 bytes (host ABI), вк
 Runtime: acquisition/diagnostic_transport/vehicle_app .c/.h, main/display_app,
 Kconfig/CMake/presets. Hardening: main/vehicle_app/acquisition/core regression.
 Завершение: `core/acquisition_harness.c`, CMake, `tools/verify_standalone.py`,
-обязательный gate в `verify_repository.py`, README/status/architecture/development,
+обязательный gate в `verify_repository.py`, `prepare_locked_components.py`, README/status/architecture/development,
 UI usage, research reports, verification JSON, REAL_CAR_TEST. NVS schema и
 partition table не менялись; factory backup не тронут.
 
 | Приоритет | Цель / компоненты | Acceptance / риск / входные данные |
 |---|---|---|
-| P0 | Восстановить IDF toolchain и три builds | Fresh logs/config/hash, не исторические размеры; не flash |
 | P0 | Power/transceiver/physical UI | ON/QUIET/OFF currents, no backfeed, crank/transient bench; правильная схема |
 | P0 | Tiguan read-only validation | Cold boot→LIVE, supported PIDs vs reference, disconnect/reconnect; exact version/trace |
 | P1 | Verified profile compiler | VIN/identity/endpoint/raw evidence + offline regressions до enabling DID |

@@ -1,6 +1,6 @@
 # Current feature and evidence matrix
 
-Updated 2026-10-03, standalone branch on consolidation `3e5c6ca`.
+Updated 2026-10-04, standalone branch on consolidation `3e5c6ca`.
 See [current report](research/standalone-final-2026-10-03.md) and
 [first autonomous car test](../REAL_CAR_TEST.md). Historical UI hardware results
 come from `6f436dd`; no new device/car test is claimed. Python modules below are
@@ -55,8 +55,9 @@ Registry confidence metadata alone does not grant a validation label.
 
 ## Priorities
 
-**P0:** repeat firmware builds after toolchain recovery; protected power/transceiver
-bench, physical UI and autonomous read-only Tiguan acceptance. No PC required at runtime.
+**P0:** protected power/transceiver bench, physical UI and autonomous read-only
+Tiguan acceptance. Firmware build recovery now has a locked-component procedure;
+see the verification JSON for actual build results. No PC required at runtime.
 
 **P1:** measured bus budget/heap/FPS, exact profile evidence/compiler, passive and
 steering visibility, native ECU-scoped read-only diagnostics. DTC clear requires a

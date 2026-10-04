@@ -33,6 +33,10 @@
 
 В окружении ESP-IDF5.5.5, каталог `firmware`, сначала собрать listen-only:
 
+Если стандартный менеджер зависимостей не работает, использовать проверенный
+[режим локальных зависимостей](docs/development.md#build-from-hash-verified-local-dependencies).
+Он сохраняет версии из lockfile; прошивать смесь компонентов разных версий нельзя.
+
 ```sh
 idf.py -B build-listen -D SDKCONFIG=sdkconfig.listen.generated -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.listen-only" build
 ```

@@ -177,6 +177,38 @@ Check generated CAN/host-injection options; do not reuse these config filenames
 for a different preset. Factory backup, flash and physical acceptance are separate
 steps in [REAL_CAR_TEST](../REAL_CAR_TEST.md). No acceptance runner flashes a board.
 
+### Build from hash-verified local dependencies
+
+The 2026-10-04 recovery uses this alternative when the component manager cannot
+inspect the CMake process or attempts to change locked dependencies. It downloads
+only versions already in `firmware/dependencies.lock`, verifies each package's
+component hash, and never runs the version solver or rewrites the lockfile.
+Use the ESP-IDF Python environment with `idf-component-manager==2.5.2`; these are
+development dependencies, not part of the device runtime.
+
+From the repository root in the initialized IDF environment:
+
+```sh
+python tools/prepare_locked_components.py --output artifacts/local/pinned-components
+export IDF_COMPONENT_MANAGER=0
+MINIDASH_COMPONENTS="$(pwd)/artifacts/local/pinned-components"
+cd firmware
+idf.py -B build-standalone -D SDKCONFIG=sdkconfig.standalone.generated -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.standalone" -D "EXTRA_COMPONENT_DIRS=$MINIDASH_COMPONENTS" build
+idf.py -B build-listen -D SDKCONFIG=sdkconfig.listen.generated -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.listen-only" -D "EXTRA_COMPONENT_DIRS=$MINIDASH_COMPONENTS" build
+idf.py -B build-default -D SDKCONFIG=sdkconfig.default.generated -D SDKCONFIG_DEFAULTS=sdkconfig.defaults -D "EXTRA_COMPONENT_DIRS=$MINIDASH_COMPONENTS" build
+```
+
+Use new build/config paths if an earlier configure used other dependencies.
+PowerShell equivalents for the environment/path setup are
+`$env:IDF_COMPONENT_MANAGER = '0'` and
+`$miniDashComponents = (Resolve-Path artifacts/local/pinned-components).Path`;
+pass `"-DEXTRA_COMPONENT_DIRS=$miniDashComponents"` to each build.
+The helper refuses an existing output directory, preserves the lockfile, and
+publishes the directory only after all packages pass hash validation. Its
+`minidash-dependencies.json` records versions/hashes for review. Do not reuse
+partially downloaded or mixed-version directories. Normal manager-based builds
+remain supported outside this recovery workflow.
+
 ### Physical acceptance
 
 Bench: English/Russian labels, all dashboard long-hold pickers, three/four Custom

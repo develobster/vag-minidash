@@ -11,7 +11,9 @@
     "cantools": "44.1.0",
     "cmake": "4.4.3",
     "gcc": "13.3.0",
-    "node": "24.19.0"
+    "node": "24.19.0",
+    "idf-component-manager": "2.5.2",
+    "xtensa-esp-elf": "14.2.0_20260121"
   },
   "checks": {
     "python": {
@@ -40,18 +42,86 @@
       "leak_detection": false
     },
     "firmware": {
-      "status": "PENDING_TOOLCHAIN_RECOVERY"
+      "status": "PASS",
+      "mode": "hash-verified locked components, IDF_COMPONENT_MANAGER=0, EXTRA_COMPONENT_DIRS",
+      "images": {
+        "standalone": {
+          "status": "PASS",
+          "bytes": 1627680,
+          "sha256": "d1177c5f8fa37d1f99372baca1f220f663a233c7d1a4804a6eab79bbbdb9a297",
+          "factory_free_bytes": 1518048,
+          "can_enabled": true,
+          "standard_obd": true,
+          "host_injection": false,
+          "config_sha256": "330e37452ecbbfcbaf234a5e91a42bad72318f3e6a68da08e73dfd319300aa39",
+          "app_version": "f86224b"
+        },
+        "listen": {
+          "status": "PASS",
+          "bytes": 1627568,
+          "sha256": "5685d6b7dbf25dc3079813fc2b753153e3ecd7d1d499f7fc6016adef74eb3499",
+          "factory_free_bytes": 1518160,
+          "can_enabled": true,
+          "standard_obd": false,
+          "host_injection": false,
+          "config_sha256": "4eadbb74dc7c677fb623c452933058d34fcca8c97b71236b4d04757b538fd0c7",
+          "app_version": "f86224b"
+        },
+        "default": {
+          "status": "PASS",
+          "bytes": 1719616,
+          "sha256": "faf615dc848c926ad77768e3336feb9db87042949813154c580acf7a22855746",
+          "factory_free_bytes": 1426112,
+          "can_enabled": false,
+          "standard_obd": false,
+          "host_injection": true,
+          "config_sha256": "b848f9474e736a33465e7ab296f99e7b684125107d6fb6c87b769e22d216ee6d",
+          "app_version": "f86224b"
+        }
+      }
     },
     "hardware": {
       "status": "NOT_RUN"
     },
     "vehicle": {
       "status": "NOT_RUN"
+    },
+    "dependency_preparation": {
+      "status": "PASS",
+      "output_collision": "REJECTED_WITH_EXIT_2",
+      "lock_sha256": "e8f34402c90bc55635eb48b1bfe8dbe87fd0edc15ad0c6ae85803a4dd7fe896e",
+      "components": [
+        {
+          "name": "espressif/cmake_utilities",
+          "version": "0.5.3",
+          "component_hash": "351350613ceafba240b761b4ea991e0f231ac7a9f59a9ee901f751bddc0bb18f",
+          "directory": "cmake_utilities"
+        },
+        {
+          "name": "espressif/esp_lcd_ili9341",
+          "version": "2.0.2",
+          "component_hash": "0baab584e0e490511d6bdbae6aa045130424d732ecdaad6cd1d3bd3c0abe2c30",
+          "directory": "esp_lcd_ili9341"
+        },
+        {
+          "name": "espressif/esp_lvgl_port",
+          "version": "2.9.0",
+          "component_hash": "d3c020b45c3dfc0d1706a83b63a1c34a6eb444a6e935f9afff79f92b7b94dcef",
+          "directory": "esp_lvgl_port"
+        },
+        {
+          "name": "lvgl/lvgl",
+          "version": "9.5.0",
+          "component_hash": "184e532558c1c45fefed631f3e235423d22582aafb4630f3e8885c35281a49ae",
+          "directory": "lvgl"
+        }
+      ]
     }
   },
   "commands": [
-    "python tools/verify_repository.py --output-dir artifacts/local/acceptance-recovered --native-build-dir core/build --cmake ../.venv/bin/cmake --ctest ../.venv/bin/ctest",
-    "ASAN_OPTIONS=detect_leaks=0 artifacts/local/acquisition-sanitized"
+    "python tools/verify_repository.py --output-dir artifacts/local/acceptance-2026-10-04 --native-build-dir core/build --cmake ../.venv/bin/cmake --ctest ../.venv/bin/ctest",
+    "ASAN_OPTIONS=detect_leaks=0 artifacts/local/acquisition-sanitized",
+    "python tools/prepare_locked_components.py --output artifacts/local/pinned-components"
   ],
   "source_sha256": {
     "firmware/main/acquisition.c": "ae473f574846e8fccf2cd12f149176b3dc959d74a7390123d8dc9cac546bdf40",
@@ -64,6 +134,46 @@
     "core/acquisition_harness.c": "6642123f45c90a921bf4e19d383cdfe2c023c5fc589b3f3a50e0ab598e43dd41",
     "core/CMakeLists.txt": "b02d801c34bdee9e2db6068d0d196fc67e39c1d05850be9e125b3aebf08a3ff3",
     "tools/verify_standalone.py": "65f4af48d6d1b290a6d205a98bee51e2168cd3a3d2812702072dc668ae2b39f4",
-    "tools/verify_repository.py": "d8c93a8e966e41970104daba0db7a1e46a1ea57bdfc65c584f95f98acd55c12e"
+    "tools/verify_repository.py": "d8c93a8e966e41970104daba0db7a1e46a1ea57bdfc65c584f95f98acd55c12e",
+    "tools/prepare_locked_components.py": "edaac6e2c08e1dd57cd5a2b753c4f6c5159ba70f2e0159a6e28e1a4676a1f9c9"
+  },
+  "last_verified_utc": "2026-10-04",
+  "source_commit": "f86224b1eab4ff639fe15a228855e0231611c801",
+  "memory": {
+    "standalone_link": {
+      "dram_data": 0,
+      "dram_bss": 0,
+      "dram_rodata": 0,
+      "dram_other": 0,
+      "used_dram": 0,
+      "dram_total": 0,
+      "used_dram_ratio": 0,
+      "dram_remain": 0,
+      "iram_vectors": 1028,
+      "iram_text": 15356,
+      "iram_other": 0,
+      "used_iram": 16384,
+      "iram_total": 16384,
+      "used_iram_ratio": 1,
+      "iram_remain": 0,
+      "diram_data": 22384,
+      "diram_bss": 111792,
+      "diram_text": 93435,
+      "diram_vectors": 0,
+      "diram_rodata": 0,
+      "diram_other": 0,
+      "diram_total": 341760,
+      "used_diram": 227611,
+      "used_diram_ratio": 0.6659966058052434,
+      "diram_remain": 114149,
+      "flash_code": 1058446,
+      "flash_rodata": 436616,
+      "flash_other": 256,
+      "used_flash_non_ram": 1495318,
+      "total_size": 1627521
+    },
+    "native_engine_bytes": 3504,
+    "native_trace_bytes": 2304,
+    "runtime_heap_measured": false
   }
 }
