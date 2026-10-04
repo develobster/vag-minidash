@@ -171,6 +171,7 @@ const char *md_ui_i18n_signal_label(md_ui_language_t language,
                                     md_ui_signal_id_t signal)
 {
     if (signal < 0 || signal >= MD_SIGNAL_COUNT) return "SIGNAL";
+    if (!s_signal_labels_en[signal]) return md_ui_signal_definitions[signal].label;
     return language == MD_UI_LANGUAGE_RUSSIAN
         ? s_signal_labels_ru[signal] : s_signal_labels_en[signal];
 }
@@ -181,6 +182,7 @@ const char *md_ui_i18n_compact_signal_label(md_ui_language_t language,
 {
     if (signal < 0 || signal >= MD_SIGNAL_COUNT)
         return fallback ? fallback : "SIGNAL";
+    if (!s_signal_labels_en_compact[signal]) return md_ui_signal_definitions[signal].label;
     return language == MD_UI_LANGUAGE_RUSSIAN
         ? s_signal_labels_ru_compact[signal]
         : s_signal_labels_en_compact[signal];

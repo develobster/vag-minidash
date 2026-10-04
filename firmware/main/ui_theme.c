@@ -113,7 +113,7 @@ void md_ui_format_signal_precision(const md_ui_signal_definition_t *definition,
         return;
     }
 
-    float display_value = snapshot->value;
+    double display_value = snapshot->value;
     const char *display_unit = definition->canonical_unit;
     switch (definition->unit_family) {
     case MD_UI_UNIT_SPEED:
@@ -121,6 +121,10 @@ void md_ui_format_signal_precision(const md_ui_signal_definition_t *definition,
             display_value *= 0.6213712f;
             display_unit = "mph";
         }
+        break;
+    case MD_UI_UNIT_TEMP_DELTA:
+        if (settings->temperature_unit == MD_UI_TEMP_FAHRENHEIT) display_value *= 1.8f;
+        display_unit = settings->temperature_unit == MD_UI_TEMP_FAHRENHEIT ? "dF" : "dC";
         break;
     case MD_UI_UNIT_TEMPERATURE:
         if (settings->temperature_unit == MD_UI_TEMP_FAHRENHEIT) {

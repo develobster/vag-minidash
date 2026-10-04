@@ -1,5 +1,6 @@
 #include "ui_web.h"
 #include "display_app.h"
+#include "vehicle_app.h"
 #include "ui_configuration_nvs.h"
 #include "ui_touch_nvs.h"
 #include "sdkconfig.h"
@@ -54,12 +55,30 @@ static esp_err_t get_handler(httpd_req_t *req)
     cJSON *root = NULL;
     if (!strcmp(req->uri,"/api/session")) {
         root = cJSON_CreateObject(); cJSON_AddStringToObject(root,"token",s_token);
+    } else if (!strcmp(req->uri,"/api/presets")) {
+        root=md_analytics_presets_json();
+    } else if (!strcmp(req->uri,"/api/analytics")) {
+        root=cJSON_CreateObject();md_analytics_event_t *events=malloc(MD_EVENT_CAPACITY*sizeof(*events));
+        if(!events){cJSON_Delete(root);return httpd_resp_send_err(req,HTTPD_500_INTERNAL_SERVER_ERROR,"allocation failed");}
+        size_t n=md_vehicle_app_events(events,MD_EVENT_CAPACITY);cJSON *rows=cJSON_AddArrayToObject(root,"events");
+        cJSON_AddNumberToObject(root,"capacity",MD_EVENT_CAPACITY);
+        for(size_t i=0;i<n;i++) {
+            const md_analytics_event_t *v=&events[i];cJSON *row=cJSON_CreateObject();cJSON_AddNumberToObject(row,"timestamp_ms",v->timestamp_ms);cJSON_AddNumberToObject(row,"type",v->type);
+            cJSON_AddStringToObject(row,"signal",md_ui_signal_definitions[v->signal].canonical_name);cJSON_AddNumberToObject(row,"value",v->value);cJSON_AddNumberToObject(row,"threshold",v->threshold);
+            const char *names[]={"rpm","load","speed","map_boost"};const double values[]={v->rpm,v->load,v->speed,v->map_boost};cJSON *snapshot=cJSON_AddObjectToObject(row,"snapshot");
+            for(unsigned j=0;j<4;j++){if(v->snapshot_valid&(1U<<j))cJSON_AddNumberToObject(snapshot,names[j],values[j]);else cJSON_AddNullToObject(snapshot,names[j]);}
+            cJSON_AddItemToArray(rows,row);
+        }
+        free(events);
     } else if (!strcmp(req->uri,"/api/signals")) {
         root = cJSON_CreateArray();
         for (unsigned i=0;i<MD_SIGNAL_COUNT;++i) {
             cJSON *o=cJSON_CreateObject(); const md_ui_signal_definition_t *d=&md_ui_signal_definitions[i];
             cJSON_AddStringToObject(o,"id",d->canonical_name); cJSON_AddStringToObject(o,"label",d->label);
             cJSON_AddStringToObject(o,"unit",d->canonical_unit); cJSON_AddNumberToObject(o,"precision",d->decimals);
+            cJSON_AddStringToObject(o,"provenance",md_signal_provenance(i));
+            const md_derived_node_t *node=md_derived_definition(i);cJSON_AddBoolToObject(o,"derived",node!=NULL);
+            cJSON *deps=cJSON_AddArrayToObject(o,"dependencies");if(node)for(unsigned j=0;j<node->dependency_count;j++)cJSON_AddItemToArray(deps,cJSON_CreateString(md_ui_signal_definitions[node->dependencies[j]].canonical_name));
             cJSON_AddItemToArray(root,o);
         }
     } else {
@@ -146,7 +165,8 @@ static esp_err_t mutation_handler(httpd_req_t *req)
     uint32_t revision=0; bool parsed=md_configuration_parse_json(root,config,&revision);
     free(body); cJSON_Delete(root);
     if (!parsed) { free(config); return httpd_resp_send_err(req,HTTPD_400_BAD_REQUEST,"invalid configuration"); }
-    int status=md_display_configuration_apply(config,revision,!strcmp(req->uri,"/api/config"),!strcmp(req->uri,"/api/cancel"));
+    const bool reset_trip=!strcmp(req->uri,"/api/reset-trip"),reset_session=!strcmp(req->uri,"/api/reset-session");
+    int status=(reset_trip || reset_session)?md_display_analytics_reset(revision,reset_session):md_display_configuration_apply(config,revision,!strcmp(req->uri,"/api/config"),!strcmp(req->uri,"/api/cancel"));
     free(config);
     if (status!=200) {
         httpd_resp_set_status(req,status==409 ? "409 Conflict" : status==403 ? "403 Forbidden" : status==400 ? "400 Bad Request" : "500 Internal Server Error");
@@ -181,16 +201,16 @@ static void web_task(void *argument)
         esp_wifi_set_config(WIFI_IF_AP,&wifi)!=ESP_OK || esp_wifi_start()!=ESP_OK) goto cleanup;
     wifi_started=true;
     httpd_config_t server=HTTPD_DEFAULT_CONFIG(); server.task_priority=2;
-    server.stack_size=12288; server.max_open_sockets=3; server.max_uri_handlers=11; server.lru_purge_enable=true;
+    server.stack_size=12288; server.max_open_sockets=3; server.max_uri_handlers=15; server.lru_purge_enable=true;
     server.recv_wait_timeout=3; server.send_wait_timeout=3;
     if (httpd_start(&s_server,&server)!=ESP_OK) goto cleanup;
-    static const char *const gets[]={"/","/api/session","/api/config","/api/signals","/api/device","/api/layouts","/api/themes","/api/defaults"};
-    for (unsigned i=0;i<8;++i) {
+    static const char *const gets[]={"/","/api/session","/api/config","/api/signals","/api/device","/api/layouts","/api/themes","/api/defaults","/api/presets","/api/analytics"};
+    for (unsigned i=0;i<10;++i) {
         httpd_uri_t uri={.uri=gets[i],.method=HTTP_GET,.handler=get_handler};
         if (httpd_register_uri_handler(s_server,&uri)!=ESP_OK) goto cleanup;
     }
-    static const char *const writes[]={"/api/config","/api/preview","/api/cancel"};
-    for (unsigned i=0;i<3;++i) {
+    static const char *const writes[]={"/api/config","/api/preview","/api/cancel","/api/reset-trip","/api/reset-session"};
+    for (unsigned i=0;i<5;++i) {
         httpd_uri_t uri={.uri=writes[i],.method=i==0 ? HTTP_PUT : HTTP_POST,.handler=mutation_handler};
         if (httpd_register_uri_handler(s_server,&uri)!=ESP_OK) goto cleanup;
     }

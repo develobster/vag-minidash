@@ -35,6 +35,7 @@ const md_ui_signal_definition_t md_ui_signal_definitions[MD_SIGNAL_COUNT] = {
     {MD_SIGNAL_BATTERY_VOLTAGE, "vehicle.battery_voltage", "BATTERY", "V", MD_UI_UNIT_VOLTAGE, 1},
     {MD_SIGNAL_ENGINE_MANIFOLD_PRESSURE, "engine.manifold_absolute_pressure", "MANIFOLD PRESSURE", "hPa", MD_UI_UNIT_PRESSURE, 0},
     {MD_SIGNAL_ECU_SUPPLY_VOLTAGE, "engine.control_module_voltage", "ECU SUPPLY", "V", MD_UI_UNIT_VOLTAGE, 2},
+#include "analytics_signal_definitions.inc"
 };
 
 static bool canonical_name_valid(const char *name)
@@ -84,7 +85,7 @@ void md_ui_signal_store_init(md_ui_signal_store_t *store)
 }
 
 bool md_ui_signal_store_publish_id(md_ui_signal_store_t *store,
-                                   md_ui_signal_id_t id, float value,
+                                   md_ui_signal_id_t id, double value,
                                    md_ui_signal_state_t state, uint32_t now_ms,
                                    uint32_t ttl_ms, bool demo)
 {
@@ -104,7 +105,7 @@ bool md_ui_signal_store_publish_id(md_ui_signal_store_t *store,
 }
 
 bool md_ui_signal_store_publish(md_ui_signal_store_t *store,
-                                const char *canonical_name, float value,
+                                const char *canonical_name, double value,
                                 md_ui_signal_state_t state, uint32_t now_ms,
                                 uint32_t ttl_ms, bool demo)
 {
@@ -190,7 +191,7 @@ md_ui_severity_t md_ui_signal_severity(const md_ui_settings_t *settings,
         !isfinite(value) || id < 0 || id >= MD_SIGNAL_COUNT) {
         return MD_UI_SEVERITY_NORMAL;
     }
-    const int32_t value_milli = (int32_t)(value * 1000.0f);
+    const double value_milli = (double)value * 1000.0;
     for (unsigned i = 0; i < MD_UI_MAX_WARNING_THRESHOLDS; ++i) {
         const md_ui_warning_threshold_t *threshold = &settings->warnings[i];
         if (!threshold->enabled || threshold->signal_id != (uint8_t)id) continue;

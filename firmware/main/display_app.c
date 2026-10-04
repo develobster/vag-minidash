@@ -29,6 +29,7 @@
 #include "ui_startup.h"
 #include "xpt2046_touch.h"
 #include "vehicle_app.h"
+#include "derived_engine.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -1029,6 +1030,8 @@ static void ui_task(void *argument)
 #endif
 
     TickType_t last_update = xTaskGetTickCount();
+    md_analytics_config_t applied_analytics=visible_config->common.analytics;
+    (void)md_vehicle_app_analytics_configure(&applied_analytics);
     for (;;) {
         if (xSemaphoreTake(s_config_mutex,0)==pdTRUE) {
             s_config_driving=state.context==MD_UI_CONTEXT_DRIVING;
@@ -1051,6 +1054,7 @@ static void ui_task(void *argument)
             xSemaphoreGive(s_config_mutex);
         }
         if (state.context==MD_UI_CONTEXT_DRIVING && md_ui_web_active()) md_ui_web_stop();
+        if(memcmp(&applied_analytics,&visible_config->common.analytics,sizeof(applied_analytics)) && md_vehicle_app_analytics_configure(&visible_config->common.analytics))applied_analytics=visible_config->common.analytics;
         if (state.screen==MD_UI_SCREEN_CONFIG_MODE) {
             if (!md_ui_web_active()) { state.screen=MD_UI_SCREEN_SETTINGS; if (lvgl_port_lock(100)) { md_ui_screens_show(state.screen,&settings); lvgl_port_unlock(); } }
             else if (lvgl_port_lock(20)) { md_ui_screens_config_credentials(md_ui_web_ssid(),md_ui_web_password()); md_ui_screens_show(state.screen,&settings); lvgl_port_unlock(); }
@@ -1058,24 +1062,24 @@ static void ui_task(void *argument)
         atomic_store(&s_visible_screen,state.screen);
         uint32_t demand=0,warning_demand=0;
         if(!state.sleeping) {
-            if(state.screen==MD_UI_SCREEN_FOCUS) demand=UINT32_C(1)<<state.focused_signal;
+            if(state.screen==MD_UI_SCREEN_FOCUS) demand=md_derived_raw_demand(state.focused_signal);
             else {
                 md_ui_card_group_t group=md_ui_card_group_for_screen(state.screen,&settings);
                 if(group==MD_UI_CARD_GROUP_CUSTOM) {
                     for(unsigned i=0;i<settings.widget_count;i++) {
                         int id=md_ui_signal_id_from_name(settings.widgets[i].canonical_signal);
-                        if(id>=0 && id<MD_SIGNAL_COUNT)demand|=UINT32_C(1)<<id;
+                        if(id>=0 && id<MD_SIGNAL_COUNT)demand|=md_derived_raw_demand(id);
                     }
                 } else if(group>=0 && group<MD_UI_CARD_GROUP_COUNT) {
                     for(unsigned i=0;i<MD_UI_CARD_SLOTS_PER_GROUP;i++) {
                         int id=md_ui_settings_card_signal(&settings,group,i);
-                        if(id>=0 && id<MD_SIGNAL_COUNT)demand|=UINT32_C(1)<<id;
+                        if(id>=0 && id<MD_SIGNAL_COUNT)demand|=md_derived_raw_demand(id);
                     }
                 }
             }
         }
         if(settings.warnings_enabled) for(unsigned i=0;i<MD_UI_MAX_WARNING_THRESHOLDS;i++) {
-            if(settings.warnings[i].enabled)warning_demand|=UINT32_C(1)<<settings.warnings[i].signal_id;
+            if(settings.warnings[i].enabled)warning_demand|=md_derived_raw_demand(settings.warnings[i].signal_id);
         }
         md_vehicle_app_demand(demand,warning_demand);
         (void)apply_rotation(&settings,state.screen,&palette);
@@ -1170,7 +1174,7 @@ bool md_display_app_set_vehicle_context(md_ui_context_t context, bool verified)
     return xQueueSend(s_ui_event_queue, &event, 0) == pdTRUE;
 }
 
-bool md_display_app_publish_signal(const char *canonical_signal, float value,
+bool md_display_app_publish_signal(const char *canonical_signal, double value,
                                    md_ui_signal_state_t state, uint32_t ttl_ms,
                                    bool demo)
 {
@@ -1196,6 +1200,14 @@ bool md_display_app_publish_serial_sample(const char *frame)
     if (!md_display_serial_sample_decode(frame, &sample)) return false;
     return md_display_app_publish_signal(sample.canonical_signal, sample.value,
                                          sample.state, sample.ttl_ms, false);
+}
+int md_display_analytics_reset(uint32_t revision,bool session)
+{
+    if(!s_config_mutex || xSemaphoreTake(s_config_mutex,pdMS_TO_TICKS(100))!=pdTRUE)return 500;
+    int result=revision!=s_config_revision?409:s_config_driving?403:200;
+    xSemaphoreGive(s_config_mutex);
+    if(result==200)md_vehicle_app_analytics_reset(session);
+    return result;
 }
 
 bool md_display_app_set_warning(const char *canonical_signal, bool enabled,

@@ -177,9 +177,34 @@ static void test_fuzz_and_wrap(void)
     for(unsigned i=0;i<count;i++)CHECK(sent[i].id==0x7df && sent[i].data[1]==1 && sent[i].data[2]==0);
     uint32_t start=UINT32_MAX-2000;init(true,NULL,start);run(start,6000);CHECK(a.state==MD_ACQ_RUNNING);
 }
+static void test_analytics_codecs(void)
+{
+    init(true,NULL,0);run(0,4000);
+    const unsigned pids[]={0x0f,0x46,0x06,0x07};
+    const unsigned ids[]={MD_SIGNAL_IAT,MD_SIGNAL_AIR_TEMP,MD_SIGNAL_STFT,MD_SIGNAL_LTFT};
+    const uint8_t bytes[]={70,60,144,112};
+    const double expected[]={30,20,12.5,-12.5};
+    for(unsigned i=0;i<4;i++) {
+        a.active=true;a.service=1;a.pid=pids[i];a.active_rx=0x7e8;a.job=8+i;a.did_request=false;a.request_ms=5000+i;
+        uint8_t d[]={0x41,pids[i],bytes[i]};payload(0x7e8,d,3,5001+i);
+        md_ui_signal_snapshot_t s=md_acq_snapshot(&a,ids[i],5001+i,NULL);
+        CHECK(s.state==MD_UI_SIGNAL_VALID && s.value==expected[i]);
+    }
+    /* Signed generic codec is evidence infrastructure, exercised using ONLY
+     * the existing clearly synthetic profile, never an inferred CZPA DID. */
+    md_uds_binding_t signed_binding=uds;signed_binding.signed_value=true;
+    signed_binding.signal=MD_SIGNAL_RETARD_1;signed_binding.scale=.25;
+    md_vehicle_profile_t signed_profile=profile;signed_profile.uds=&signed_binding;
+    init(true,&signed_profile,0);run(0,4000);
+    a.active=true;a.did_request=true;a.service=0x22;a.pid=(uint8_t)uds.did;a.active_rx=0x77c;a.job=0;a.request_ms=5000;
+    uint8_t d[]={0x62,0x12,0x34,0xff,0xf0};payload(0x77c,d,5,5001);
+    CHECK(md_acq_snapshot(&a,MD_SIGNAL_RETARD_1,5001,NULL).value==-4);
+    signed_binding.signal=MD_SIGNAL_BOOST_PEAK;
+    CHECK(!md_acq_profile_valid(&signed_profile));
+}
 int main(void)
 {
     test_end_to_end();test_dtc();test_closed_and_timeout();test_fault_reconnect_and_idle();
-    test_profiles_arbitration();test_isotp();test_pending_and_validation();test_fuzz_and_wrap();
-    printf("PASS: 8 acquisition scenarios + 50,000 malformed frames; core=%zu bytes, trace=%zu bytes\n",sizeof(a),sizeof(a.trace));return 0;
+    test_profiles_arbitration();test_isotp();test_pending_and_validation();test_fuzz_and_wrap();test_analytics_codecs();
+    printf("PASS: 9 acquisition scenarios + 50,000 malformed frames; core=%zu bytes, trace=%zu bytes\n",sizeof(a),sizeof(a.trace));return 0;
 }

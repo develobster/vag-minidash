@@ -8,13 +8,14 @@ class Element {
     replaceChildren(...nodes){this.children=[...nodes]}
     click(){return this.onclick?.()}
 }
-const ids=['message','general','gaugemode','gauges','hardware','pages','add','delete','resetpage','pageform','preview','widgets','themes','customtheme','colors','resettheme','warnings','export','import','resetui','try','save','cancel','reload'];
+const ids=['message','general','gaugemode','gauges','hardware','pages','add','delete','resetpage','pageform','preview','widgets','themes','customtheme','colors','resettheme','warnings','export','import','resetui','try','save','cancel','reload','analyticpresets','analytics','resettrip','resetsession','eventsrefresh','events'];
 const elements=Object.fromEntries(ids.map(id=>[id,new Element(['add','delete','resetpage','resettheme','export','resetui','try','save','cancel','reload'].includes(id)?'button':'div')]));
 const document={getElementById:id=>elements[id],createElement:tag=>new Element(tag),querySelectorAll:tag=>Object.values(elements).filter(e=>e.tagName===tag.toUpperCase())};
-let current=structuredClone(fixture.config),saved=structuredClone(current);
+let current=structuredClone(fixture.config),saved=structuredClone(current),writes=[];
 async function fetch(url,options){
     if(!options || !options.method)return {ok:true,json:async()=>structuredClone(url==='/api/session'?{token:'test-token'}:url==='/api/config'?current:fixture[url.slice(5)])};
     const candidate=JSON.parse(options.body);
+    writes.push(url);
     if(candidate.revision!==current.revision)return {ok:false,status:409,text:async()=> 'stale'};
     current=url==='/api/cancel'?structuredClone(saved):candidate;current.revision++;
     if(url==='/api/config')saved=structuredClone(current);
@@ -66,6 +67,42 @@ const change=(select,value)=>{select.value=String(value);select.onchange()};
     elements.add.click();await elements.save.click();assert.match(elements.message.textContent,/Сохранено/);
     elements.delete.click();await elements.cancel.click();assert.equal(selectOf('pages').children.length,2);
     elements.resetui.click();assert.equal(selectOf('pages').children.length,1);
+    assert.equal(fixture.presets.length,6);
+    assert.equal(selectOf('analyticpresets').children.length,7);
+    change(selectOf('analyticpresets'),1);
+    assert.equal(elements.widgets.children.length,8);
+    assert.equal(elements.preview.children[0].children[0].textContent,'RETARD C1');
+    const metric=elements.widgets.children[0].children[1].children[0];
+    change(metric,'engine.misfires_per_min');
+    await elements.save.click();
+    assert.equal(saved.common.pages[0].widgets[0].signal,'engine.misfires_per_min');
+    assert.equal(saved.common.analytics.rules.every(r=>!r.enabled),true);
+    const rule=elements.analytics.children[0];
+    change(rule.children[1].children[0],1);
+    const threshold=rule.children[3].children[0];threshold.value='123';threshold.onchange();
+    const warning=elements.warnings.children[0];
+    change(warning.children.at(-2).children[0],fixture.signals.findIndex(s=>s.id==='engine.retard_worst'));
+    change(warning.children.at(-1).children[0],1);
+    await elements.save.click();
+    assert.equal(saved.common.analytics.rules[0].threshold,123);
+    assert.equal(saved.common.analytics.rules[0].enabled,true);
+    assert.equal(saved.common.warnings[0].direction,1);
+    assert.equal(saved.common.warnings[0].signal,fixture.signals.findIndex(s=>s.id==='engine.retard_worst'));
+    for(const count of [12,14]) {
+        const old=structuredClone(fixture.config);old.schema=3;
+        delete old.common.analytics;old.common.gauge_ranges.length=count;
+        old.common.gauge_ranges[0].maximum=9900;old.common.gauge_auto=false;
+        const text=JSON.stringify(old);
+        await elements.import.onchange({target:{files:[{size:text.length,text:async()=>text}]}});
+        await elements.save.click();
+        assert.equal(saved.schema,4);assert.equal(saved.common.gauge_ranges.length,fixture.signals.length);
+        assert.equal(saved.common.gauge_ranges[0].maximum,9900);
+        assert.equal(saved.common.analytics.rules.every(r=>!r.enabled),true);
+    }
+    await elements.resettrip.click();assert.equal(writes.at(-1),'/api/reset-trip');
+    assert.match(elements.message.textContent,/поездки сброшена/);
+    await elements.resetsession.click();assert.equal(writes.at(-1),'/api/reset-session');
+    assert.match(elements.message.textContent,/сессии сброшена/);
     assert.match(elements.hardware.textContent,/фиксированная/);
     console.log('MINIDASH_WEBUI_LOGIC_TEST status=PASS');
 })().catch(error=>{console.error(error);process.exitCode=1});

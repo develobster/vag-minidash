@@ -32,6 +32,40 @@ static bool real(const cJSON *o, const char *name, float *out)
     if (!cJSON_IsNumber(v) || !isfinite(v->valuedouble) || fabs(v->valuedouble) > 1000000) return false;
     *out = (float)v->valuedouble; return true;
 }
+static bool shape(const cJSON *o,const char *names);
+static const char *analytics_flags[]={"idle_enabled","load_enabled","warmup_enabled","heat_soak_enabled","xy_enabled"};
+static const char *analytics_values[]={"idle_rpm_min","idle_rpm_max","load_minimum","warmup_target","heat_soak_delta","xy_from","xy_to"};
+static cJSON *analytics_json(const md_analytics_config_t *a)
+{
+    cJSON *o=cJSON_CreateObject();if(!o)return NULL;
+    const bool flags[]={a->idle_enabled,a->load_enabled,a->warmup_enabled,a->heat_soak_enabled,a->xy_enabled};
+    const double values[]={a->idle_rpm_min,a->idle_rpm_max,a->load_minimum,a->warmup_target,a->heat_soak_delta,a->xy_from,a->xy_to};
+    for(unsigned i=0;i<5;i++)cJSON_AddBoolToObject(o,analytics_flags[i],flags[i]);
+    for(unsigned i=0;i<7;i++)number(o,analytics_values[i],values[i]);
+    cJSON *rules=cJSON_AddArrayToObject(o,"rules");
+    for(unsigned i=0;i<MD_ANALYTICS_RULES;i++) {
+        const md_analytics_rule_t *r=&a->rules[i];cJSON *v=cJSON_CreateObject();
+        cJSON_AddBoolToObject(v,"enabled",r->enabled);cJSON_AddBoolToObject(v,"low",r->low);
+        number(v,"threshold",r->threshold);number(v,"hysteresis",r->hysteresis);number(v,"debounce_ms",r->debounce_ms);number(v,"cooldown_ms",r->cooldown_ms);cJSON_AddItemToArray(rules,v);
+    }
+    return o;
+}
+static bool analytics_parse(const cJSON *o,md_analytics_config_t *a)
+{
+    if(!shape(o,"|idle_enabled||load_enabled||warmup_enabled||heat_soak_enabled||xy_enabled||idle_rpm_min||idle_rpm_max||load_minimum||warmup_target||heat_soak_delta||xy_from||xy_to||rules|"))return false;
+    md_analytics_config_defaults(a);
+    bool *flags[]={&a->idle_enabled,&a->load_enabled,&a->warmup_enabled,&a->heat_soak_enabled,&a->xy_enabled};
+    double *values[]={&a->idle_rpm_min,&a->idle_rpm_max,&a->load_minimum,&a->warmup_target,&a->heat_soak_delta,&a->xy_from,&a->xy_to};
+    for(unsigned i=0;i<5;i++)if(!boolean(o,analytics_flags[i],flags[i]))return false;
+    for(unsigned i=0;i<7;i++){float v;if(!real(o,analytics_values[i],&v))return false;*values[i]=v;}
+    const cJSON *rules=cJSON_GetObjectItemCaseSensitive(o,"rules");if(!cJSON_IsArray(rules) || cJSON_GetArraySize(rules)!=MD_ANALYTICS_RULES)return false;
+    for(unsigned i=0;i<MD_ANALYTICS_RULES;i++) {
+        const cJSON *r=cJSON_GetArrayItem(rules,i);md_analytics_rule_t *v=&a->rules[i];float threshold,hysteresis;unsigned debounce,cooldown;
+        if(!shape(r,"|enabled||low||threshold||hysteresis||debounce_ms||cooldown_ms|") || !boolean(r,"enabled",&v->enabled) || !boolean(r,"low",&v->low) || !real(r,"threshold",&threshold) || !real(r,"hysteresis",&hysteresis) || !integer(r,"debounce_ms",60000,&debounce) || !integer(r,"cooldown_ms",3600000,&cooldown))return false;
+        v->threshold=threshold;v->hysteresis=hysteresis;v->debounce_ms=debounce;v->cooldown_ms=cooldown;
+    }
+    return md_analytics_config_valid(a);
+}
 cJSON *md_configuration_json(const md_device_configuration_t *c, uint32_t revision)
 {
     if (!md_configuration_validate(c, NULL)) return NULL;
@@ -40,6 +74,7 @@ cJSON *md_configuration_json(const md_device_configuration_t *c, uint32_t revisi
     const md_common_configuration_t *s = &c->common;
     cJSON *common = cJSON_AddObjectToObject(root, "common");
     if (!common) { cJSON_Delete(root); return NULL; }
+    cJSON_AddItemToObject(common,"analytics",analytics_json(&s->analytics));
     number(common, "dashboard", s->dashboard); number(common, "theme", s->theme);
     number(common, "day_night", s->day_night); number(common, "units", s->units);
     number(common, "temperature_unit", s->temperature_unit); number(common, "language", s->language);
@@ -89,6 +124,20 @@ cJSON *md_configuration_json(const md_device_configuration_t *c, uint32_t revisi
     return root;
 }
 /* Exact shapes prevent duplicate names, ignored fields and diagnostic commands. */
+cJSON *md_analytics_presets_json(void)
+{
+    md_device_configuration_t *c=malloc(sizeof(*c));if(!c)return NULL;
+    md_ui_settings_t s;md_ui_settings_defaults(&s);
+    if(!md_configuration_from_legacy(c,&s,NULL)){free(c);return NULL;}
+    cJSON *out=cJSON_CreateArray();
+    for(unsigned i=0;i<MD_ANALYTICS_PRESET_COUNT;i++) {
+        if(!md_configuration_analytics_preset(c,0,i))continue;
+        cJSON *root=md_configuration_json(c,0);
+        cJSON *pages=cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(root,"common"),"pages");
+        cJSON *page=cJSON_DetachItemFromArray(pages,0);if(page)cJSON_AddItemToArray(out,page);cJSON_Delete(root);
+    }
+    free(c);return out;
+}
 static bool shape(const cJSON *o, const char *names)
 {
     if (!cJSON_IsObject(o)) return false;
@@ -113,13 +162,16 @@ bool md_configuration_parse_json(const cJSON *root, md_device_configuration_t *c
     const uint32_t rev = n;
     md_common_configuration_t *s = &candidate.common;
     const cJSON *common = cJSON_GetObjectItemCaseSensitive(root, "common");
-    if (!shape(common, "|dashboard||theme||day_night||units||temperature_unit||language||last_screen||active_page||warnings_enabled||custom_theme||palette||warnings||fixed_card_overrides||pages||gauge_ranges||gauge_auto|")) return false;
+    if (!shape(common, "|dashboard||theme||day_night||units||temperature_unit||language||last_screen||active_page||warnings_enabled||custom_theme||palette||warnings||fixed_card_overrides||pages||gauge_ranges||gauge_auto||analytics|")) return false;
+    md_analytics_config_defaults(&s->analytics);
+    if(version>=4 && !analytics_parse(cJSON_GetObjectItemCaseSensitive(common,"analytics"),&s->analytics)) return false;
     s->gauge_auto=true;
     if(version>=3 && !boolean(common,"gauge_auto",&s->gauge_auto)) return false;
     const cJSON *ranges=cJSON_GetObjectItemCaseSensitive(common,"gauge_ranges");
-    if(version>=3 && (!cJSON_IsArray(ranges) || cJSON_GetArraySize(ranges)!=MD_SIGNAL_COUNT)) return false;
+    const unsigned range_count=cJSON_IsArray(ranges)?(unsigned)cJSON_GetArraySize(ranges):0;
+    if(version>=3 && (range_count>MD_SIGNAL_COUNT || (version==3 && range_count!=12 && range_count!=14) || (version>=4 && range_count!=MD_SIGNAL_COUNT))) return false;
     for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) {
-        if(version>=3) {
+        if(version>=3 && i<range_count) {
             const cJSON *o=cJSON_GetArrayItem(ranges,i);
             if(!shape(o,"|minimum||maximum|") || !real(o,"minimum",&s->gauge_ranges[i].minimum) ||
                 !real(o,"maximum",&s->gauge_ranges[i].maximum)) return false;

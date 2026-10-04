@@ -1,0 +1,1249 @@
+{
+  "schema": 1,
+  "source": "scripts/generate_analytics_catalog.py",
+  "signals": [
+    {
+      "id": 0,
+      "canonical_name": "engine.rpm",
+      "label": "ENGINE SPEED",
+      "unit": "rpm",
+      "precision": 0,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Standard OBD supported-PID gate",
+      "obd_pid": "01/0C",
+      "ttl_ms": 1500,
+      "acquisition_policy": "supported_pid_bitmap"
+    },
+    {
+      "id": 1,
+      "canonical_name": "vehicle.speed",
+      "label": "VEHICLE SPEED",
+      "unit": "km/h",
+      "precision": 0,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Standard OBD supported-PID gate",
+      "obd_pid": "01/0D",
+      "ttl_ms": 1500,
+      "acquisition_policy": "supported_pid_bitmap"
+    },
+    {
+      "id": 2,
+      "canonical_name": "engine.coolant_temperature",
+      "label": "COOLANT",
+      "unit": "degC",
+      "precision": 0,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Standard OBD supported-PID gate",
+      "obd_pid": "01/05",
+      "ttl_ms": 10000,
+      "acquisition_policy": "supported_pid_bitmap"
+    },
+    {
+      "id": 3,
+      "canonical_name": "engine.oil_temperature",
+      "label": "ENGINE OIL",
+      "unit": "degC",
+      "precision": 0,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Standard OBD supported-PID gate",
+      "obd_pid": "01/5C",
+      "ttl_ms": 10000,
+      "acquisition_policy": "supported_pid_bitmap"
+    },
+    {
+      "id": 4,
+      "canonical_name": "engine.load",
+      "label": "ENGINE LOAD",
+      "unit": "%",
+      "precision": 0,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Standard OBD supported-PID gate",
+      "obd_pid": "01/04",
+      "ttl_ms": 5000,
+      "acquisition_policy": "supported_pid_bitmap"
+    },
+    {
+      "id": 5,
+      "canonical_name": "engine.charge_pressure_actual",
+      "label": "CHARGE PRESSURE",
+      "unit": "hPa",
+      "precision": 0,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Candidate/unverified native binding; existing ECU evidence requires codec/address/identity review",
+      "acquisition_enabled": false,
+      "evidence_required": true
+    },
+    {
+      "id": 6,
+      "canonical_name": "engine.ambient_pressure",
+      "label": "AMBIENT PRESSURE",
+      "unit": "hPa",
+      "precision": 0,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Standard OBD supported-PID gate",
+      "obd_pid": "01/33",
+      "ttl_ms": 15000,
+      "acquisition_policy": "supported_pid_bitmap"
+    },
+    {
+      "id": 7,
+      "canonical_name": "engine.boost",
+      "label": "BOOST",
+      "unit": "hPa",
+      "precision": 2,
+      "derived": true,
+      "dependencies": [
+        "engine.manifold_absolute_pressure",
+        "engine.ambient_pressure"
+      ],
+      "operation": "SUB",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 8,
+      "canonical_name": "transmission.oil_temperature",
+      "label": "TRANSMISSION OIL",
+      "unit": "degC",
+      "precision": 0,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Candidate/unverified native binding; existing ECU evidence requires codec/address/identity review",
+      "acquisition_enabled": false,
+      "evidence_required": true
+    },
+    {
+      "id": 9,
+      "canonical_name": "transmission.gear",
+      "label": "GEAR",
+      "unit": "",
+      "precision": 0,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Candidate/unverified native binding; existing ECU evidence requires codec/address/identity review",
+      "acquisition_enabled": false,
+      "evidence_required": true
+    },
+    {
+      "id": 10,
+      "canonical_name": "awd.clutch_temperature",
+      "label": "AWD CLUTCH",
+      "unit": "degC",
+      "precision": 0,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Candidate/unverified native binding; existing ECU evidence requires codec/address/identity review",
+      "acquisition_enabled": false,
+      "evidence_required": true
+    },
+    {
+      "id": 11,
+      "canonical_name": "vehicle.battery_voltage",
+      "label": "BATTERY",
+      "unit": "V",
+      "precision": 1,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Candidate/unverified native binding; existing ECU evidence requires codec/address/identity review",
+      "acquisition_enabled": false,
+      "evidence_required": true
+    },
+    {
+      "id": 12,
+      "canonical_name": "engine.manifold_absolute_pressure",
+      "label": "MANIFOLD PRESSURE",
+      "unit": "hPa",
+      "precision": 0,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Standard OBD supported-PID gate",
+      "obd_pid": "01/0B",
+      "ttl_ms": 3000,
+      "acquisition_policy": "supported_pid_bitmap"
+    },
+    {
+      "id": 13,
+      "canonical_name": "engine.control_module_voltage",
+      "label": "ECU SUPPLY",
+      "unit": "V",
+      "precision": 2,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Standard OBD supported-PID gate",
+      "obd_pid": "01/42",
+      "ttl_ms": 10000,
+      "acquisition_policy": "supported_pid_bitmap"
+    },
+    {
+      "id": 14,
+      "canonical_name": "engine.intake_air_temperature",
+      "label": "IAT",
+      "unit": "degC",
+      "precision": 0,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Standard OBD supported-PID gate",
+      "obd_pid": "01/0F",
+      "ttl_ms": 5000,
+      "acquisition_policy": "supported_pid_bitmap"
+    },
+    {
+      "id": 15,
+      "canonical_name": "vehicle.ambient_air_temperature",
+      "label": "AMBIENT AIR",
+      "unit": "degC",
+      "precision": 0,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Standard OBD supported-PID gate",
+      "obd_pid": "01/46",
+      "ttl_ms": 10000,
+      "acquisition_policy": "supported_pid_bitmap"
+    },
+    {
+      "id": 16,
+      "canonical_name": "engine.fuel_trim_short_b1",
+      "label": "STFT B1",
+      "unit": "%",
+      "precision": 1,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Standard OBD supported-PID gate",
+      "obd_pid": "01/06",
+      "ttl_ms": 5000,
+      "acquisition_policy": "supported_pid_bitmap"
+    },
+    {
+      "id": 17,
+      "canonical_name": "engine.fuel_trim_long_b1",
+      "label": "LTFT B1",
+      "unit": "%",
+      "precision": 1,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Standard OBD supported-PID gate",
+      "obd_pid": "01/07",
+      "ttl_ms": 10000,
+      "acquisition_policy": "supported_pid_bitmap"
+    },
+    {
+      "id": 18,
+      "canonical_name": "engine.ignition_retard_cyl1",
+      "label": "RETARD C1",
+      "unit": "deg",
+      "precision": 1,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Candidate/unverified native binding; existing ECU evidence requires codec/address/identity review",
+      "acquisition_enabled": false,
+      "evidence_required": true
+    },
+    {
+      "id": 19,
+      "canonical_name": "engine.ignition_retard_cyl2",
+      "label": "RETARD C2",
+      "unit": "deg",
+      "precision": 1,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Candidate/unverified native binding; existing ECU evidence requires codec/address/identity review",
+      "acquisition_enabled": false,
+      "evidence_required": true
+    },
+    {
+      "id": 20,
+      "canonical_name": "engine.ignition_retard_cyl3",
+      "label": "RETARD C3",
+      "unit": "deg",
+      "precision": 1,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Candidate/unverified native binding; existing ECU evidence requires codec/address/identity review",
+      "acquisition_enabled": false,
+      "evidence_required": true
+    },
+    {
+      "id": 21,
+      "canonical_name": "engine.ignition_retard_cyl4",
+      "label": "RETARD C4",
+      "unit": "deg",
+      "precision": 1,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Candidate/unverified native binding; existing ECU evidence requires codec/address/identity review",
+      "acquisition_enabled": false,
+      "evidence_required": true
+    },
+    {
+      "id": 22,
+      "canonical_name": "engine.misfire_counter_cyl1",
+      "label": "MISFIRE C1",
+      "unit": "count",
+      "precision": 0,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Candidate/unverified native binding; existing ECU evidence requires codec/address/identity review",
+      "acquisition_enabled": false,
+      "evidence_required": true
+    },
+    {
+      "id": 23,
+      "canonical_name": "engine.misfire_counter_cyl2",
+      "label": "MISFIRE C2",
+      "unit": "count",
+      "precision": 0,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Candidate/unverified native binding; existing ECU evidence requires codec/address/identity review",
+      "acquisition_enabled": false,
+      "evidence_required": true
+    },
+    {
+      "id": 24,
+      "canonical_name": "engine.misfire_counter_cyl3",
+      "label": "MISFIRE C3",
+      "unit": "count",
+      "precision": 0,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Candidate/unverified native binding; existing ECU evidence requires codec/address/identity review",
+      "acquisition_enabled": false,
+      "evidence_required": true
+    },
+    {
+      "id": 25,
+      "canonical_name": "engine.misfire_counter_cyl4",
+      "label": "MISFIRE C4",
+      "unit": "count",
+      "precision": 0,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Candidate/unverified native binding; existing ECU evidence requires codec/address/identity review",
+      "acquisition_enabled": false,
+      "evidence_required": true
+    },
+    {
+      "id": 26,
+      "canonical_name": "engine.charge_pressure_requested",
+      "label": "CHARGE REQ",
+      "unit": "hPa",
+      "precision": 0,
+      "derived": false,
+      "dependencies": [],
+      "operation": null,
+      "provenance": "Candidate/unverified native binding; existing ECU evidence requires codec/address/identity review",
+      "acquisition_enabled": false,
+      "evidence_required": true
+    },
+    {
+      "id": 27,
+      "canonical_name": "engine.retard_worst",
+      "label": "WORST RETARD",
+      "unit": "deg",
+      "precision": 1,
+      "derived": true,
+      "dependencies": [
+        "engine.ignition_retard_cyl1",
+        "engine.ignition_retard_cyl2",
+        "engine.ignition_retard_cyl3",
+        "engine.ignition_retard_cyl4"
+      ],
+      "operation": "MIN4",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 28,
+      "canonical_name": "engine.retard_average",
+      "label": "AVG RETARD",
+      "unit": "deg",
+      "precision": 1,
+      "derived": true,
+      "dependencies": [
+        "engine.ignition_retard_cyl1",
+        "engine.ignition_retard_cyl2",
+        "engine.ignition_retard_cyl3",
+        "engine.ignition_retard_cyl4"
+      ],
+      "operation": "AVG4",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 29,
+      "canonical_name": "engine.retard_worst_cylinder",
+      "label": "RETARD CYL",
+      "unit": "cyl",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.ignition_retard_cyl1",
+        "engine.ignition_retard_cyl2",
+        "engine.ignition_retard_cyl3",
+        "engine.ignition_retard_cyl4"
+      ],
+      "operation": "WORST4",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 30,
+      "canonical_name": "session.retard_events",
+      "label": "RETARD EVENTS",
+      "unit": "count",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.retard_worst"
+      ],
+      "operation": "KNOCK_COUNT",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 31,
+      "canonical_name": "engine.retard_events_per_min",
+      "label": "RETARD /MIN",
+      "unit": "1/min",
+      "precision": 1,
+      "derived": true,
+      "dependencies": [
+        "engine.retard_worst"
+      ],
+      "operation": "KNOCK_RATE",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 32,
+      "canonical_name": "engine.retard_load_event_peak",
+      "label": "LOAD RETARD",
+      "unit": "deg",
+      "precision": 1,
+      "derived": true,
+      "dependencies": [
+        "engine.retard_worst",
+        "engine.load"
+      ],
+      "operation": "LOAD_PEAK",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 33,
+      "canonical_name": "trip.retard_worst",
+      "label": "TRIP RETARD",
+      "unit": "deg",
+      "precision": 1,
+      "derived": true,
+      "dependencies": [
+        "engine.retard_worst"
+      ],
+      "operation": "TRIP_MIN",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 34,
+      "canonical_name": "session.retard_worst",
+      "label": "SESS RETARD",
+      "unit": "deg",
+      "precision": 1,
+      "derived": true,
+      "dependencies": [
+        "engine.retard_worst"
+      ],
+      "operation": "SESSION_MIN",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 35,
+      "canonical_name": "engine.misfire_total",
+      "label": "MISFIRE SUM",
+      "unit": "count",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.misfire_counter_cyl1",
+        "engine.misfire_counter_cyl2",
+        "engine.misfire_counter_cyl3",
+        "engine.misfire_counter_cyl4"
+      ],
+      "operation": "SUM4",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 36,
+      "canonical_name": "engine.misfire_delta",
+      "label": "MISFIRE DELTA",
+      "unit": "count",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.misfire_counter_cyl1",
+        "engine.misfire_counter_cyl2",
+        "engine.misfire_counter_cyl3",
+        "engine.misfire_counter_cyl4"
+      ],
+      "operation": "MISFIRE_DELTA",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 37,
+      "canonical_name": "engine.misfires_per_min",
+      "label": "MISFIRE /MIN",
+      "unit": "1/min",
+      "precision": 1,
+      "derived": true,
+      "dependencies": [
+        "engine.misfire_counter_cyl1",
+        "engine.misfire_counter_cyl2",
+        "engine.misfire_counter_cyl3",
+        "engine.misfire_counter_cyl4"
+      ],
+      "operation": "MISFIRE_RATE",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 38,
+      "canonical_name": "trip.misfires",
+      "label": "TRIP MISFIRE",
+      "unit": "count",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.misfire_counter_cyl1",
+        "engine.misfire_counter_cyl2",
+        "engine.misfire_counter_cyl3",
+        "engine.misfire_counter_cyl4"
+      ],
+      "operation": "MISFIRE_TRIP",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 39,
+      "canonical_name": "session.misfires",
+      "label": "SESS MISFIRE",
+      "unit": "count",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.misfire_counter_cyl1",
+        "engine.misfire_counter_cyl2",
+        "engine.misfire_counter_cyl3",
+        "engine.misfire_counter_cyl4"
+      ],
+      "operation": "MISFIRE_SESSION",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 40,
+      "canonical_name": "engine.misfire_worst_cylinder",
+      "label": "MISFIRE CYL",
+      "unit": "cyl",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.misfire_counter_cyl1",
+        "engine.misfire_counter_cyl2",
+        "engine.misfire_counter_cyl3",
+        "engine.misfire_counter_cyl4"
+      ],
+      "operation": "MISFIRE_CYL",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 41,
+      "canonical_name": "trip.misfires_idle_observed",
+      "label": "IDLE MISFIRE",
+      "unit": "count",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.misfire_total",
+        "engine.rpm",
+        "vehicle.speed"
+      ],
+      "operation": "MISFIRE_IDLE",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 42,
+      "canonical_name": "trip.misfires_load_observed",
+      "label": "LOAD MISFIRE",
+      "unit": "count",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.misfire_total",
+        "engine.load"
+      ],
+      "operation": "MISFIRE_LOAD",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 43,
+      "canonical_name": "engine.fuel_trim_sum_b1",
+      "label": "TRIM SUM B1",
+      "unit": "%",
+      "precision": 1,
+      "derived": true,
+      "dependencies": [
+        "engine.fuel_trim_short_b1",
+        "engine.fuel_trim_long_b1"
+      ],
+      "operation": "ADD",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 44,
+      "canonical_name": "engine.fuel_trim_average_10s",
+      "label": "TRIM AVG 10S",
+      "unit": "%",
+      "precision": 1,
+      "derived": true,
+      "dependencies": [
+        "engine.fuel_trim_sum_b1"
+      ],
+      "operation": "ROLL_AVG",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 45,
+      "canonical_name": "engine.fuel_trim_min_10s",
+      "label": "TRIM MIN 10S",
+      "unit": "%",
+      "precision": 1,
+      "derived": true,
+      "dependencies": [
+        "engine.fuel_trim_sum_b1"
+      ],
+      "operation": "ROLL_MIN",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 46,
+      "canonical_name": "engine.fuel_trim_max_10s",
+      "label": "TRIM MAX 10S",
+      "unit": "%",
+      "precision": 1,
+      "derived": true,
+      "dependencies": [
+        "engine.fuel_trim_sum_b1"
+      ],
+      "operation": "ROLL_MAX",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 47,
+      "canonical_name": "engine.fuel_trim_idle",
+      "label": "IDLE TRIM",
+      "unit": "%",
+      "precision": 1,
+      "derived": true,
+      "dependencies": [
+        "engine.fuel_trim_sum_b1",
+        "engine.rpm",
+        "vehicle.speed"
+      ],
+      "operation": "IDLE_VALUE",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 48,
+      "canonical_name": "engine.fuel_trim_load",
+      "label": "LOAD TRIM",
+      "unit": "%",
+      "precision": 1,
+      "derived": true,
+      "dependencies": [
+        "engine.fuel_trim_sum_b1",
+        "engine.load"
+      ],
+      "operation": "LOAD_VALUE",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 49,
+      "canonical_name": "engine.charge_pressure_error",
+      "label": "CHARGE ERROR",
+      "unit": "hPa",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.charge_pressure_actual",
+        "engine.charge_pressure_requested"
+      ],
+      "operation": "SUB",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 50,
+      "canonical_name": "engine.charge_pressure_abs_error",
+      "label": "ABS CHG ERR",
+      "unit": "hPa",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.charge_pressure_error"
+      ],
+      "operation": "ABS",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 51,
+      "canonical_name": "trip.boost_peak",
+      "label": "BOOST PEAK",
+      "unit": "hPa",
+      "precision": 2,
+      "derived": true,
+      "dependencies": [
+        "engine.boost"
+      ],
+      "operation": "TRIP_MAX",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 52,
+      "canonical_name": "engine.boost_average_5s",
+      "label": "BOOST AVG 5S",
+      "unit": "hPa",
+      "precision": 2,
+      "derived": true,
+      "dependencies": [
+        "engine.boost"
+      ],
+      "operation": "ROLL_AVG",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 53,
+      "canonical_name": "session.overboost_events",
+      "label": "OVERBOOST",
+      "unit": "count",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.charge_pressure_error"
+      ],
+      "operation": "RULE_COUNT",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 54,
+      "canonical_name": "session.underboost_events",
+      "label": "UNDERBOOST",
+      "unit": "count",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.charge_pressure_error"
+      ],
+      "operation": "RULE_COUNT",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 55,
+      "canonical_name": "trip.coolant_peak",
+      "label": "COOLANT PEAK",
+      "unit": "degC",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.coolant_temperature"
+      ],
+      "operation": "TRIP_MAX",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 56,
+      "canonical_name": "trip.oil_peak",
+      "label": "OIL PEAK",
+      "unit": "degC",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.oil_temperature"
+      ],
+      "operation": "TRIP_MAX",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 57,
+      "canonical_name": "trip.iat_peak",
+      "label": "IAT PEAK",
+      "unit": "degC",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.intake_air_temperature"
+      ],
+      "operation": "TRIP_MAX",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 58,
+      "canonical_name": "trip.dsg_oil_peak",
+      "label": "DSG OIL PEAK",
+      "unit": "degC",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "transmission.oil_temperature"
+      ],
+      "operation": "TRIP_MAX",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 59,
+      "canonical_name": "trip.haldex_clutch_peak",
+      "label": "HALDEX PEAK",
+      "unit": "degC",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "awd.clutch_temperature"
+      ],
+      "operation": "TRIP_MAX",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 60,
+      "canonical_name": "engine.iat_ambient_delta",
+      "label": "IAT DELTA",
+      "unit": "degC",
+      "precision": 1,
+      "derived": true,
+      "dependencies": [
+        "engine.intake_air_temperature",
+        "vehicle.ambient_air_temperature"
+      ],
+      "operation": "SUB",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 61,
+      "canonical_name": "engine.coolant_rise_rate",
+      "label": "COOLANT RATE",
+      "unit": "degC/s",
+      "precision": 2,
+      "derived": true,
+      "dependencies": [
+        "engine.coolant_temperature"
+      ],
+      "operation": "RATE",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 62,
+      "canonical_name": "engine.oil_rise_rate",
+      "label": "OIL RATE",
+      "unit": "degC/s",
+      "precision": 2,
+      "derived": true,
+      "dependencies": [
+        "engine.oil_temperature"
+      ],
+      "operation": "RATE",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 63,
+      "canonical_name": "engine.iat_rise_rate",
+      "label": "IAT RATE",
+      "unit": "degC/s",
+      "precision": 2,
+      "derived": true,
+      "dependencies": [
+        "engine.intake_air_temperature"
+      ],
+      "operation": "RATE",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 64,
+      "canonical_name": "trip.coolant_warmup_time",
+      "label": "WARMUP TIME",
+      "unit": "s",
+      "precision": 1,
+      "derived": true,
+      "dependencies": [
+        "engine.coolant_temperature",
+        "engine.rpm"
+      ],
+      "operation": "WARMUP",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 65,
+      "canonical_name": "engine.heat_soak_proxy",
+      "label": "HEAT SOAK ?",
+      "unit": "",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.iat_ambient_delta",
+        "vehicle.speed",
+        "engine.rpm"
+      ],
+      "operation": "HEAT_SOAK",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 66,
+      "canonical_name": "trip.coolant_high_seconds",
+      "label": "COOLANT HIGH S",
+      "unit": "s",
+      "precision": 1,
+      "derived": true,
+      "dependencies": [
+        "engine.coolant_temperature"
+      ],
+      "operation": "RULE_TIME",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 67,
+      "canonical_name": "trip.oil_high_seconds",
+      "label": "OIL HIGH S",
+      "unit": "s",
+      "precision": 1,
+      "derived": true,
+      "dependencies": [
+        "engine.oil_temperature"
+      ],
+      "operation": "RULE_TIME",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 68,
+      "canonical_name": "trip.dsg_oil_high_seconds",
+      "label": "DSG HIGH S",
+      "unit": "s",
+      "precision": 1,
+      "derived": true,
+      "dependencies": [
+        "transmission.oil_temperature"
+      ],
+      "operation": "RULE_TIME",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 69,
+      "canonical_name": "trip.ecu_voltage_min",
+      "label": "ECU V MIN",
+      "unit": "V",
+      "precision": 2,
+      "derived": true,
+      "dependencies": [
+        "engine.control_module_voltage"
+      ],
+      "operation": "TRIP_MIN",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 70,
+      "canonical_name": "trip.ecu_voltage_max",
+      "label": "ECU V MAX",
+      "unit": "V",
+      "precision": 2,
+      "derived": true,
+      "dependencies": [
+        "engine.control_module_voltage"
+      ],
+      "operation": "TRIP_MAX",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 71,
+      "canonical_name": "engine.ecu_voltage_average_5s",
+      "label": "ECU V AVG",
+      "unit": "V",
+      "precision": 2,
+      "derived": true,
+      "dependencies": [
+        "engine.control_module_voltage"
+      ],
+      "operation": "ROLL_AVG",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 72,
+      "canonical_name": "session.ecu_voltage_drop_events",
+      "label": "ECU V DROPS",
+      "unit": "count",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.control_module_voltage"
+      ],
+      "operation": "RULE_COUNT",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 73,
+      "canonical_name": "trip.ecu_voltage_low_seconds",
+      "label": "ECU V LOW S",
+      "unit": "s",
+      "precision": 1,
+      "derived": true,
+      "dependencies": [
+        "engine.control_module_voltage"
+      ],
+      "operation": "RULE_TIME",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 74,
+      "canonical_name": "session.rpm_max",
+      "label": "SESSION RPM",
+      "unit": "rpm",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.rpm"
+      ],
+      "operation": "SESSION_MAX",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 75,
+      "canonical_name": "session.speed_max",
+      "label": "SESSION SPEED",
+      "unit": "km/h",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "vehicle.speed"
+      ],
+      "operation": "SESSION_MAX",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 76,
+      "canonical_name": "session.boost_max",
+      "label": "SESSION BOOST",
+      "unit": "hPa",
+      "precision": 2,
+      "derived": true,
+      "dependencies": [
+        "engine.boost"
+      ],
+      "operation": "SESSION_MAX",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 77,
+      "canonical_name": "trip.rpm_max",
+      "label": "TRIP RPM",
+      "unit": "rpm",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.rpm"
+      ],
+      "operation": "TRIP_MAX",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 78,
+      "canonical_name": "trip.speed_max",
+      "label": "TRIP SPEED",
+      "unit": "km/h",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "vehicle.speed"
+      ],
+      "operation": "TRIP_MAX",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 79,
+      "canonical_name": "trip.boost_max",
+      "label": "TRIP BOOST",
+      "unit": "hPa",
+      "precision": 2,
+      "derived": true,
+      "dependencies": [
+        "engine.boost"
+      ],
+      "operation": "TRIP_MAX",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 80,
+      "canonical_name": "performance.accel_0_50",
+      "label": "0-50 TIME",
+      "unit": "s",
+      "precision": 2,
+      "derived": true,
+      "dependencies": [
+        "vehicle.speed"
+      ],
+      "operation": "PERFORMANCE",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 81,
+      "canonical_name": "performance.accel_0_100",
+      "label": "0-100 TIME",
+      "unit": "s",
+      "precision": 2,
+      "derived": true,
+      "dependencies": [
+        "vehicle.speed"
+      ],
+      "operation": "PERFORMANCE",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 82,
+      "canonical_name": "performance.accel_60_100",
+      "label": "60-100 TIME",
+      "unit": "s",
+      "precision": 2,
+      "derived": true,
+      "dependencies": [
+        "vehicle.speed"
+      ],
+      "operation": "PERFORMANCE",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 83,
+      "canonical_name": "performance.accel_80_120",
+      "label": "80-120 TIME",
+      "unit": "s",
+      "precision": 2,
+      "derived": true,
+      "dependencies": [
+        "vehicle.speed"
+      ],
+      "operation": "PERFORMANCE",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 84,
+      "canonical_name": "performance.accel_100_200",
+      "label": "100-200 TIME",
+      "unit": "s",
+      "precision": 2,
+      "derived": true,
+      "dependencies": [
+        "vehicle.speed"
+      ],
+      "operation": "PERFORMANCE",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 85,
+      "canonical_name": "performance.accel_x_y",
+      "label": "X-Y TIME",
+      "unit": "s",
+      "precision": 2,
+      "derived": true,
+      "dependencies": [
+        "vehicle.speed"
+      ],
+      "operation": "PERFORMANCE",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 86,
+      "canonical_name": "performance.acceleration_duration",
+      "label": "RUN TIME",
+      "unit": "s",
+      "precision": 2,
+      "derived": true,
+      "dependencies": [
+        "vehicle.speed"
+      ],
+      "operation": "RUN_DURATION",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 87,
+      "canonical_name": "trip.performance_runs",
+      "label": "PERF RUNS",
+      "unit": "count",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "vehicle.speed"
+      ],
+      "operation": "PERF_COUNT",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 88,
+      "canonical_name": "trip.retard_events",
+      "label": "TRIP RET EV",
+      "unit": "count",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [
+        "engine.retard_worst"
+      ],
+      "operation": "TRIP_KNOCK_COUNT",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 89,
+      "canonical_name": "session.analytics_events",
+      "label": "EVENTS",
+      "unit": "count",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [],
+      "operation": "EVENT_COUNT",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 90,
+      "canonical_name": "session.signal_loss_events",
+      "label": "SIGNAL LOST",
+      "unit": "count",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [],
+      "operation": "LOST_COUNT",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    },
+    {
+      "id": 91,
+      "canonical_name": "session.can_error_events",
+      "label": "CAN ERRORS",
+      "unit": "count",
+      "precision": 0,
+      "derived": true,
+      "dependencies": [],
+      "operation": "CAN_ERROR_COUNT",
+      "provenance": "Original MiniDash arithmetic/observed statistics; derived-engine design report"
+    }
+  ]
+}

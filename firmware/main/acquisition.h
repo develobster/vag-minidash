@@ -22,7 +22,8 @@ typedef struct {
     float scale, offset;
     md_ui_signal_id_t signal;
     uint32_t period_ms, ttl_ms;
-} md_uds_binding_t; /* ReadDataByIdentifier, unsigned big endian scalars only. */
+    bool signed_value;
+} md_uds_binding_t; /* ReadDataByIdentifier, evidence-defined big endian scalars. */
 typedef struct {
     /* Compiled evidence, not a user checkbox. Review licence, exact VIN, ECU
      * and addressing before provisioning. CAN IDs alone never identify a car. */
@@ -40,7 +41,7 @@ typedef struct {
     uint32_t startup_ms;
     const md_vehicle_profile_t *profile;
 } md_acq_config_t;
-typedef struct { float value; uint32_t updated_ms, ttl_ms; bool valid; } md_acq_sample_t;
+typedef struct { double value; uint32_t updated_ms, ttl_ms; bool valid; } md_acq_sample_t;
 typedef struct { md_can_frame_t frame; uint32_t ms; bool tx; } md_acq_trace_t;
 typedef bool (*md_acq_send_t)(void *context, const md_can_frame_t *frame);
 typedef struct {
@@ -49,7 +50,7 @@ typedef struct {
     void *send_context;
     md_acq_state_t state;
     md_tp_rx_t tp;
-    md_acq_sample_t samples[MD_SIGNAL_COUNT][MD_SOURCE_COUNT];
+    md_acq_sample_t samples[MD_SIGNAL_RAW_COUNT][MD_SOURCE_COUNT];
     uint32_t supported[3], responders[8], visible, background;
     uint32_t due[MD_ACQ_MAX_BINDINGS], uds_due[MD_ACQ_MAX_BINDINGS];
     uint8_t failures[MD_ACQ_MAX_BINDINGS], uds_failures[MD_ACQ_MAX_BINDINGS];

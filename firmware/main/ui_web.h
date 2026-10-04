@@ -1,6 +1,8 @@
 #pragma once
 #include "ui_configuration.h"
 #include "cJSON.h"
+cJSON *md_analytics_presets_json(void);
+int md_display_analytics_reset(uint32_t revision,bool session);
 bool md_ui_web_start(void);
 void md_ui_web_stop(void);
 bool md_ui_web_active(void);

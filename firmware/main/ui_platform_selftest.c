@@ -260,7 +260,7 @@ bool md_ui_test_rotation(void)
     }
     /* Migrate build-only schema-1 rotation to relative zero with all other data kept. */
     static uint8_t old_wire[MD_CONFIG_WIRE_MAX]; memcpy(old_wire,wire,n);
-    const size_t old_size=n-MD_SIGNAL_COUNT*8-1;
+    const size_t old_size=n-MD_SIGNAL_COUNT*8-2-MD_CONFIG_ANALYTICS_WIRE_SIZE;
     old_wire[4]=2; rotation_test_reseal(old_wire,old_size);
     if(!md_configuration_decode(old_wire,old_size,&b) || b.platform.rotation!=a.platform.rotation ||
        b.common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum!=8000) return false;
@@ -268,7 +268,7 @@ bool md_ui_test_rotation(void)
     if(!md_configuration_decode(old_wire,old_size,&b) || b.platform.rotation!=0) return false;
     /* Compare canonical wire, not padding or unused widget slots in C structs. */
     static uint8_t migrated_wire[MD_CONFIG_WIRE_MAX]; size_t migrated_size;
-    wire[4]=MD_CONFIG_SCHEMA_VERSION; wire[n-MD_SIGNAL_COUNT*8-6]=0; rotation_test_reseal(wire,n);
+    wire[4]=MD_CONFIG_SCHEMA_VERSION; wire[n-MD_SIGNAL_COUNT*8-7-MD_CONFIG_ANALYTICS_WIRE_SIZE]=0; rotation_test_reseal(wire,n);
     if(!md_configuration_encode(&b,migrated_wire,sizeof(migrated_wire),&migrated_size) ||
        migrated_size!=n || memcmp(wire,migrated_wire,n)!=0) return false;
     md_ui_settings_defaults(&s); s.language=MD_UI_LANGUAGE_RUSSIAN;

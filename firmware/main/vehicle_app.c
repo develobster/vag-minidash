@@ -1,5 +1,7 @@
 #include "vehicle_app.h"
 #include "display_app.h"
+#include "derived_engine.h"
+#include "esp_attr.h"
 #include "driver/twai.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
@@ -14,9 +16,14 @@
 
 static SemaphoreHandle_t lock;
 static md_acquisition_t engine;
+static EXT_RAM_BSS_ATTR md_derived_engine_t analytics;
+static md_ui_signal_store_t canonical;
 static md_vehicle_status_t status;
 static atomic_uint visible, background;
 static atomic_bool scan;
+static atomic_bool analytics_dirty;
+static atomic_uint analytics_reset;
+static md_analytics_config_t pending_analytics;
 static const char *TAG="md_vehicle";
 
 bool md_vehicle_app_status(md_vehicle_status_t *out)
@@ -27,6 +34,17 @@ bool md_vehicle_app_status(md_vehicle_status_t *out)
 void md_vehicle_app_demand(uint32_t v,uint32_t b)
 { atomic_store(&visible,v);atomic_store(&background,b); }
 void md_vehicle_app_scan(void) { atomic_store(&scan,true); }
+bool md_vehicle_app_analytics_configure(const md_analytics_config_t *c)
+{
+    if(!md_analytics_config_valid(c) || !lock || xSemaphoreTake(lock,pdMS_TO_TICKS(10))!=pdTRUE)return false;
+    pending_analytics=*c;atomic_store(&analytics_dirty,true);xSemaphoreGive(lock);return true;
+}
+void md_vehicle_app_analytics_reset(bool session){atomic_store(&analytics_reset,session?2U:1U);}
+size_t md_vehicle_app_events(md_analytics_event_t *out,size_t capacity)
+{
+    if(!out || !lock || xSemaphoreTake(lock,pdMS_TO_TICKS(10))!=pdTRUE)return 0;
+    size_t n=md_derived_events(&analytics,out,capacity);xSemaphoreGive(lock);return n;
+}
 size_t md_vehicle_app_trace(md_acq_trace_t *out,size_t capacity)
 {
     if(!out || !lock || xSemaphoreTake(lock,pdMS_TO_TICKS(10))!=pdTRUE) return 0;
@@ -93,7 +111,21 @@ static void update_status(uint32_t now)
     status.dtc_count=engine.dtc_count;status.dtc_valid=engine.dtc_valid;
     status.dtc_truncated=engine.dtc_truncated;status.dtc_ms=engine.dtc_ms;
     memcpy(status.dtc,engine.dtc,sizeof(status.dtc));memcpy(status.vin,engine.vin,sizeof(status.vin));
-    for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) status.signals[i]=md_acq_snapshot(&engine,i,now,&status.sources[i]);
+    for(unsigned i=0;i<MD_SIGNAL_RAW_COUNT;i++) {
+        if(i==MD_SIGNAL_ENGINE_BOOST) continue;
+        md_ui_signal_snapshot_t s=md_acq_snapshot(&engine,i,now,&status.sources[i]);
+        uint32_t ttl=1000;
+        if(s.state==MD_UI_SIGNAL_VALID && status.sources[i]<MD_SOURCE_COUNT) ttl=engine.samples[i][status.sources[i]].ttl_ms;
+        md_ui_signal_store_publish_id(&canonical,i,s.value,s.state,now-s.age_ms,ttl,false);
+    }
+    static uint32_t last_derived;
+    if((uint32_t)(now-last_derived)>=100 || engine.state==MD_ACQ_FAULT) {
+        last_derived=now;md_derived_tick(&analytics,&canonical,now);
+    }
+    for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) {
+        status.signals[i]=md_ui_signal_snapshot(&canonical,i,now);
+        if(md_derived_definition(i))status.sources[i]=MD_SOURCE_COUNT;
+    }
 }
 static void vehicle_task(void *unused)
 {
@@ -107,12 +139,17 @@ static void vehicle_task(void *unused)
     const md_acq_config_t config={.allow_standard_obd=allow_obd,.startup_ms=1500,.profile=NULL};
     xSemaphoreTake(lock,portMAX_DELAY);
     md_acq_init(&engine,&config,send_can,NULL,now_ms());
+    md_ui_signal_store_init(&canonical);(void)md_derived_init(&analytics,&pending_analytics,now_ms());
     xSemaphoreGive(lock);
     uint32_t recovery_at=0,last_publish=0,can_started=now_ms(),recovery_attempts=0;
     bool fault=false,first=true,was_quiet=false,motion_latched=false;
     for(;;) {
         uint32_t now=now_ms();
         if(xSemaphoreTake(lock,pdMS_TO_TICKS(10))!=pdTRUE) {vTaskDelay(pdMS_TO_TICKS(10));continue;}
+        if(atomic_exchange(&analytics_dirty,false))(void)md_derived_configure(&analytics,&pending_analytics,now);
+        unsigned reset=atomic_exchange(&analytics_reset,0);
+        if(reset==1)md_derived_reset_trip(&analytics,now);
+        if(reset==2)md_derived_reset_session(&analytics,now);
         if(first) {
             first=false;status.ready=pins_valid() && install_can(false);
             if(!status.ready) {snprintf(status.fault,sizeof(status.fault),"CHECK CAN PINS/DRIVER");
@@ -121,7 +158,7 @@ static void vehicle_task(void *unused)
         uint32_t alerts=0;
         if(can && twai_read_alerts_v2(can,&alerts,0)==ESP_OK) {
             if(alerts&TWAI_ALERT_BUS_OFF) {status.bus_offs++;fault=true;recovery_at=now+1000;
-                status.ready=false;md_acq_bus_available(&engine,false,now);}
+                status.ready=false;md_acq_bus_available(&engine,false,now);md_derived_can_error(&analytics,&canonical,now,alerts);}
             if(alerts&TWAI_ALERT_TX_FAILED) engine.tx_failed++;
         }
         twai_status_info_t info;
@@ -153,7 +190,12 @@ static void vehicle_task(void *unused)
                 md_can_frame_t f={.id=m.identifier,.dlc=m.data_length_code,.extended=m.extd,.remote=m.rtr};
                 memcpy(f.data,m.data,8);md_acq_receive(&engine,&f,now);
             }
-            md_acq_set_demand(&engine,atomic_load(&visible),atomic_load(&background));
+            /* Standard source background collection maintains observed trip peaks.
+             * Performance speed stays at the planner's 200 ms visible priority.
+             * The existing 100 ms global request floor is never bypassed. */
+            uint32_t stats_demand=0;
+            for(unsigned id=0;id<MD_SIGNAL_RAW_COUNT;id++) stats_demand|=md_derived_raw_demand(id);
+            md_acq_set_demand(&engine,atomic_load(&visible)|(UINT32_C(1)<<MD_SIGNAL_VEHICLE_SPEED),atomic_load(&background)|stats_demand);
             if(!fault)md_acq_tick(&engine,now);
         }
         update_status(now);
@@ -180,6 +222,7 @@ void md_vehicle_app_prepare(void)
 {
     if(lock) return;
     lock=xSemaphoreCreateMutex();if(!lock){ESP_LOGE(TAG,"Status mutex allocation failed");return;}
+    md_analytics_config_defaults(&pending_analytics);
 #if CONFIG_MINIDASH_CAN_ENABLE
     status.configured=true;status.state=MD_ACQ_LISTEN;
 #else
@@ -194,7 +237,7 @@ void md_vehicle_app_start(void)
     if(!lock || started) return;
     /* UI readers already exist. Publish task-creation failure under the lock. */
     xSemaphoreTake(lock,portMAX_DELAY);
-    started=xTaskCreate(vehicle_task,"vehicle",6144,NULL,5,NULL)==pdPASS;
+    started=xTaskCreate(vehicle_task,"vehicle",8192,NULL,5,NULL)==pdPASS;
     if(!started) {
         status.state=MD_ACQ_FAULT;snprintf(status.fault,sizeof(status.fault),"TASK ALLOCATION");
     }

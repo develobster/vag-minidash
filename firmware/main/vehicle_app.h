@@ -1,5 +1,6 @@
 #pragma once
 #include "acquisition.h"
+#include "derived_engine.h"
 typedef struct {
     bool configured, ready;
     md_acq_state_t state;
@@ -21,3 +22,6 @@ bool md_vehicle_app_status(md_vehicle_status_t *out);
 void md_vehicle_app_demand(uint32_t visible, uint32_t background);
 void md_vehicle_app_scan(void);
 size_t md_vehicle_app_trace(md_acq_trace_t *out, size_t capacity);
+bool md_vehicle_app_analytics_configure(const md_analytics_config_t *config);
+void md_vehicle_app_analytics_reset(bool session);
+size_t md_vehicle_app_events(md_analytics_event_t *out,size_t capacity);

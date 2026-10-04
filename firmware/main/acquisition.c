@@ -20,15 +20,21 @@ static const obd_signal_t obd[] = {
     {0x33, 1, MD_SIGNAL_ENGINE_AMBIENT_PRESSURE, 2000, 15000},
     {0x42, 2, MD_SIGNAL_ECU_SUPPLY_VOLTAGE, 2000, 10000},
     {0x5c, 1, MD_SIGNAL_ENGINE_OIL_TEMPERATURE, 2000, 10000},
+    /* Standard definitions: CSS J1979 table; see analytics source register.
+     * Capability bitmap and strict response length gates are unchanged. */
+    {0x0f, 1, MD_SIGNAL_IAT, 1000, 5000},
+    {0x46, 1, MD_SIGNAL_AIR_TEMP, 2000, 10000},
+    {0x06, 1, MD_SIGNAL_STFT, 1000, 5000},
+    {0x07, 1, MD_SIGNAL_LTFT, 2000, 10000},
 };
 #define OBD_COUNT (sizeof(obd) / sizeof(obd[0]))
-_Static_assert(MD_SIGNAL_COUNT<=32, "Demand mask capacity");
+_Static_assert(MD_SIGNAL_RAW_COUNT<=32, "Demand mask capacity");
 
 static bool elapsed(uint32_t now, uint32_t since, uint32_t duration)
 { return (uint32_t)(now - since) >= duration; }
 static bool due(uint32_t now, uint32_t deadline)
 { return (int32_t)(now - deadline) >= 0; }
-static bool signal_valid(int id) { return id >= 0 && id < MD_SIGNAL_COUNT; }
+static bool signal_valid(int id) { return id >= 0 && id < MD_SIGNAL_RAW_COUNT; }
 static bool fresh(const md_acq_sample_t *s, uint32_t now)
 { return s->valid && !elapsed(now, s->updated_ms, s->ttl_ms); }
 static uint32_t be32(const uint8_t *b)
@@ -49,13 +55,13 @@ bool md_acq_profile_valid(const md_vehicle_profile_t *p)
     for (size_t i=0;i<p->passive_count;i++) {
         const md_passive_binding_t *b=&p->passive[i];
         if (b->id>0x7ff || b->dlc<1 || b->dlc>8 || !b->bit_count || b->bit_count>32 ||
-            (unsigned)b->start_bit+b->bit_count>b->dlc*8U || !signal_valid(b->signal) ||
+            (unsigned)b->start_bit+b->bit_count>b->dlc*8U || !signal_valid(b->signal) || b->signal==MD_SIGNAL_ENGINE_BOOST ||
             !isfinite(b->scale) || !isfinite(b->offset) || !b->ttl_ms || b->ttl_ms>60000) return false;
         for(size_t j=0;j<i;j++) if(p->passive[j].signal==b->signal) return false;
     }
     for (size_t i=0;i<p->uds_count;i++) {
         const md_uds_binding_t *b=&p->uds[i];
-        if (!b->bytes || b->bytes>4 || !signal_valid(b->signal) ||
+        if (!b->bytes || b->bytes>4 || !signal_valid(b->signal) || b->signal==MD_SIGNAL_ENGINE_BOOST ||
             !isfinite(b->scale) || !isfinite(b->offset) || b->period_ms<100 ||
             b->period_ms>60000 || b->ttl_ms<b->period_ms || b->ttl_ms>60000) return false;
         for(size_t j=0;j<i;j++) if(p->uds[j].signal==b->signal) return false;
@@ -123,7 +129,7 @@ void md_acq_set_demand(md_acquisition_t *a, uint32_t visible, uint32_t backgroun
     }
 }
 static void publish(md_acquisition_t *a, md_ui_signal_id_t id, md_source_t source,
-                    float value, uint32_t ttl, uint32_t now)
+                    double value, uint32_t ttl, uint32_t now)
 {
     if (signal_valid(id) && isfinite(value))
         a->samples[id][source]=(md_acq_sample_t){value,now,ttl,true};
@@ -256,13 +262,16 @@ static void complete(md_acquisition_t *a, uint32_t now)
     } else if (a->did_request) {
         const md_uds_binding_t *b=&a->config.profile->uds[a->job];
         if(n==3U+b->bytes) { uint32_t v=0; for(unsigned i=0;i<b->bytes;i++) v=(v<<8)|d[3+i];
-            publish(a,b->signal,MD_SOURCE_UDS,v*b->scale+b->offset,b->ttl_ms,now);
+            double scalar=v;
+            if(b->signed_value && (v&(UINT32_C(1)<<(b->bytes*8U-1U)))) scalar=(double)v-(double)(UINT64_C(1)<<(b->bytes*8U));
+            publish(a,b->signal,MD_SOURCE_UDS,scalar*b->scale+b->offset,b->ttl_ms,now);
             a->uds_failures[a->job]=0; ok=true; }
     } else if (a->service==1 && a->job<OBD_COUNT && n==2U+obd[a->job].bytes) {
         const obd_signal_t *b=&obd[a->job]; float v=d[2];
         switch(b->pid) {
         case 0x0c: v=(((unsigned)d[2]<<8)|d[3])/4.0f;break;
-        case 0x05: case 0x5c: v-=40;break;
+        case 0x05: case 0x5c: case 0x0f: case 0x46: v-=40;break;
+        case 0x06: case 0x07: v=((double)d[2]-128)*100/128;break;
         case 0x04: v=v*100.0f/255.0f;break;
         case 0x0b: case 0x33: v*=10;break; /* kPa -> canonical hPa */
         case 0x42: v=(((unsigned)d[2]<<8)|d[3])/1000.0f;break;

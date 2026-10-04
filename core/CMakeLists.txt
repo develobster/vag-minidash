@@ -8,7 +8,8 @@ add_library(minidash-core STATIC
     ${MD_CORE_DIR}/ui_startup.c ${MD_CORE_DIR}/ui_i18n.c ${MD_CORE_DIR}/ui_model.c
     ${MD_CORE_DIR}/ui_platform.c ${MD_CORE_DIR}/ui_configuration.c
     ${MD_CORE_DIR}/ui_touch_map.c ${MD_CORE_DIR}/display_serial_protocol.c
-    ${MD_CORE_DIR}/diagnostic_transport.c ${MD_CORE_DIR}/acquisition.c ${MD_CORE_DIR}/ui_instrument_profiles.c)
+    ${MD_CORE_DIR}/diagnostic_transport.c ${MD_CORE_DIR}/acquisition.c ${MD_CORE_DIR}/ui_instrument_profiles.c
+    ${MD_CORE_DIR}/window_statistics.c ${MD_CORE_DIR}/performance_timer.c ${MD_CORE_DIR}/derived_engine.c)
 target_include_directories(minidash-core PUBLIC ${MD_CORE_DIR})
 if(NOT MSVC)
     target_compile_options(minidash-core PRIVATE -Wall -Wextra -Werror)
@@ -17,6 +18,15 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(minidash-analytics-harness analytics_harness.c)
+    target_link_libraries(minidash-analytics-harness PRIVATE minidash-core)
+    add_executable(minidash-analytics-tests test_analytics.c)
+    target_link_libraries(minidash-analytics-tests PRIVATE minidash-core)
+    if(UNIX AND NOT APPLE)
+        target_compile_definitions(minidash-analytics-tests PRIVATE MD_TEST_ALLOCATIONS=1)
+        target_link_options(minidash-analytics-tests PRIVATE -Wl,--wrap=malloc,--wrap=calloc,--wrap=realloc,--wrap=free)
+    endif()
+    add_test(NAME derived-analytics COMMAND minidash-analytics-tests)
     add_executable(minidash-acquisition-harness acquisition_harness.c)
     target_link_libraries(minidash-acquisition-harness PRIVATE minidash-core)
     add_executable(minidash-acquisition-tests test_acquisition.c)

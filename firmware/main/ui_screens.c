@@ -1,6 +1,7 @@
 #include "ui_screens.h"
 #include "ui_instrument_profiles.h"
 #include "ui_startup.h"
+#include "derived_engine.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -114,7 +115,9 @@ typedef struct {
 static screen_view_t s_dashboards[MD_UI_DASHBOARD_COUNT];
 static screen_view_t s_screens[MD_UI_SCREEN_COUNT];
 static setting_row_view_t s_setting_rows[MD_UI_SETTINGS_ROWS];
-static widget_picker_option_view_t s_widget_picker_options[MD_SIGNAL_COUNT];
+#define MD_PICKER_SLOTS 12U
+static widget_picker_option_view_t s_widget_picker_options[MD_PICKER_SLOTS];
+static unsigned s_picker_first;
 static md_ui_palette_t s_palette;
 static md_ui_theme_style_t s_theme_style;
 static uint16_t s_width = 320;
@@ -243,7 +246,7 @@ static void apply_language_fonts(void)
     set_ui_font(s_settings_action_label, &lv_font_montserrat_14, 0);
     set_ui_font(s_settings_previous_label, &lv_font_montserrat_14, 0);
     set_ui_font(s_settings_page_label, &lv_font_montserrat_14, 0);
-    for (unsigned i = 0; i < MD_SIGNAL_COUNT; ++i)
+    for (unsigned i = 0; i < MD_PICKER_SLOTS; ++i)
         set_ui_font(s_widget_picker_options[i].label, &lv_font_montserrat_12, 0);
     set_ui_font(s_calibration_instruction, &lv_font_montserrat_14, 0);
     set_ui_font(s_config_credentials, &lv_font_montserrat_14, 0);
@@ -915,7 +918,7 @@ static void create_widget_picker_screen(void)
 {
     screen_view_t *view = &s_screens[MD_UI_SCREEN_WIDGET_PICKER];
     style_root(view, "REPLACE WIDGET", "TAP SIGNAL TO REPLACE  |  HOLD TO CANCEL");
-    for (unsigned i = 0; i < MD_SIGNAL_COUNT; ++i) {
+    for (unsigned i = 0; i < MD_PICKER_SLOTS; ++i) {
         widget_picker_option_view_t *option = &s_widget_picker_options[i];
         const unsigned column = i / 6U;
         const unsigned row = i % 6U;
@@ -1272,13 +1275,13 @@ int md_ui_screens_widget_slot_at(md_ui_screen_t screen,
 int md_ui_screens_widget_picker_signal_at(int16_t x, int16_t y)
 {
     if (!s_created) return -1;
-    for (unsigned i = 0; i < MD_SIGNAL_COUNT; ++i) {
+    for (unsigned i = 0; i < MD_PICKER_SLOTS; ++i) {
         const lv_obj_t *card = s_widget_picker_options[i].card;
-        if (!card) continue;
+        if (!card || lv_obj_has_flag(card,LV_OBJ_FLAG_HIDDEN)) continue;
         const int left = lv_obj_get_x(card);
         const int top = lv_obj_get_y(card);
         if (x >= left && y >= top && x < left + lv_obj_get_width(card) &&
-            y < top + lv_obj_get_height(card)) return (int)i;
+            y < top + lv_obj_get_height(card)) return (int)(s_picker_first+i);
     }
     return -1;
 }
@@ -1391,7 +1394,7 @@ void md_ui_screens_retheme(const md_ui_palette_t *palette, md_ui_theme_id_t them
         lv_obj_set_style_text_color(row->value, color(s_palette.accent), 0);
         settings_row_reset(row);
     }
-    for (unsigned i = 0; i < MD_SIGNAL_COUNT; ++i) {
+    for (unsigned i = 0; i < MD_PICKER_SLOTS; ++i) {
         widget_picker_option_view_t *option = &s_widget_picker_options[i];
         if (!option->card || !option->label) continue;
         themed_frame(option->card);
@@ -1795,20 +1798,24 @@ void md_ui_screens_update(md_ui_screen_t screen,
     set_ui_text(view->mode, view->mode_text, sizeof(view->mode_text), mode);
 
     if (screen == MD_UI_SCREEN_WIDGET_PICKER) {
+        s_picker_first=(unsigned)state->widget_picker_signal/MD_PICKER_SLOTS*MD_PICKER_SLOTS;
         char title[48];
-        (void)snprintf(title, sizeof(title), "%s %u",
+        (void)snprintf(title, sizeof(title), "%s %u  %u/%u",
                        md_ui_i18n_text(s_language, "REPLACE WIDGET"),
-                       (unsigned)state->widget_picker_slot + 1U);
+                       (unsigned)state->widget_picker_slot + 1U,s_picker_first/MD_PICKER_SLOTS+1,(MD_SIGNAL_COUNT+MD_PICKER_SLOTS-1)/MD_PICKER_SLOTS);
         set_static_text(view->title, s_widget_picker_title_text,
                         sizeof(s_widget_picker_title_text), title);
-        for (unsigned i = 0; i < MD_SIGNAL_COUNT; ++i) {
+        for (unsigned i = 0; i < MD_PICKER_SLOTS; ++i) {
             widget_picker_option_view_t *option = &s_widget_picker_options[i];
             if (!option->card || !option->label) continue;
+            unsigned id=s_picker_first+i;
+            if(id>=MD_SIGNAL_COUNT){lv_obj_add_flag(option->card,LV_OBJ_FLAG_HIDDEN);continue;}
+            lv_obj_remove_flag(option->card,LV_OBJ_FLAG_HIDDEN);
             set_ui_text(option->label, option->label_text,
                         sizeof(option->label_text),
                         md_ui_i18n_compact_signal_label(s_language,
-                            (md_ui_signal_id_t)i, "SIGNAL"));
-            const bool selected = state->widget_picker_signal == (md_ui_signal_id_t)i;
+                            (md_ui_signal_id_t)id, "SIGNAL"));
+            const bool selected = state->widget_picker_signal == (md_ui_signal_id_t)id;
             if (option->selected == selected) continue;
             option->selected = selected;
             lv_obj_set_style_bg_color(option->card,
@@ -1848,8 +1855,8 @@ void md_ui_screens_update(md_ui_screen_t screen,
             sample.value = h->maximum;
             md_ui_format_signal(md_ui_signal_definition(state->focused_signal), &sample, settings, high, sizeof(high), unit, sizeof(unit));
         }
-        snprintf(s_focus_stats_text, sizeof(s_focus_stats_text), "MIN %s | MAX %s | N %u%s", low, high,
-            h->valid ? h->count : 0, h->demo && h->valid ? " | DEMO" : "");
+        const char *source=md_derived_definition(state->focused_signal)?"LOCAL":state->focused_signal==MD_SIGNAL_ECU_SUPPLY_VOLTAGE?"ECU":strncmp(md_signal_provenance(state->focused_signal),"candidate",9)==0?"CANDIDATE":"OBD/CAN";
+        snprintf(s_focus_stats_text, sizeof(s_focus_stats_text), "MIN %s | MAX %s | %s%s", low, high,source,h->demo && h->valid ? " DEMO" : "");
         lv_label_set_text(s_focus_stats, s_focus_stats_text);
     }
     if ((screen == MD_UI_SCREEN_CUSTOM || (screen == MD_UI_SCREEN_DASHBOARD && settings->dashboard == MD_UI_DASHBOARD_CUSTOM)) && s_page_model.title[0])

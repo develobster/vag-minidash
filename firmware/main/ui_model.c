@@ -154,5 +154,24 @@ bool md_ui_focus_gauge_range(md_ui_signal_id_t signal, float *low, float *high)
     };
     if(!low || !high || signal<0 || signal>=MD_SIGNAL_COUNT) return false;
     if(md_instrument_profile_range(md_instrument_profile_default(),signal,low,high)) return true;
-    *low=bounds[signal][0]; *high=bounds[signal][1]; return true;
+    *low=bounds[signal][0]; *high=bounds[signal][1];
+    if(*high<=*low) {
+        /* Presentation spans only; warning/event thresholds stay disabled. */
+        const md_ui_signal_definition_t *d=md_ui_signal_definition(signal);
+        *low=0; *high=100;
+        if(d->unit_family==MD_UI_UNIT_TEMPERATURE) { *low=-40; *high=160; }
+        else if(d->unit_family==MD_UI_UNIT_VOLTAGE) { *low=8; *high=18; }
+        else if(d->unit_family==MD_UI_UNIT_PERCENT) { *low=-100; *high=100; }
+        else if(d->unit_family==MD_UI_UNIT_PRESSURE) { *low=0; *high=5000; }
+        else if(d->unit_family==MD_UI_UNIT_BOOST) { *low=-1000; *high=3000; }
+        else if(d->unit_family==MD_UI_UNIT_SPEED) *high=300;
+        if((signal>=MD_SIGNAL_RETARD_1 && signal<=MD_SIGNAL_RETARD_4) ||
+           signal==MD_SIGNAL_RETARD_WORST || signal==MD_SIGNAL_RETARD_AVG ||
+           signal==MD_SIGNAL_RETARD_LOAD_PEAK || signal==MD_SIGNAL_RETARD_TRIP_PEAK ||
+           signal==MD_SIGNAL_RETARD_SESSION_PEAK) { *low=-20; *high=0; }
+        if(signal==MD_SIGNAL_BOOST_ERROR) { *low=-3000; *high=3000; }
+        if(signal==MD_SIGNAL_RETARD_CYL || signal==MD_SIGNAL_MISFIRE_CYL) *high=4;
+        if(signal==MD_SIGNAL_SESSION_RPM_MAX || signal==MD_SIGNAL_TRIP_RPM_MAX) *high=8000;
+    }
+    return true;
 }

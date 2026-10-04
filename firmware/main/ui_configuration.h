@@ -1,10 +1,12 @@
 #pragma once
 #include "ui_model.h"
+#include "derived_engine.h"
 
-#define MD_CONFIG_SCHEMA_VERSION 3U
+#define MD_CONFIG_SCHEMA_VERSION 4U
 #define MD_CONFIG_MAX_PAGES 4U
 #define MD_CONFIG_TEXT_SIZE 32U
-#define MD_CONFIG_WIRE_MAX 2304U
+#define MD_CONFIG_WIRE_MAX 4096U
+#define MD_CONFIG_ANALYTICS_WIRE_SIZE 177U
 typedef struct {
     uint8_t signal, type, precision;
     uint8_t column, row, columns, rows;
@@ -24,6 +26,7 @@ typedef struct {
     uint8_t fixed_card_overrides[MD_UI_FIXED_CARD_OVERRIDES_COUNT];
     md_ui_palette_t palette;
     struct { float minimum, maximum; } gauge_ranges[MD_SIGNAL_COUNT];
+    md_analytics_config_t analytics;
     md_ui_dashboard_page_t pages[MD_CONFIG_MAX_PAGES];
 } md_common_configuration_t;
 typedef struct {
@@ -52,6 +55,10 @@ bool md_configuration_encode(const md_device_configuration_t *config,
 bool md_configuration_decode(const uint8_t *wire, size_t length,
                               md_device_configuration_t *config);
 void md_configuration_reset_theme(md_device_configuration_t *config);
+#define MD_ANALYTICS_PRESET_COUNT 6U
+typedef struct { const char *name; uint8_t signals[8]; } md_analytics_preset_t;
+extern const md_analytics_preset_t md_analytics_presets[MD_ANALYTICS_PRESET_COUNT];
+bool md_configuration_analytics_preset(md_device_configuration_t *config,uint8_t page,uint8_t preset);
 bool md_configuration_reset_page(md_device_configuration_t *config, uint8_t page);
 bool md_configuration_reset_ui(md_device_configuration_t *config,
                                const md_target_profile_t *target);

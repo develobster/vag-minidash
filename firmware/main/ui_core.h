@@ -42,6 +42,7 @@ typedef enum {
     MD_SIGNAL_BATTERY_VOLTAGE,
     MD_SIGNAL_ENGINE_MANIFOLD_PRESSURE,
     MD_SIGNAL_ECU_SUPPLY_VOLTAGE,
+#include "analytics_signal_ids.inc"
     MD_SIGNAL_COUNT,
 } md_ui_signal_id_t;
 
@@ -54,6 +55,7 @@ typedef enum {
     MD_UI_UNIT_PERCENT,
     MD_UI_UNIT_VOLTAGE,
     MD_UI_UNIT_GEAR,
+    MD_UI_UNIT_TEMP_DELTA,
 } md_ui_unit_family_t;
 
 typedef struct {
@@ -67,7 +69,7 @@ typedef struct {
 
 typedef struct {
     md_ui_signal_state_t state;
-    float value;
+    double value; /* Exact 32-bit ECU counters; presentation may round separately. */
     uint32_t updated_ms;
     uint32_t ttl_ms;
     bool received;
@@ -81,7 +83,7 @@ typedef struct {
 
 typedef struct {
     md_ui_signal_state_t state;
-    float value;
+    double value;
     uint32_t age_ms;
     bool value_available;
     bool demo;
@@ -303,11 +305,11 @@ const md_ui_signal_definition_t *md_ui_signal_definition(md_ui_signal_id_t id);
 int md_ui_signal_id_from_name(const char *canonical_name);
 void md_ui_signal_store_init(md_ui_signal_store_t *store);
 bool md_ui_signal_store_publish_id(md_ui_signal_store_t *store,
-                                   md_ui_signal_id_t id, float value,
+                                   md_ui_signal_id_t id, double value,
                                    md_ui_signal_state_t state, uint32_t now_ms,
                                    uint32_t ttl_ms, bool demo);
 bool md_ui_signal_store_publish(md_ui_signal_store_t *store,
-                                const char *canonical_name, float value,
+                                const char *canonical_name, double value,
                                 md_ui_signal_state_t state, uint32_t now_ms,
                                 uint32_t ttl_ms, bool demo);
 md_ui_signal_snapshot_t md_ui_signal_snapshot(const md_ui_signal_store_t *store,

@@ -63,6 +63,7 @@ bool md_configuration_from_legacy(md_device_configuration_t *c, const md_ui_sett
     memset(c, 0, sizeof(*c)); c->schema_version = MD_CONFIG_SCHEMA_VERSION; c->common.gauge_auto=true;
     copy_common_from_settings(&c->common, s);
     for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) md_ui_focus_gauge_range(i,&c->common.gauge_ranges[i].minimum,&c->common.gauge_ranges[i].maximum);
+    md_analytics_config_defaults(&c->common.analytics);
     c->common.page_count = 1;
     snprintf(c->common.pages[0].title, MD_CONFIG_TEXT_SIZE, "CUSTOM");
     for (unsigned i = 0; i < MD_UI_MAX_WIDGETS; ++i) c->common.pages[0].widgets[i].signal = UINT8_MAX;
@@ -148,6 +149,8 @@ bool md_configuration_validate(const md_device_configuration_t *c, const md_targ
     if (target && ((c->platform.present & target->hardware) != c->platform.present ||
         (c->platform.brightness_mode != MD_BRIGHTNESS_FIXED && !md_target_has(target, MD_CAP_DIMMING)) ||
         (c->platform.brightness_mode == MD_BRIGHTNESS_AUTO && !md_target_has(target, MD_CAP_AMBIENT_SOURCE)))) return false;
+    if(!md_analytics_config_valid(&c->common.analytics)) return false;
+    for(unsigned i=0;i<4;i++) if(c->common.analytics.counter_bits[i] || c->common.analytics.counter_wrap_allowed[i]) return false; /* Evidence-only, never Web/user settings. */
     for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) {
         const float low=c->common.gauge_ranges[i].minimum,high=c->common.gauge_ranges[i].maximum;
         if(!isfinite(low) || !isfinite(high) || high<=low || fabsf(low)>1000000 || fabsf(high)>1000000) return false;
@@ -218,7 +221,16 @@ bool md_configuration_encode(const md_device_configuration_t *c, uint8_t *wire, 
     put32(&w, c->platform.present);
     if (c->platform.present) { put8(&w, c->platform.brightness); put8(&w, c->platform.brightness_mode); put8(&w, c->platform.rotation); }
     put8(&w,s->gauge_auto);
+    put8(&w,MD_SIGNAL_COUNT); /* Schema 4 encodes append-only range count. */
     for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) { put32(&w,floatbits(s->gauge_ranges[i].minimum)); put32(&w,floatbits(s->gauge_ranges[i].maximum)); }
+    const md_analytics_config_t *a=&s->analytics;
+    for(unsigned i=0;i<MD_ANALYTICS_RULES;i++) {
+        const md_analytics_rule_t *r=&a->rules[i];
+        put8(&w,r->enabled);put8(&w,r->low);put32(&w,floatbits((float)r->threshold));put32(&w,floatbits((float)r->hysteresis));put32(&w,r->debounce_ms);put32(&w,r->cooldown_ms);
+    }
+    put8(&w,a->idle_enabled);put8(&w,a->load_enabled);put8(&w,a->warmup_enabled);put8(&w,a->heat_soak_enabled);put8(&w,a->xy_enabled);
+    const double values[]={a->idle_rpm_min,a->idle_rpm_max,a->load_minimum,a->warmup_target,a->heat_soak_delta,a->xy_from,a->xy_to};
+    for(unsigned i=0;i<7;i++)put32(&w,floatbits((float)values[i]));
     if (!w.ok || w.offset + 4 > capacity) return false;
     put32(&w, checksum(wire, w.offset));
     if (written) *written = w.offset;
@@ -235,6 +247,7 @@ bool md_configuration_decode(const uint8_t *wire, size_t length, md_device_confi
     if (version < 1 || version > MD_CONFIG_SCHEMA_VERSION) return false;
     md_device_configuration_t result = {0}; result.schema_version = MD_CONFIG_SCHEMA_VERSION;
     md_common_configuration_t *s = &result.common;
+    md_analytics_config_defaults(&s->analytics);
     s->dashboard = get8(&r); s->theme = get8(&r); s->day_night = get8(&r); s->units = get8(&r);
     s->temperature_unit = get8(&r); s->language = get8(&r); s->last_screen = get8(&r);
     s->page_count = get8(&r); s->active_page = get8(&r);
@@ -269,9 +282,27 @@ bool md_configuration_decode(const uint8_t *wire, size_t length, md_device_confi
     const uint8_t gauge_auto=version>=3 ? get8(&r) : 1;
     if(gauge_auto>1) return false;
     s->gauge_auto=gauge_auto;
+    unsigned ranges=0;
+    if(version==3) { /* Historical UI had 12, integrated standalone had 14. */
+        if(r.offset>r.size || (r.size-r.offset)%8) return false;
+        ranges=(r.size-r.offset)/8;
+        if(ranges!=12 && ranges!=14) return false;
+    } else if(version>=4) ranges=get8(&r);
+    if(ranges>MD_SIGNAL_COUNT) return false;
     for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) {
-        if(version>=3) { s->gauge_ranges[i].minimum=bitsfloat(get32(&r)); s->gauge_ranges[i].maximum=bitsfloat(get32(&r)); }
+        if(i<ranges) { s->gauge_ranges[i].minimum=bitsfloat(get32(&r)); s->gauge_ranges[i].maximum=bitsfloat(get32(&r)); }
         else md_ui_focus_gauge_range(i,&s->gauge_ranges[i].minimum,&s->gauge_ranges[i].maximum);
+    }
+    if(version>=4) {
+        md_analytics_config_t *a=&s->analytics;
+        for(unsigned i=0;i<MD_ANALYTICS_RULES;i++) {
+            uint8_t enabled=get8(&r),low=get8(&r);if(enabled>1 || low>1)return false;
+            a->rules[i]=(md_analytics_rule_t){.enabled=enabled,.low=low,.threshold=bitsfloat(get32(&r)),.hysteresis=bitsfloat(get32(&r)),.debounce_ms=get32(&r),.cooldown_ms=get32(&r)};
+        }
+        bool *flags[]={&a->idle_enabled,&a->load_enabled,&a->warmup_enabled,&a->heat_soak_enabled,&a->xy_enabled};
+        for(unsigned i=0;i<5;i++){uint8_t flag=get8(&r);if(flag>1)return false;*flags[i]=flag;}
+        double *values[]={&a->idle_rpm_min,&a->idle_rpm_max,&a->load_minimum,&a->warmup_target,&a->heat_soak_delta,&a->xy_from,&a->xy_to};
+        for(unsigned i=0;i<7;i++)*values[i]=bitsfloat(get32(&r));
     }
     if (!r.ok || r.offset != r.size || !md_configuration_validate(&result, NULL)) return false;
     *config = result; return true;
@@ -281,6 +312,26 @@ void md_configuration_reset_theme(md_device_configuration_t *c)
     if (!c) return;
     c->common.custom_theme = false; c->common.theme = MD_UI_THEME_OEM;
     c->common.palette = md_ui_theme_palette(MD_UI_THEME_OEM, false);
+}
+const md_analytics_preset_t md_analytics_presets[MD_ANALYTICS_PRESET_COUNT]={
+    {"ENGINE",{MD_SIGNAL_ENGINE_RPM,MD_SIGNAL_ENGINE_BOOST,MD_SIGNAL_ENGINE_LOAD,MD_SIGNAL_ENGINE_COOLANT_TEMPERATURE,MD_SIGNAL_ENGINE_OIL_TEMPERATURE,MD_SIGNAL_IAT,MD_SIGNAL_TRIM_SUM,MD_SIGNAL_ECU_SUPPLY_VOLTAGE}},
+    {"KNOCK / RETARD",{MD_SIGNAL_RETARD_1,MD_SIGNAL_RETARD_2,MD_SIGNAL_RETARD_3,MD_SIGNAL_RETARD_4,MD_SIGNAL_RETARD_WORST,MD_SIGNAL_RETARD_CYL,MD_SIGNAL_KNOCK_COUNT,MD_SIGNAL_ENGINE_RPM}},
+    {"MISFIRE",{MD_SIGNAL_MISFIRE_1,MD_SIGNAL_MISFIRE_2,MD_SIGNAL_MISFIRE_3,MD_SIGNAL_MISFIRE_4,MD_SIGNAL_MISFIRE_TOTAL,MD_SIGNAL_MISFIRE_RATE,MD_SIGNAL_MISFIRE_CYL,MD_SIGNAL_ENGINE_RPM}},
+    {"BOOST",{MD_SIGNAL_CHARGE_REQUESTED,MD_SIGNAL_ENGINE_CHARGE_PRESSURE,MD_SIGNAL_BOOST_ERROR,MD_SIGNAL_BOOST_PEAK,MD_SIGNAL_ENGINE_MANIFOLD_PRESSURE,MD_SIGNAL_ENGINE_AMBIENT_PRESSURE,MD_SIGNAL_ENGINE_RPM,MD_SIGNAL_ENGINE_LOAD}},
+    {"THERMAL",{MD_SIGNAL_ENGINE_COOLANT_TEMPERATURE,MD_SIGNAL_ENGINE_OIL_TEMPERATURE,MD_SIGNAL_IAT,MD_SIGNAL_IAT_DELTA,MD_SIGNAL_TRANSMISSION_OIL_TEMPERATURE,MD_SIGNAL_AWD_CLUTCH_TEMPERATURE,MD_SIGNAL_COOLANT_PEAK,MD_SIGNAL_WARMUP}},
+    {"TRIP / PERFORMANCE",{MD_SIGNAL_PERF_0100,MD_SIGNAL_PERF_80120,MD_SIGNAL_TRIP_RPM_MAX,MD_SIGNAL_TRIP_SPEED_MAX,MD_SIGNAL_BOOST_PEAK,MD_SIGNAL_RETARD_TRIP_PEAK,MD_SIGNAL_MISFIRE_TRIP,MD_SIGNAL_VOLTAGE_MIN}}
+};
+bool md_configuration_analytics_preset(md_device_configuration_t *c,uint8_t page,uint8_t preset)
+{
+    if(!c || page>=c->common.page_count || preset>=MD_ANALYTICS_PRESET_COUNT)return false;
+    md_ui_dashboard_page_t *p=&c->common.pages[page];memset(p,0,sizeof(*p));
+    snprintf(p->title,sizeof(p->title),"%s",md_analytics_presets[preset].name);
+    if(!md_configuration_set_layout(p,MD_UI_LAYOUT_EIGHT))return false;
+    for(unsigned i=0;i<8;i++) {
+        unsigned id=md_analytics_presets[preset].signals[i];p->widgets[i].signal=id;p->widgets[i].precision=md_ui_signal_definitions[id].decimals;
+        md_ui_focus_gauge_range(id,&p->widgets[i].minimum,&p->widgets[i].maximum);
+    }
+    return md_configuration_validate(c,NULL);
 }
 bool md_configuration_reset_page(md_device_configuration_t *c, uint8_t page)
 {
