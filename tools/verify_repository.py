@@ -48,14 +48,14 @@ def main(argv=None):
     gates['python'] = run([sys.executable, '-m', 'unittest', 'discover',
                            '-s', 'tests', '-v'], args.output_dir, 'python')
     if args.native_build_dir is None:
-        for name in ('native_build', 'ctest', 'web', 'standalone_virtualbus'):
+        for name in ('native_build', 'ctest', 'web', 'standalone_virtualbus', 'analytics_replay'):
             gates[name] = dict(status='NOT_RUN', reason='No --native-build-dir')
     else:
         build = args.native_build_dir.resolve()
         gates['native_build'] = run([args.cmake, '--build', str(build)],
                                     args.output_dir, 'native_build')
         if gates['native_build']['status'] != 'PASS':
-            for name in ('ctest', 'web', 'standalone_virtualbus'):
+            for name in ('ctest', 'web', 'standalone_virtualbus', 'analytics_replay'):
                 gates[name] = dict(status='NOT_RUN', reason='Fresh native build failed')
         else:
             try:
@@ -69,7 +69,7 @@ def main(argv=None):
                 listed = False
             gates['native_test_inventory'] = dict(
                 status='PASS' if listed and
-                {'portable-core', 'configuration-json', 'standalone-acquisition'} <= names else 'FAIL',
+                {'portable-core', 'configuration-json', 'standalone-acquisition', 'derived-analytics', 'instrument-profile-contract', 'backlight-driver-contract'} <= names else 'FAIL',
                 tests=sorted(names))
             gates['ctest'] = run([args.ctest, '--test-dir', str(build),
                                   '--output-on-failure', '--no-tests=error'],
@@ -79,6 +79,9 @@ def main(argv=None):
             gates['standalone_virtualbus'] = run(
                 [sys.executable, str(ROOT / 'tools/verify_standalone.py'), '--harness', str(harness)],
                 args.output_dir, 'standalone_virtualbus')
+            gates['analytics_replay'] = run(
+                [sys.executable, str(ROOT/'tools/verify_analytics.py'), '--harness', str(build/'minidash-analytics-harness'),
+                 '--output', str(args.output_dir/'analytics-replay.json')], args.output_dir, 'analytics_replay')
             # Generate editor registries from the current firmware C sources,
             # rather than accepting an old manually copied browser fixture.
             candidates = [build / 'minidash-json-tests',

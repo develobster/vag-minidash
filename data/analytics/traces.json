@@ -1,0 +1,733 @@
+{
+  "schema": 1,
+  "synthetic": true,
+  "configuration": "analytics-harness --synthetic; test-only thresholds/16-bit counters",
+  "cases": [
+    {
+      "name": "normal_drive",
+      "steps": [
+        {
+          "ms": 0,
+          "samples": {
+            "engine.manifold_absolute_pressure": 1500,
+            "engine.ambient_pressure": 1000,
+            "engine.rpm": 2200,
+            "vehicle.speed": 40,
+            "engine.fuel_trim_short_b1": 3,
+            "engine.fuel_trim_long_b1": -1,
+            "engine.control_module_voltage": 14
+          },
+          "expect": {
+            "engine.boost": {
+              "value": 500
+            },
+            "engine.fuel_trim_sum_b1": {
+              "value": 2
+            },
+            "trip.rpm_max": {
+              "value": 2200
+            },
+            "trip.ecu_voltage_min": {
+              "value": 14
+            }
+          }
+        },
+        {
+          "ms": 1000,
+          "samples": {
+            "engine.manifold_absolute_pressure": 1700,
+            "engine.rpm": 3000,
+            "vehicle.speed": 50
+          },
+          "expect": {
+            "engine.boost": {
+              "value": 700
+            },
+            "trip.boost_peak": {
+              "value": 700
+            },
+            "engine.boost_average_5s": {
+              "value": 600,
+              "oracle": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "knock_burst",
+      "steps": [
+        {
+          "ms": 0,
+          "samples": {
+            "engine.ignition_retard_cyl1": 0,
+            "engine.ignition_retard_cyl2": 0,
+            "engine.ignition_retard_cyl3": 0,
+            "engine.ignition_retard_cyl4": 0
+          },
+          "expect": {}
+        },
+        {
+          "ms": 100,
+          "samples": {
+            "engine.ignition_retard_cyl1": -1,
+            "engine.ignition_retard_cyl2": -4,
+            "engine.ignition_retard_cyl3": 0,
+            "engine.ignition_retard_cyl4": -2
+          },
+          "expect": {
+            "engine.retard_worst": {
+              "value": -4
+            },
+            "engine.retard_average": {
+              "value": -1.75
+            },
+            "engine.retard_worst_cylinder": {
+              "value": 2
+            }
+          }
+        },
+        {
+          "ms": 600,
+          "samples": {},
+          "expect": {
+            "session.retard_events": {
+              "value": 1,
+              "oracle": false
+            },
+            "trip.retard_worst": {
+              "value": -4
+            }
+          }
+        },
+        {
+          "ms": 1000,
+          "samples": {
+            "engine.ignition_retard_cyl1": 0,
+            "engine.ignition_retard_cyl2": 0,
+            "engine.ignition_retard_cyl3": 0,
+            "engine.ignition_retard_cyl4": 0
+          },
+          "expect": {
+            "session.retard_events": {
+              "value": 1,
+              "oracle": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "single_cylinder_repeated_retard",
+      "steps": [
+        {
+          "ms": 0,
+          "samples": {
+            "engine.ignition_retard_cyl1": 0,
+            "engine.ignition_retard_cyl2": 0,
+            "engine.ignition_retard_cyl3": 0,
+            "engine.ignition_retard_cyl4": 0
+          },
+          "expect": {}
+        },
+        {
+          "ms": 100,
+          "samples": {
+            "engine.ignition_retard_cyl1": 0,
+            "engine.ignition_retard_cyl2": 0,
+            "engine.ignition_retard_cyl3": -3,
+            "engine.ignition_retard_cyl4": 0
+          },
+          "expect": {}
+        },
+        {
+          "ms": 600,
+          "samples": {},
+          "expect": {
+            "session.retard_events": {
+              "value": 1,
+              "oracle": false
+            }
+          }
+        },
+        {
+          "ms": 2700,
+          "samples": {
+            "engine.ignition_retard_cyl1": 0,
+            "engine.ignition_retard_cyl2": 0,
+            "engine.ignition_retard_cyl3": 0,
+            "engine.ignition_retard_cyl4": 0
+          },
+          "expect": {}
+        },
+        {
+          "ms": 2800,
+          "samples": {
+            "engine.ignition_retard_cyl1": 0,
+            "engine.ignition_retard_cyl2": 0,
+            "engine.ignition_retard_cyl3": -5,
+            "engine.ignition_retard_cyl4": 0
+          },
+          "expect": {}
+        },
+        {
+          "ms": 3300,
+          "samples": {},
+          "expect": {
+            "session.retard_events": {
+              "value": 2,
+              "oracle": false
+            },
+            "engine.retard_worst_cylinder": {
+              "value": 3
+            },
+            "trip.retard_worst": {
+              "value": -5
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "misfire_burst",
+      "steps": [
+        {
+          "ms": 0,
+          "samples": {
+            "engine.misfire_counter_cyl1": 100,
+            "engine.misfire_counter_cyl2": 100,
+            "engine.misfire_counter_cyl3": 100,
+            "engine.misfire_counter_cyl4": 100
+          },
+          "expect": {}
+        },
+        {
+          "ms": 1000,
+          "samples": {
+            "engine.misfire_counter_cyl1": 100,
+            "engine.misfire_counter_cyl2": 104,
+            "engine.misfire_counter_cyl3": 101,
+            "engine.misfire_counter_cyl4": 100
+          },
+          "expect": {
+            "engine.misfire_total": {
+              "value": 405
+            },
+            "engine.misfire_delta": {
+              "value": 5
+            },
+            "trip.misfires": {
+              "value": 5
+            },
+            "engine.misfires_per_min": {
+              "value": 300,
+              "oracle": false
+            },
+            "engine.misfire_worst_cylinder": {
+              "value": 2
+            }
+          }
+        },
+        {
+          "ms": 2000,
+          "samples": {
+            "engine.misfire_counter_cyl1": 100,
+            "engine.misfire_counter_cyl2": 106,
+            "engine.misfire_counter_cyl3": 101,
+            "engine.misfire_counter_cyl4": 100
+          },
+          "expect": {
+            "trip.misfires": {
+              "value": 7
+            },
+            "engine.misfires_per_min": {
+              "value": 210,
+              "oracle": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "counter_reset_and_overflow",
+      "steps": [
+        {
+          "ms": 0,
+          "samples": {
+            "engine.misfire_counter_cyl1": 65534,
+            "engine.misfire_counter_cyl2": 10,
+            "engine.misfire_counter_cyl3": 0,
+            "engine.misfire_counter_cyl4": 0
+          },
+          "expect": {}
+        },
+        {
+          "ms": 1000,
+          "samples": {
+            "engine.misfire_counter_cyl1": 2,
+            "engine.misfire_counter_cyl2": 11,
+            "engine.misfire_counter_cyl3": 0,
+            "engine.misfire_counter_cyl4": 0
+          },
+          "expect": {
+            "engine.misfire_delta": {
+              "value": 5
+            },
+            "trip.misfires": {
+              "value": 5
+            }
+          }
+        },
+        {
+          "ms": 2000,
+          "samples": {
+            "engine.misfire_counter_cyl1": 0,
+            "engine.misfire_counter_cyl2": 0,
+            "engine.misfire_counter_cyl3": 0,
+            "engine.misfire_counter_cyl4": 0
+          },
+          "expect": {
+            "engine.misfire_delta": {
+              "value": 0
+            },
+            "trip.misfires": {
+              "value": 5
+            }
+          }
+        },
+        {
+          "ms": 3000,
+          "samples": {
+            "engine.misfire_counter_cyl1": 1,
+            "engine.misfire_counter_cyl2": 0,
+            "engine.misfire_counter_cyl3": 0,
+            "engine.misfire_counter_cyl4": 0
+          },
+          "expect": {
+            "trip.misfires": {
+              "value": 6
+            }
+          }
+        },
+        {
+          "ms": 3100,
+          "samples": {
+            "engine.misfire_counter_cyl1": 2,
+            "engine.misfire_counter_cyl2": 0,
+            "engine.misfire_counter_cyl3": 0,
+            "engine.misfire_counter_cyl4": 0
+          },
+          "expect": {
+            "trip.misfires": {
+              "value": 1
+            },
+            "session.misfires": {
+              "value": 7
+            }
+          },
+          "reset": "trip"
+        }
+      ]
+    },
+    {
+      "name": "overboost",
+      "steps": [
+        {
+          "ms": 0,
+          "samples": {
+            "engine.charge_pressure_actual": 2000,
+            "engine.charge_pressure_requested": 1700
+          },
+          "expect": {
+            "engine.charge_pressure_error": {
+              "value": 300
+            },
+            "engine.charge_pressure_abs_error": {
+              "value": 300
+            }
+          }
+        },
+        {
+          "ms": 500,
+          "samples": {},
+          "expect": {
+            "session.overboost_events": {
+              "value": 1,
+              "oracle": false
+            }
+          }
+        },
+        {
+          "ms": 700,
+          "samples": {},
+          "expect": {
+            "session.overboost_events": {
+              "value": 1,
+              "oracle": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "underboost",
+      "steps": [
+        {
+          "ms": 0,
+          "samples": {
+            "engine.charge_pressure_actual": 1400,
+            "engine.charge_pressure_requested": 1800
+          },
+          "expect": {
+            "engine.charge_pressure_error": {
+              "value": -400
+            },
+            "engine.charge_pressure_abs_error": {
+              "value": 400
+            }
+          }
+        },
+        {
+          "ms": 500,
+          "samples": {},
+          "expect": {
+            "session.underboost_events": {
+              "value": 1,
+              "oracle": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "heat_soak_and_warmup",
+      "steps": [
+        {
+          "ms": 0,
+          "samples": {
+            "engine.intake_air_temperature": 50,
+            "vehicle.ambient_air_temperature": 20,
+            "vehicle.speed": 0,
+            "engine.rpm": 800,
+            "engine.coolant_temperature": 60
+          },
+          "expect": {
+            "engine.iat_ambient_delta": {
+              "value": 30
+            },
+            "engine.heat_soak_proxy": {
+              "value": 1,
+              "oracle": false
+            },
+            "trip.coolant_warmup_time": {
+              "state": 2,
+              "oracle": false
+            }
+          }
+        },
+        {
+          "ms": 1000,
+          "samples": {
+            "engine.coolant_temperature": 80,
+            "engine.intake_air_temperature": 55
+          },
+          "expect": {
+            "trip.coolant_warmup_time": {
+              "value": 1,
+              "oracle": false
+            },
+            "trip.iat_peak": {
+              "value": 55
+            },
+            "engine.coolant_rise_rate": {
+              "value": 20,
+              "oracle": false
+            }
+          }
+        },
+        {
+          "ms": 2000,
+          "samples": {
+            "engine.coolant_temperature": 105
+          },
+          "expect": {
+            "trip.coolant_peak": {
+              "value": 105
+            }
+          }
+        },
+        {
+          "ms": 2500,
+          "samples": {},
+          "expect": {
+            "trip.coolant_high_seconds": {
+              "value": 0.5,
+              "oracle": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "voltage_sag",
+      "steps": [
+        {
+          "ms": 0,
+          "samples": {
+            "engine.control_module_voltage": 14
+          },
+          "expect": {}
+        },
+        {
+          "ms": 100,
+          "samples": {
+            "engine.control_module_voltage": 10
+          },
+          "expect": {}
+        },
+        {
+          "ms": 600,
+          "samples": {},
+          "expect": {
+            "session.ecu_voltage_drop_events": {
+              "value": 1,
+              "oracle": false
+            },
+            "trip.ecu_voltage_min": {
+              "value": 10
+            },
+            "trip.ecu_voltage_low_seconds": {
+              "value": 0.5,
+              "oracle": false
+            }
+          }
+        },
+        {
+          "ms": 1100,
+          "samples": {
+            "engine.control_module_voltage": 14
+          },
+          "expect": {
+            "trip.ecu_voltage_min": {
+              "value": 10
+            },
+            "trip.ecu_voltage_max": {
+              "value": 14
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "signal_loss_reconnect",
+      "steps": [
+        {
+          "ms": 0,
+          "samples": {
+            "engine.manifold_absolute_pressure": 1600,
+            "engine.ambient_pressure": 1000
+          },
+          "expect": {
+            "engine.boost": {
+              "value": 600
+            }
+          }
+        },
+        {
+          "ms": 100,
+          "samples": {
+            "engine.ambient_pressure": {
+              "state": 2
+            }
+          },
+          "expect": {
+            "engine.boost": {
+              "state": 2
+            },
+            "trip.boost_peak": {
+              "state": 2
+            },
+            "session.signal_loss_events": {
+              "value": 1,
+              "oracle": false
+            }
+          }
+        },
+        {
+          "ms": 200,
+          "samples": {
+            "engine.ambient_pressure": 1000,
+            "engine.manifold_absolute_pressure": 1700
+          },
+          "expect": {
+            "engine.boost": {
+              "value": 700
+            },
+            "trip.boost_peak": {
+              "value": 700
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "stale_dependency_and_unsupported",
+      "steps": [
+        {
+          "ms": 0,
+          "samples": {
+            "engine.manifold_absolute_pressure": 1600,
+            "engine.ambient_pressure": {
+              "value": 1000,
+              "ttl": 100
+            }
+          },
+          "expect": {
+            "engine.boost": {
+              "value": 600
+            }
+          }
+        },
+        {
+          "ms": 100,
+          "samples": {},
+          "expect": {
+            "engine.boost": {
+              "state": 1
+            },
+            "trip.boost_peak": {
+              "state": 1
+            }
+          }
+        },
+        {
+          "ms": 200,
+          "samples": {
+            "engine.ambient_pressure": {
+              "state": 3
+            }
+          },
+          "expect": {
+            "engine.boost": {
+              "state": 3
+            }
+          }
+        },
+        {
+          "ms": 300,
+          "samples": {
+            "engine.ambient_pressure": 1000,
+            "engine.manifold_absolute_pressure": 1800
+          },
+          "expect": {
+            "trip.boost_peak": {
+              "value": 800
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "acceleration_run_then_loss",
+      "steps": [
+        {
+          "ms": 0,
+          "samples": {
+            "vehicle.speed": 0.0
+          },
+          "expect": {}
+        },
+        {
+          "ms": 1000,
+          "samples": {
+            "vehicle.speed": 10.0
+          },
+          "expect": {}
+        },
+        {
+          "ms": 2000,
+          "samples": {
+            "vehicle.speed": 20.0
+          },
+          "expect": {}
+        },
+        {
+          "ms": 3000,
+          "samples": {
+            "vehicle.speed": 30.0
+          },
+          "expect": {}
+        },
+        {
+          "ms": 4000,
+          "samples": {
+            "vehicle.speed": 40.0
+          },
+          "expect": {}
+        },
+        {
+          "ms": 5000,
+          "samples": {
+            "vehicle.speed": 50.0
+          },
+          "expect": {}
+        },
+        {
+          "ms": 6000,
+          "samples": {
+            "vehicle.speed": 60.0
+          },
+          "expect": {}
+        },
+        {
+          "ms": 7000,
+          "samples": {
+            "vehicle.speed": 70.0
+          },
+          "expect": {}
+        },
+        {
+          "ms": 8000,
+          "samples": {
+            "vehicle.speed": 80.0
+          },
+          "expect": {}
+        },
+        {
+          "ms": 9000,
+          "samples": {
+            "vehicle.speed": 90.0
+          },
+          "expect": {}
+        },
+        {
+          "ms": 10000,
+          "samples": {
+            "vehicle.speed": 100.0
+          },
+          "expect": {
+            "performance.accel_0_100": {
+              "value": 10
+            },
+            "trip.speed_max": {
+              "value": 100
+            },
+            "trip.performance_runs": {
+              "value": 4,
+              "oracle": false
+            }
+          }
+        },
+        {
+          "ms": 16000,
+          "samples": {},
+          "expect": {
+            "performance.accel_0_100": {
+              "state": 1
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
