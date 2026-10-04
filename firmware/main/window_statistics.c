@@ -26,6 +26,14 @@ bool md_stats_observe(md_window_statistics_t *s, double v, uint32_t stamp) {
     return false;
   if (s->connected && (int32_t)(stamp - s->stamp) <= 0)
     return false;
+  if (!s->connected) {
+    s->bucket_start_ms = stamp - stamp % 1000;
+    s->bucket_sequence = 0;
+  } else {
+    uint32_t steps = (uint32_t)(stamp - s->bucket_start_ms) / 1000;
+    s->bucket_start_ms += steps * 1000;
+    s->bucket_sequence += steps;
+  }
   s->has_rate = s->connected;
   s->previous = s->current;
   s->previous_stamp = s->stamp;
@@ -34,11 +42,10 @@ bool md_stats_observe(md_window_statistics_t *s, double v, uint32_t stamp) {
   s->current = v;
   s->stamp = stamp;
   s->seen = s->connected = true;
-  uint32_t sec = stamp / 1000;
-  md_stat_bucket_t *b = &s->buckets[sec % MD_STATS_BUCKETS];
-  if (!b->used || b->second != sec)
+  md_stat_bucket_t *b = &s->buckets[s->bucket_sequence % MD_STATS_BUCKETS];
+  if (!b->used || b->start_ms != s->bucket_start_ms)
     *b = (md_stat_bucket_t){
-        .second = sec, .used = true, .minimum = (float)v, .maximum = (float)v};
+        .start_ms = s->bucket_start_ms, .used = true, .minimum = (float)v, .maximum = (float)v};
   if (b->count < UINT32_MAX) {
     b->sum += (float)v;
     b->count++;
@@ -92,7 +99,7 @@ bool md_stats_window(const md_window_statistics_t *s, uint32_t now,
   for (unsigned i = 0; i < MD_STATS_BUCKETS; i++) {
     const md_stat_bucket_t *b = &s->buckets[i];
     if (!b->used || !b->count ||
-        (uint32_t)(now - b->second * 1000U) >= seconds * 1000U)
+        (uint32_t)(now - b->start_ms) >= seconds * 1000U)
       continue;
     if (!o->count) {
       o->minimum = b->minimum;

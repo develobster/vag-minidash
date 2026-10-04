@@ -17,7 +17,9 @@
 static SemaphoreHandle_t lock;
 static md_acquisition_t engine;
 static EXT_RAM_BSS_ATTR md_derived_engine_t analytics;
+#if CONFIG_MINIDASH_CAN_ENABLE
 static md_ui_signal_store_t canonical;
+#endif
 static md_vehicle_status_t status;
 static atomic_uint visible, background;
 static atomic_bool scan;

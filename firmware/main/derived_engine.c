@@ -118,6 +118,11 @@ bool md_analytics_config_valid(const md_analytics_config_t *c) {
     return false;
   for (unsigned i = 0; i < MD_ANALYTICS_RULES; i++) {
     const md_analytics_rule_t *r = &c->rules[i];
+    /* Named event types keep their physical direction. Generic UI warning
+     * rules can still choose either direction; trim episodes are generic too. */
+    if(i<7 && r->low!=(i==1 || i==5 || i==6))return false;
+    if(r->enabled && ((i==0 && r->threshold<0) ||
+                     ((i==1 || i==6) && r->threshold>0)))return false;
     if (!isfinite(r->threshold) || !isfinite(r->hysteresis) ||
         fabs(r->threshold) > 1e6 || r->hysteresis < 0 || r->hysteresis > 1e6 ||
         r->debounce_ms > 60000 || r->cooldown_ms < 100 ||
@@ -292,15 +297,24 @@ void md_derived_can_error(md_derived_engine_t *e, const md_ui_signal_store_t *s,
   }
 }
 static void count_add(md_count_bucket_t *b, uint32_t now, uint64_t n) {
-  unsigned i = (now / 1000) % 61;
-  if (!b[i].used || b[i].second != now / 1000)
-    b[i] = (md_count_bucket_t){.second = now / 1000, .used = true};
+  /* Absolute seconds restart at the 32-bit millis rollover. Using second%61
+   * would overwrite still-fresh buckets. Select the matching or oldest bucket. */
+  uint32_t start=now-now%1000, oldest_age=0;
+  unsigned i=0;
+  for(unsigned k=0;k<61;k++) {
+    if(b[k].used && b[k].start_ms==start) { i=k;break; }
+    if(!b[k].used) { i=k;break; }
+    uint32_t age=now-b[k].start_ms;
+    if(age>=oldest_age) { oldest_age=age;i=k; }
+  }
+  if (!b[i].used || b[i].start_ms != start)
+    b[i] = (md_count_bucket_t){.start_ms = start, .used = true};
   b[i].count += n;
 }
 static uint64_t count_window(const md_count_bucket_t *b, uint32_t now) {
   uint64_t n = 0;
   for (unsigned i = 0; i < 61; i++)
-    if (b[i].used && (uint32_t)(now - b[i].second * 1000U) < 60000)
+    if (b[i].used && (uint32_t)(now - b[i].start_ms) < 60000)
       n += b[i].count;
   return n;
 }
@@ -682,7 +696,9 @@ static void evaluate(md_derived_engine_t *e, md_ui_signal_store_t *s,
     state = MD_UI_SIGNAL_ERROR;
   if (state == MD_UI_SIGNAL_VALID && !compute(e, n, s, now, v, &out))
     state = MD_UI_SIGNAL_UNAVAILABLE;
-  md_ui_signal_store_publish_id(s, n->signal, out, state, stamp, ttl, false);
+  bool demo=false;
+  for(unsigned i=0;i<n->dependency_count;i++)demo|=s->signals[n->dependencies[i]].demo;
+  md_ui_signal_store_publish_id(s, n->signal, out, state, stamp, ttl, demo);
   int k = slot(n->signal);
   if (k >= 0) {
     if (state == MD_UI_SIGNAL_VALID) {

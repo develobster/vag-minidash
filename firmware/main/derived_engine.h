@@ -62,7 +62,7 @@ typedef struct {
   bool seen;
 } md_counter_tracker_t;
 typedef struct {
-  uint32_t second;
+  uint32_t start_ms;
   uint64_t count;
   bool used;
 } md_count_bucket_t;

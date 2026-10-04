@@ -1474,7 +1474,7 @@ static void update_focus_gauge(field_view_t *field, const md_ui_settings_t *sett
     for(unsigned i=0;i<5;i++) {
         sample.value=low+(high-low)*i/4.0f;
         char tick[20];
-        if(field->signal_id==MD_SIGNAL_ENGINE_RPM) snprintf(tick,sizeof(tick),fabsf(roundf(sample.value/1000)-sample.value/1000)<0.01f ? "%.0f" : "%.1f",sample.value/1000);
+        if(field->signal_id==MD_SIGNAL_ENGINE_RPM) snprintf(tick,sizeof(tick),fabs(round(sample.value/1000)-sample.value/1000)<0.01f ? "%.0f" : "%.1f",sample.value/1000);
         else md_ui_format_signal(definition,&sample,settings,tick,sizeof(tick),unit,sizeof(unit));
         lv_label_set_text(field->gauge_ticks[i],tick);
         set_ui_font(field->gauge_ticks[i],&lv_font_montserrat_10,0);

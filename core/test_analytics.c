@@ -163,6 +163,10 @@ static void statistics_tests(void) {
   CHECK(md_stats_observe(&s, 2, 100));
   CHECK(s.has_rate && fabs(s.rate - 1000.0 / 201) < 0.001);
   CHECK(md_stats_window(&s, 100, 1, &r) && r.count == 2);
+  md_stats_init(&s);
+  uint32_t start=UINT32_MAX-59999;
+  for(unsigned i=0;i<=70;i++)CHECK(md_stats_observe(&s,i,start+i*1000));
+  CHECK(md_stats_window(&s,start+70000,60,&r) && r.count==60 && r.minimum==11 && r.maximum==70);
 }
 static void event_tests(void) {
   init();
@@ -271,6 +275,14 @@ static void counter_tests(void) {
   misfire(10, 0, 0, 0, 0);
   md_derived_tick(&e, &store, 0);
   CHECK(!snap(MD_SIGNAL_MISFIRE_RATE, 0).value_available);
+  for(unsigned i=0;i<4;i++)config.counter_bits[i]=16;
+  CHECK(md_derived_configure(&e,&config,UINT32_MAX-60000));
+  uint32_t start=UINT32_MAX-60000;
+  for(unsigned i=0;i<=70;i++) {
+    misfire(i,0,0,0,start+i*1000);
+    md_derived_tick(&e,&store,start+i*1000);
+  }
+  expect(MD_SIGNAL_MISFIRE_RATE,60,start+70000);
 }
 static void timer_tests(void) {
   md_performance_timer_t t;
@@ -389,6 +401,15 @@ static void config_ui_tests(void) {
   CHECK(!md_analytics_config_valid(&config));
   config.rules[0].threshold = 0;
   config.counter_bits[0] = 17;
+  CHECK(!md_analytics_config_valid(&config));
+  md_analytics_config_defaults(&config);
+  config.rules[0].low=true;
+  CHECK(!md_analytics_config_valid(&config));
+  md_analytics_config_defaults(&config);
+  config.rules[1].enabled=true;config.rules[1].threshold=1;
+  CHECK(!md_analytics_config_valid(&config));
+  md_analytics_config_defaults(&config);
+  config.rules[6].enabled=true;config.rules[6].threshold=2;
   CHECK(!md_analytics_config_valid(&config));
 }
 static void bounds_tests(void) {

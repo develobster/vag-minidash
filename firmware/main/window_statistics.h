@@ -8,7 +8,7 @@
  */
 #define MD_STATS_BUCKETS 61U
 typedef struct {
-  uint32_t second, count;
+  uint32_t start_ms, count;
   float sum, minimum, maximum;
   bool used;
 } md_stat_bucket_t;
@@ -17,6 +17,7 @@ typedef struct {
   double current, previous, delta, rate, session_sum, trip_sum;
   float session_min, session_max, trip_min, trip_max;
   uint32_t stamp, previous_stamp;
+  uint32_t bucket_start_ms, bucket_sequence;
   uint64_t session_count, trip_count, above_ms, below_ms;
   bool seen, connected, has_rate;
 } md_window_statistics_t;
