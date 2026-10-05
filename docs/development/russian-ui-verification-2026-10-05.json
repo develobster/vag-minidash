@@ -1,0 +1,102 @@
+{
+  "date": "2026-10-05",
+  "branch": "integration/standalone",
+  "translation_commit": "481160582f787ce610e99386fd16c22f115b1ced",
+  "firmware_source_commit": "e4bb06c58295656dfdaa8fa11b0535446ef807a5",
+  "firmware_version": "e4bb06c",
+  "preset": "sdkconfig.car-validation-listen",
+  "firmware": {
+    "bytes": 1845536,
+    "sha256": "b502e6bb53a75b02126580f5631e59f71d90879454e9564396d018077bb3de48",
+    "sdkconfig_normalized_sha256": "96096d26cf71dc15ad48578f0015e6d3d2a86fd892198521393b5cd7f8c7cd94",
+    "build_warnings": 0,
+    "flags": {
+      "can": true,
+      "validation": true,
+      "standard_obd": false,
+      "host_injection": false,
+      "tx_gpio": 15,
+      "rx_gpio": 5
+    },
+    "static_internal_bytes": 180128,
+    "diram_remaining_bytes": 67033,
+    "ui_snapshot_heap_bytes": 2952
+  },
+  "tests": {
+    "native_ctest": {
+      "passed": 8,
+      "failed": 0
+    },
+    "asan_ubsan_ctest": {
+      "passed": 8,
+      "failed": 0,
+      "leak_sanitizer": false
+    },
+    "device_web_logic": "PASS",
+    "device_ui": {
+      "passed": 27,
+      "failed": 0
+    },
+    "device_lvgl_view": "PASS"
+  },
+  "board": {
+    "chip": "ESP32-S3",
+    "revision": "0.2",
+    "flash_bytes": 16777216,
+    "psram_bytes": 8388608,
+    "port": "COM5",
+    "usb_only": true,
+    "app_address": "0x10000",
+    "write_flash": "PASS",
+    "verify_flash": "digest matched",
+    "backup_bytes": 16777216,
+    "backup_sha256": "e6b06964d8273d4c9dcc22c4d099998198f736a9206c29ae7da805a406a01630",
+    "protected_flash": {
+      "bytes_compared": 65536,
+      "unchanged": true,
+      "sha256": "126adde8ef3e9c17ce85f8bb6aab0789ac0a7f442f421dbdfa6951ee22db53b1"
+    },
+    "settings": {
+      "firmware_commit": "e4bb06c",
+      "configuration_schema_before": 3,
+      "configuration_schema_after": 4,
+      "language": 1,
+      "prior_common_fields_preserved": true,
+      "platform_preserved": true,
+      "reboot_persistence": true,
+      "display_initialized": true,
+      "touch_initialized": true,
+      "calibration_loaded": true,
+      "ui_test_summary": "MINIDASH_UI_TEST_SUMMARY pass=27 fail=0",
+      "view_test": true
+    },
+    "idle": {
+      "observed_seconds": 60.0,
+      "status_responses": 3,
+      "panic_or_watchdog": false,
+      "vehicle_connected": false
+    }
+  },
+  "stack_usage": {
+    "compiler": "xtensa-esp-elf 14.2.0_20260121",
+    "ui_task_before": 4384,
+    "ui_task_after": 1440,
+    "diagnostics_snapshot_before": 5840,
+    "diagnostics_snapshot_after": 2896,
+    "task_stack_bytes": 8192,
+    "measured_task_watermark": null
+  },
+  "limitations": {
+    "vehicle_connected": false,
+    "physical_can_measured": false,
+    "visual_screen_inspection": false,
+    "physical_touch_test": false,
+    "full_python_suite_rerun": false,
+    "full_host_browser_suite_rerun": false
+  },
+  "initial_failed_image": {
+    "version": "4811605",
+    "failure": "ui_controller stack overflow",
+    "nvs_unchanged": true
+  }
+}
