@@ -171,8 +171,21 @@ reset the repository or erase hardware to address an evidence gap.
 
 ## Git delivery
 
-The consolidation merge retains both parent histories. Final commit/remote
-verification is reported after all gates complete; the integration worktree must
-be clean. Original dirty worktrees/stash/private artifacts remain preserved and
-are not included merely to clean their status. Repository `AGENTS.md` now directs
-subsequent tasks to this one development branch.
+Implementation merge:
+[`091bb4446beaf8a401dc862e2b71607dd040dad8`](https://github.com/develobster/vag-minidash/commit/091bb4446beaf8a401dc862e2b71607dd040dad8).
+Its parents are `751d2f8417a6e8dd54a6c6fffff4e522f80db49f` and
+`bdd5f7a2067ffb126c4037020f703ea809037594`; both histories are retained.
+
+The merge was pushed to `origin/integration/standalone`; a separate remote query
+confirmed the same SHA. All 12 original remote heads remained unchanged and are
+ancestors of the integration tip. The remote default still points to `main` at
+`de7f071a2d7e574970614527d4397a274fa46813`. The integration checkout was clean and
+its upstream was set to `origin/integration/standalone` at verification.
+
+The following documentation commit records this verified implementation merge.
+The tested firmware/native source hashes are checked against the committed tree;
+the final branch tip is reported in the delivery message and can be checked with
+`git rev-parse HEAD` and `git ls-remote origin refs/heads/integration/standalone`.
+Original dirty worktrees, the stash and private artifacts remain preserved in
+their original locations. Repository `AGENTS.md` directs subsequent development
+to this one integration branch.

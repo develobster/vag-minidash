@@ -3,6 +3,22 @@
   "date": "2026-10-05",
   "status": "PASS",
   "branch": "integration/standalone",
+  "git_delivery": {
+    "verified_implementation_merge": "091bb4446beaf8a401dc862e2b71607dd040dad8",
+    "merge_parents": [
+      "751d2f8417a6e8dd54a6c6fffff4e522f80db49f",
+      "bdd5f7a2067ffb126c4037020f703ea809037594"
+    ],
+    "verified_remote_ref": "refs/heads/integration/standalone",
+    "verified_remote_sha": "091bb4446beaf8a401dc862e2b71607dd040dad8",
+    "upstream": "origin/integration/standalone",
+    "unchanged_original_remote_heads": 12,
+    "all_original_remote_heads_are_ancestors": true,
+    "remote_default_branch": "main",
+    "remote_default_sha": "de7f071a2d7e574970614527d4397a274fa46813",
+    "integration_worktree_clean_at_implementation_verification": true,
+    "delivery_stamp": "Documentation commit records this verified implementation merge; final branch tip is separately verified and reported."
+  },
   "selected_baseline": "751d2f8417a6e8dd54a6c6fffff4e522f80db49f",
   "normal_merge_second_parent": "bdd5f7a2067ffb126c4037020f703ea809037594",
   "audited_old_remote_heads": 12,
