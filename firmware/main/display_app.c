@@ -418,7 +418,8 @@ static bool effective_day_mode(const md_ui_settings_t *settings)
     return settings->day_night == MD_UI_DAY_NIGHT_DAY;
 }
 
-static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms)
+static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms,
+                                                const md_ui_signal_store_t *signals)
 {
     md_ui_diagnostics_t diagnostics = {0};
     const esp_app_desc_t *app = esp_app_get_description();
@@ -450,11 +451,7 @@ static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms)
                         &diagnostics.average_render_ms,
                         &diagnostics.render_metrics_available);
 
-    md_ui_signal_store_t snapshot;
-    portENTER_CRITICAL(&s_signal_mux);
-    snapshot = s_signal_store;
-    portEXIT_CRITICAL(&s_signal_mux);
-    diagnostics.signal_summary = md_ui_signal_summary(&snapshot, now_ms);
+    diagnostics.signal_summary = md_ui_signal_summary(signals, now_ms);
     return diagnostics;
 }
 
@@ -948,8 +945,15 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
     /* platform.rotation is now relative to the verified board orientation. */
     s_saved_configuration=s_configuration; s_config_revision=1; s_config_ready=true;
     (void)md_configuration_to_legacy(&s_configuration,&settings);
+    /* The 92-signal snapshot must not share the 8 KiB controller stack with
+     * settings migration and nested rendering. Allocate once, never per frame. */
     md_device_configuration_t *visible_config=malloc(sizeof(*visible_config));
-    if (!visible_config) { vTaskDelete(NULL); return; }
+    md_ui_signal_store_t *signals=malloc(sizeof(*signals));
+    if (!visible_config || !signals) {
+        free(visible_config); free(signals);
+        ESP_LOGE(TAG, "UI snapshot allocation failed");
+        vTaskDelete(NULL); return;
+    }
     *visible_config=s_configuration; uint32_t seen_revision=s_config_revision;
     uint8_t applied_brightness = settings.brightness_pct;
     md_ui_state_t state;
@@ -963,6 +967,7 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
     md_display_orientation_t orientation;
     if (!md_display_orientation_select(&profile, &orientation)) {
         ESP_LOGE(TAG, "Unsupported display orientation");
+        free(visible_config); free(signals);
         vTaskDelete(NULL);
         return;
     }
@@ -973,6 +978,7 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
     lvgl_config.task_stack_caps = MALLOC_CAP_INTERNAL | MALLOC_CAP_DEFAULT;
     if (lvgl_port_init(&lvgl_config) != ESP_OK) {
         ESP_LOGE(TAG, "LVGL port initialization failed");
+        free(visible_config); free(signals);
         vTaskDelete(NULL);
         return;
     }
@@ -995,11 +1001,13 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
     s_lv_display = lv_display;
     if (!lv_display) {
         ESP_LOGE(TAG, "Could not attach LCD to LVGL");
+        free(visible_config); free(signals);
         vTaskDelete(NULL);
         return;
     }
     if (!lvgl_port_lock(0)) {
         ESP_LOGE(TAG, "Could not acquire LVGL during initial screen creation");
+        free(visible_config); free(signals);
         vTaskDelete(NULL);
         return;
     }
@@ -1019,6 +1027,7 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
     lvgl_port_unlock();
     if (!screens_ready) {
         ESP_LOGE(TAG, "Could not create LVGL screens");
+        free(visible_config); free(signals);
         vTaskDelete(NULL);
         return;
     }
@@ -1108,13 +1117,12 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
         last_update = now_ticks;
         if (state.sleeping || !lvgl_port_lock(20)) continue;
 
-        md_ui_signal_store_t signals;
         portENTER_CRITICAL(&s_signal_mux);
-        signals = s_signal_store;
+        *signals = s_signal_store;
         portEXIT_CRITICAL(&s_signal_mux);
         const uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000);
-        const md_ui_diagnostics_t diagnostics = diagnostics_snapshot(now_ms);
-        md_ui_lvgl_renderer()->update(NULL,state.screen, &settings, &state, &signals,
+        const md_ui_diagnostics_t diagnostics = diagnostics_snapshot(now_ms,signals);
+        md_ui_lvgl_renderer()->update(NULL,state.screen, &settings, &state, signals,
                              now_ms, &diagnostics);
         lvgl_port_unlock();
     }
