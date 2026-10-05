@@ -39,6 +39,13 @@
 #define UI_EVENT_QUEUE_LENGTH 16U
 #define UI_TOUCH_SAMPLE_PERIOD_MS 25U
 
+/* Headless builds retain the public display API, but never start these tasks. */
+#if CONFIG_MINIDASH_DISPLAY_ENABLE
+#define MD_DISPLAY_TASK_UNUSED
+#else
+#define MD_DISPLAY_TASK_UNUSED __attribute__((unused))
+#endif
+
 typedef enum {
     UI_EVENT_SET_BRIGHTNESS = 7,
     UI_EVENT_INSTRUMENT_PROFILE = 8,
@@ -219,7 +226,7 @@ static void render_metrics_read(uint32_t *renders_per_second,
     portEXIT_CRITICAL(&s_perf_mux);
 }
 
-static void settings_storage_task(void *argument)
+static void MD_DISPLAY_TASK_UNUSED settings_storage_task(void *argument)
 {
     (void)argument;
     uint32_t pending;
@@ -909,7 +916,7 @@ static void startup_effect(md_display_manager_t *display, lv_display_t *lv_displ
              (unsigned long)((esp_timer_get_time()-started)/1000),applied);
 }
 
-static void ui_task(void *argument)
+static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
 {
     (void)argument;
     md_display_manager_t display = {0};

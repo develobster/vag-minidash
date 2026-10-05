@@ -1,6 +1,28 @@
 # Current architecture
 
-Updated 2026-10-04. Production runs on ESP32: transceiver/TWAI → native
+Updated 2026-10-05. Development baseline: `integration/standalone`.
+CAR → OBD-II connector → protected MiniDash hardware → ESP32-S3 → CAN/TWAI
+→ ISO-TP → UDS / OBD-II → acquisition → canonical signals → Derived Metrics /
+Engine Analytics → bounded history/statistics/events → UI/display.
+
+PC, Python, VNCI, ODIS, J2534, phone, Raspberry Pi, external OBD dongle and host
+Web Configurator are unnecessary after flashing. They remain optional development,
+research, replay, diagnostics, flashing and evidence-validation tools.
+
+Car Validation Mode uses the same acquisition and canonical bridge. The passive
+preset never leaves hardware listen-only. The active preset collects four standard
+sources with a 250 ms application-request floor, retaining read/identity/length
+gates. Fixed raw/exchange rings feed a locked snapshot and GET-only
+`/api/validation` on the existing temporary local AP; export cannot trigger CAN
+traffic. Manufacturer profiles remain NULL. Phone/collector absence does not
+change acquisition or display. See [mode and limits](../validation/car-validation-mode.md).
+
+The recovered mobile host Web Configurator consumes the host's arbitrated
+canonical snapshot; its settings/recordings remain host files. No MCU settings
+synchronization or ECU writes are added. Device acquisition/replay/analytics
+continue to share firmware sources; historical simulators stay research tools.
+
+Production runs on ESP32: transceiver/TWAI → native
 ISO-TP/OBD and evidence-gated UDS/passive → per-source samples/TTL/arbitration
 → canonical SignalStore → DerivedSignalEngine → windows/events/session/trip
 → canonical publication → physical UI. UI demand controls

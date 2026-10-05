@@ -1,6 +1,11 @@
 # Developer entry and repeatable acceptance
 
-Current branch: `feature/engine-analytics`, integration merge `6ae2ed4` preserves
+Current branch: **`integration/standalone`**. See the
+[branch map](development/branch-consolidation.md),
+[delivery / regression](development/standalone-consolidation-2026-10-05.md),
+[host configurator](web-configurator.md), and
+[Car Validation Mode](validation/car-validation-mode.md).
+The inherited merge `6ae2ed4` preserves
 standalone `ab1c09c` and diverged real-car/UI `bf7e8ba`. See the
 [analytics delivery](research/engine-analytics-delivery-2026-10-04.md) and
 [branch audit](research/analytics-integration-2026-10-04.md). Older dated sections
@@ -35,11 +40,10 @@ below record the preceding wiring. See [backlight implementation and acceptance]
 
 
 Work in the existing repository/worktree. Read `AGENTS.md` and `git status`
-before editing. Use a feature branch; preserve other worktree changes. The
-integration base is `22a346b`, selected by ancestry and content, not timestamp.
-The intended consolidation branch is `feature/repository-consolidation`.
-See the [task report](research/repository-consolidation-2026-09-30.md) for actual
-branch/permission state; do not assume a proposal has been committed/pushed.
+before editing. Continue on `integration/standalone`; preserve other worktree
+changes. The proven base is `751d2f8` plus the seven local Web Configurator commits
+ending at `bdd5f7a`, combined by normal merge. Older consolidation reports retain
+their historical branch state; they are not the current development baseline.
 
 ## Repository map
 
@@ -49,7 +53,8 @@ branch/permission state; do not assume a proposal has been committed/pushed.
 | `data/ecu_profiles`, `data/vehicles`, `data/external` | Reviewed identity/vehicle/provider knowledge and candidate provenance |
 | `profiles/` | Existing legacy and diagnostic profile formats; not interchangeable with all registry files |
 | `firmware/` | ESP-IDF ESP32-S3 application; `main/` includes model, renderer, web page and hardware adapters |
-| `firmware/main/webui.html`, `ui_web.c` | Device-served local editor; no separate Node product/build/package |
+| `firmware/main/webui.html`, `ui_web.c` | Device-served local editor and validation evidence API |
+| `minidash_live/web/`, `package.json` | Mobile host configurator; Node is development/test tooling only |
 | `core/` | Native CMake tests against physical shared firmware sources; JSON is optional in CMake but required by full editor acceptance |
 | `tests/`, `tests/fixtures/` | Python contracts, VirtualBus/ISO-TP/DBC integration, reviewed synthetic fixtures |
 | `tools/` | Existing bring-up/VCI scripts and offline acceptance runner |
@@ -58,8 +63,8 @@ branch/permission state; do not assume a proposal has been committed/pushed.
 | `docs/`, `artifacts/` | Versioned docs versus local private artifacts; see policy |
 
 Sources are not moved. Imports, includes, CMake source paths, IDF assets and APIs
-remain stable. No standalone Web project, dependency upgrade, partition change,
-hardware flash or new diagnostic write service is introduced.
+remain stable. Host settings schema v2 is independent of firmware schema 4.
+Offline acceptance neither flashes hardware nor performs vehicle operations.
 
 ## Python and offline CLI
 
@@ -126,7 +131,7 @@ cmake -S core -B core/build-acceptance -G Ninja "-DCMAKE_C_COMPILER=$miniDashRoo
 Adjust executable/SDK paths for the machine and retain these cache/temp variables
 when running acceptance in the shell. No compiler binary or cache is committed.
 
-The runner executes Python, rebuilds native targets, verifies all three CTest names,
+The runner executes Python, rebuilds native targets, verifies all eight CTest groups,
 generates a fresh Web fixture from `minidash-json-tests`, then runs
 `node core/test_webui.cjs`. Logs and `summary.json` go to a new directory;
 existing output is rejected. Missing optional dependencies, native build/test
@@ -267,7 +272,7 @@ NVS roundtrip and local changes preserving manual ranges.
 
 Same `firmware/main` C files compile on ESP32 and natively. No CAN/serial/VCI is
 opened by either replay verifier. Run the existing common acceptance command
-with a cJSON-enabled native build; it now also requires all seven native groups
+with a cJSON-enabled native build; it now also requires all eight native groups, including car-validation
 and runs `tools/verify_analytics.py` against `minidash-analytics-harness`.
 
 ```sh

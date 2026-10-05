@@ -1,9 +1,33 @@
 # MiniDash / vag-minidash
 
+Development baseline: **`integration/standalone`**. Continue work on this branch.
+See the [complete branch map](docs/development/branch-consolidation.md),
+[delivery / regression results](docs/development/standalone-consolidation-2026-10-05.md),
+and [Car Validation Mode / first stationary session](docs/validation/car-validation-mode.md).
+Old remote branches remain intact.
+
 Standalone automotive dashboard in development. ESP32-S3 firmware now owns
 CAN/ISO-TP/OBD acquisition, bounded derived analytics and display publishing. Python remains a
 development/research tool, not a production dependency. The autonomous path is
 offline-tested; physical-board and vehicle acceptance are still required.
+
+## Mobile Web Configurator
+
+`python -m minidash_live.configurator` → http://127.0.0.1:8765.
+Пять mobile-first страниц, canonical simulation/SSE, screens/widgets/themes,
+host logging и versioned backup. Для телефона в одной сети с ПК:
+`.\tools\Run-WebConfigurator.ps1 -Lan`. Существующий `watch` поддерживает
+`--web-port 8765`. Синхронизация этого host-инструмента с ESP32 и OTA пока
+недоступны; у прошивки есть собственный временный локальный Wi-Fi редактор.
+Возможности, API, проверки и ограничения host-инструмента:
+[web-configurator.md](docs/web-configurator.md).
+
+Device Settings / Advanced расширены schema v2, capability detection, безопасным
+Apply, защищёнными Wi-Fi credentials и diagnostic bundle:
+[device-settings.md](docs/device-settings.md).
+
+Первый дисплейный прототип ESP32-S3 (ST7789/ILI9341 backends), граница host/firmware и проверка
+проводки описаны в [display-prototype.md](docs/hardware/display-prototype.md).
 
 ## Start here
 

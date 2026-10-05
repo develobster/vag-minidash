@@ -69,7 +69,7 @@ def main(argv=None):
                 listed = False
             gates['native_test_inventory'] = dict(
                 status='PASS' if listed and
-                {'portable-core', 'configuration-json', 'standalone-acquisition', 'derived-analytics', 'analytics-acquisition-pipeline', 'instrument-profile-contract', 'backlight-driver-contract'} <= names else 'FAIL',
+                {'portable-core', 'configuration-json', 'standalone-acquisition', 'derived-analytics', 'analytics-acquisition-pipeline', 'instrument-profile-contract', 'backlight-driver-contract', 'car-validation'} <= names else 'FAIL',
                 tests=sorted(names))
             gates['ctest'] = run([args.ctest, '--test-dir', str(build),
                                   '--output-on-failure', '--no-tests=error'],
@@ -79,8 +79,10 @@ def main(argv=None):
             gates['standalone_virtualbus'] = run(
                 [sys.executable, str(ROOT / 'tools/verify_standalone.py'), '--harness', str(harness)],
                 args.output_dir, 'standalone_virtualbus')
+            analytics_harness = build / ('minidash-analytics-harness.exe' if sys.platform == 'win32'
+                                        else 'minidash-analytics-harness')
             gates['analytics_replay'] = run(
-                [sys.executable, str(ROOT/'tools/verify_analytics.py'), '--harness', str(build/'minidash-analytics-harness'),
+                [sys.executable, str(ROOT/'tools/verify_analytics.py'), '--harness', str(analytics_harness),
                  '--output', str(args.output_dir/'analytics-replay.json')], args.output_dir, 'analytics_replay')
             # Generate editor registries from the current firmware C sources,
             # rather than accepting an old manually copied browser fixture.

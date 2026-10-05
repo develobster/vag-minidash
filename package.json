@@ -1,0 +1,14 @@
+{
+  "name": "vag-minidash-configurator",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/frontend/model.test.js tests/frontend/units.test.js",
+    "test:ui": "playwright test",
+    "build": "node tools/build-web.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.0",
+    "prettier": "^3.9.9"
+  }
+}

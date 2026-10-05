@@ -70,10 +70,34 @@ bool md_acq_profile_valid(const md_vehicle_profile_t *p)
 }
 static void trace(md_acquisition_t *a, const md_can_frame_t *f, uint32_t now, bool tx)
 {
-    a->trace[a->trace_head]=(md_acq_trace_t){.frame=*f,.ms=now,.tx=tx};
+    a->trace[a->trace_head]=(md_acq_trace_t){.frame=*f,.ms=now,.sequence=++a->trace_sequence,.tx=tx};
     a->trace_head=(a->trace_head+1)%MD_ACQ_TRACE_SIZE;
     if (a->trace_count<MD_ACQ_TRACE_SIZE) a->trace_count++;
     else a->trace_overwritten++;
+}
+static void exchange(md_acquisition_t *a, uint32_t now, md_exchange_result_t result)
+{
+    if(!a->config.car_validation_mode) return;
+    md_acq_exchange_t *e=&a->exchanges[a->exchange_head];
+    memset(e,0,sizeof(*e));
+    e->sequence=++a->exchange_sequence;e->request_ms=a->request_ms;
+    e->response_ms=now;e->elapsed_ms=now-a->request_ms;
+    e->request_id=a->active_tx;e->response_id=a->active_rx;
+    e->parameter=a->active_parameter;e->service=a->service;e->result=result;
+    e->signal=MD_SIGNAL_COUNT;e->source=MD_SOURCE_COUNT;
+    e->raw_length=a->tp.used>MD_DIAG_PAYLOAD_MAX?MD_DIAG_PAYLOAD_MAX:a->tp.used;
+    memcpy(e->raw,a->tp.data,e->raw_length);
+    if(e->raw_length==3 && e->raw[0]==0x7f)e->nrc=e->raw[2];
+    if(result==MD_EXCHANGE_OK && a->active_signal<MD_SIGNAL_RAW_COUNT) {
+        e->signal=a->active_signal;
+        if(e->signal<MD_SIGNAL_RAW_COUNT) {
+            md_ui_signal_snapshot_t s=md_acq_snapshot(a,e->signal,now,&e->source);
+            e->value=s.value;e->value_available=s.state==MD_UI_SIGNAL_VALID && s.value_available;
+        }
+    }
+    a->exchange_head=(a->exchange_head+1)%MD_ACQ_EXCHANGE_SIZE;
+    if(a->exchange_count<MD_ACQ_EXCHANGE_SIZE)a->exchange_count++;
+    else a->exchange_overwritten++;
 }
 static bool send_frame(md_acquisition_t *a, const md_can_frame_t *f, uint32_t now)
 {
@@ -117,10 +141,15 @@ void md_acq_bus_available(md_acquisition_t *a, bool available, uint32_t now)
     if (a->bus_available==available) return;
     a->bus_available=available;
     if (available) md_acq_restart(a,now);
-    else { a->active=false; a->state=MD_ACQ_FAULT; invalidate(a); md_tp_reset(&a->tp); }
+    else { if(a->active)exchange(a,now,MD_EXCHANGE_BUS_FAULT);
+        a->active=false; a->state=MD_ACQ_FAULT; invalidate(a); md_tp_reset(&a->tp); }
 }
 void md_acq_set_demand(md_acquisition_t *a, uint32_t visible, uint32_t background)
 {
+    if(a->config.car_validation_mode) {
+        visible=BIT(MD_SIGNAL_VEHICLE_SPEED);
+        background=BIT(MD_SIGNAL_ENGINE_COOLANT_TEMPERATURE)|BIT(MD_SIGNAL_ECU_SUPPLY_VOLTAGE);
+    }
     /* RPM/speed maintain vehicle context even on non-telemetry pages. */
     a->visible=visible; a->background=background|BIT(MD_SIGNAL_ENGINE_RPM)|BIT(MD_SIGNAL_VEHICLE_SPEED);
     if ((visible|background)&BIT(MD_SIGNAL_ENGINE_BOOST)) {
@@ -199,8 +228,16 @@ static bool begin(md_acquisition_t *a, uint8_t service, uint16_t pid,
     f.data[0]=service==3?1:uds?3:2; f.data[1]=service;
     f.data[2]=uds?(pid>>8):(uint8_t)pid; if(uds) f.data[3]=(uint8_t)pid;
     a->service=service; a->pid=(uint8_t)pid; a->active_rx=rx; a->active_tx=tx;
-    a->did_request=uds; a->request_ms=a->progress_ms=now; a->pending_count=0;
-    md_tp_reset(&a->tp); a->active=send_frame(a,&f,now); return a->active;
+    a->did_request=uds; a->active_parameter=pid;
+    a->active_signal=MD_SIGNAL_COUNT;
+    if(a->state==MD_ACQ_RUNNING && service!=3) {
+        if(uds && a->job<p->uds_count)a->active_signal=p->uds[a->job].signal;
+        else if(service==1 && a->job<OBD_COUNT && obd[a->job].pid==pid)a->active_signal=obd[a->job].signal;
+    }
+    a->request_ms=a->progress_ms=now; a->pending_count=0;
+    md_tp_reset(&a->tp); a->active=send_frame(a,&f,now);
+    if(!a->active)exchange(a,now,MD_EXCHANGE_TX_FAILED);
+    return a->active;
 }
 static bool response_matches(const md_acquisition_t *a,const uint8_t *d,size_t n)
 {
@@ -246,6 +283,7 @@ static void complete(md_acquisition_t *a, uint32_t now)
         if (d[2]==0x78 && ++a->pending_count<=3 && !elapsed(now,a->request_ms,2000)) {
             a->progress_ms=now; md_tp_reset(&a->tp); return;
         }
+        exchange(a,now,MD_EXCHANGE_NEGATIVE);
         fail(a,now,d[2]==0x11 || d[2]==0x12 || d[2]==0x31); return;
     }
     bool ok=false;
@@ -293,8 +331,8 @@ static void complete(md_acquisition_t *a, uint32_t now)
         }
         publish(a,b->signal,MD_SOURCE_OBD,v,b->ttl_ms,now);a->failures[a->job]=0;ok=true;
     }
-    if(ok) { a->active=false;a->consecutive_failures=0;md_tp_reset(&a->tp); }
-    else { a->malformed_count++;fail(a,now,false); }
+    if(ok) { exchange(a,now,MD_EXCHANGE_OK);a->active=false;a->consecutive_failures=0;md_tp_reset(&a->tp); }
+    else { exchange(a,now,MD_EXCHANGE_MALFORMED);a->malformed_count++;fail(a,now,false); }
 }
 void md_acq_receive(md_acquisition_t *a,const md_can_frame_t *f,uint32_t now)
 {
@@ -342,9 +380,9 @@ void md_acq_receive(md_acquisition_t *a,const md_can_frame_t *f,uint32_t now)
     md_tp_result_t r=md_tp_receive(&a->tp,f,now);
     if(r==MD_TP_FLOW) {
         md_can_frame_t fc={.id=a->active_tx,.dlc=8,.data={0x30,0,10,0,0,0,0,0}};
-        if(!send_frame(a,&fc,now)) fail(a,now,false);
+        if(!send_frame(a,&fc,now)) {exchange(a,now,MD_EXCHANGE_TX_FAILED);fail(a,now,false);}
     } else if(r==MD_TP_COMPLETE) complete(a,now);
-    else if(r==MD_TP_INVALID) {a->malformed_count++;fail(a,now,false);}
+    else if(r==MD_TP_INVALID) {exchange(a,now,MD_EXCHANGE_MALFORMED);a->malformed_count++;fail(a,now,false);}
 }
 bool md_acq_request_dtc(md_acquisition_t *a,uint32_t now)
 {
@@ -367,6 +405,8 @@ void md_acq_tick(md_acquisition_t *a,uint32_t now)
     }
     if(a->active) {
         if(a->state==MD_ACQ_DISCOVERY && elapsed(now,a->request_ms,RESPONSE_MS)) {
+            /* Discovery has multiple responders; raw frames carry their addresses. */
+            exchange(a,now,a->ecu_count?MD_EXCHANGE_OK:MD_EXCHANGE_TIMEOUT);
             a->active=false;
             for(unsigned i=0;i<8;i++) if(a->responders[i] & (UINT32_C(1)<<(32-0x0c))) {
                 a->response_id=0x7e8+i; a->request_id=0x7e0+i;
@@ -376,11 +416,12 @@ void md_acq_tick(md_acquisition_t *a,uint32_t now)
             if(a->attempts>=RETRY_LIMIT) quiet(a,now);
         } else if(a->state!=MD_ACQ_DISCOVERY &&
                   (md_tp_expired(&a->tp,now) || elapsed(now,a->progress_ms,RESPONSE_MS) || elapsed(now,a->request_ms,2000))) {
-            a->timeout_count++;fail(a,now,false);
+            exchange(a,now,MD_EXCHANGE_TIMEOUT);a->timeout_count++;fail(a,now,false);
         }
         return;
     }
-    if(a->sent_any && !elapsed(now,a->last_tx_ms,REQUEST_GAP_MS)) return;
+    uint32_t gap=a->config.car_validation_mode?MD_ACQ_VALIDATION_GAP_MS:REQUEST_GAP_MS;
+    if(a->sent_any && !elapsed(now,a->last_tx_ms,gap)) return;
     if(a->state==MD_ACQ_LISTEN) {
         if(!elapsed(now,a->started_ms,a->config.startup_ms)) return;
         a->state=MD_ACQ_DISCOVERY;

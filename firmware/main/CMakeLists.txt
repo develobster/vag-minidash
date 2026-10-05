@@ -2,7 +2,7 @@ idf_component_register(
     SRCS "main.c" "backlight_controller.c" "display_manager.c" "st7789_backend.c"
          "ili9341_backend.c" "xpt2046_touch.c" "display_app.c"
          "display_serial_protocol.c" "diagnostic_transport.c" "acquisition.c" "vehicle_app.c" "ui_instrument_profiles.c"
-         "window_statistics.c" "performance_timer.c" "derived_engine.c"
+         "window_statistics.c" "performance_timer.c" "derived_engine.c" "validation_json.c"
          "ui_core.c" "ui_core_selftest.c" "ui_theme.c" "ui_startup.c" "ui_i18n.c" "ui_screens.c"
          "ui_font_ru_10.c" "ui_font_ru_12.c" "ui_font_ru_14.c" "ui_font_ru_16.c"
          "ui_font_mono_10.c" "ui_font_mono_12.c" "ui_font_mono_14.c" "ui_font_mono_16.c" "ui_font_mono_20.c" "ui_font_mono_28.c" "ui_font_mono_48.c" "ui_font_cluster_16.c" "ui_font_cluster_20.c" "ui_font_cluster_28.c" "ui_font_cluster_48.c"

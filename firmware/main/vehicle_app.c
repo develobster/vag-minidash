@@ -56,6 +56,24 @@ size_t md_vehicle_app_trace(md_acq_trace_t *out,size_t capacity)
     xSemaphoreGive(lock);return n;
 }
 
+bool md_vehicle_app_validation(md_vehicle_validation_t *out)
+{
+    if(!out || !lock || xSemaphoreTake(lock,pdMS_TO_TICKS(10))!=pdTRUE)return false;
+    memset(out,0,sizeof(*out));out->status=status;
+    out->timestamp_ms=(uint32_t)(esp_timer_get_time()/1000);
+    out->validation_mode=engine.config.car_validation_mode;
+    out->standard_obd=engine.config.allow_standard_obd;
+    out->trace_sequence=engine.trace_sequence;out->exchange_sequence=engine.exchange_sequence;
+    out->exchange_overwritten=engine.exchange_overwritten;
+    memcpy(out->supported,engine.supported,sizeof(out->supported));
+    out->trace_count=engine.trace_count;out->exchange_count=engine.exchange_count;
+    size_t first=(engine.trace_head+MD_ACQ_TRACE_SIZE-engine.trace_count)%MD_ACQ_TRACE_SIZE;
+    for(size_t i=0;i<out->trace_count;i++)out->trace[i]=engine.trace[(first+i)%MD_ACQ_TRACE_SIZE];
+    first=(engine.exchange_head+MD_ACQ_EXCHANGE_SIZE-engine.exchange_count)%MD_ACQ_EXCHANGE_SIZE;
+    for(size_t i=0;i<out->exchange_count;i++)out->exchanges[i]=engine.exchanges[(first+i)%MD_ACQ_EXCHANGE_SIZE];
+    xSemaphoreGive(lock);return true;
+}
+
 #if CONFIG_MINIDASH_CAN_ENABLE
 static twai_handle_t can;
 static bool normal_mode;
@@ -132,7 +150,11 @@ static void vehicle_task(void *unused)
     const bool allow_obd=false;
 #endif
     /* No VAG profile is shipped: existing community knowledge is not verified. */
-    const md_acq_config_t config={.allow_standard_obd=allow_obd,.startup_ms=1500,.profile=NULL};
+    const md_acq_config_t config={.allow_standard_obd=allow_obd,
+#if CONFIG_MINIDASH_CAR_VALIDATION_MODE
+        .car_validation_mode=true,
+#endif
+        .startup_ms=1500,.profile=NULL};
     xSemaphoreTake(lock,portMAX_DELAY);
     md_acq_init(&engine,&config,send_can,NULL,now_ms());
     md_ui_signal_store_init(&canonical);(void)md_derived_init(&analytics,&pending_analytics,now_ms());
@@ -191,6 +213,7 @@ static void vehicle_task(void *unused)
              * The existing 100 ms global request floor is never bypassed. */
             uint32_t stats_demand=0;
             for(unsigned id=0;id<MD_SIGNAL_RAW_COUNT;id++) stats_demand|=md_derived_raw_demand(id);
+            /* The acquisition core limits validation demand to four sources. */
             md_acq_set_demand(&engine,atomic_load(&visible)|(UINT32_C(1)<<MD_SIGNAL_VEHICLE_SPEED),atomic_load(&background)|stats_demand);
             if(!fault)md_acq_tick(&engine,now);
         }
@@ -218,6 +241,9 @@ void md_vehicle_app_prepare(void)
 {
     if(lock) return;
     lock=xSemaphoreCreateMutex();if(!lock){ESP_LOGE(TAG,"Status mutex allocation failed");return;}
+    for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) {
+        status.signals[i].state=MD_UI_SIGNAL_UNAVAILABLE;status.sources[i]=MD_SOURCE_COUNT;
+    }
     md_analytics_config_defaults(&pending_analytics);
 #if CONFIG_MINIDASH_CAN_ENABLE
     status.configured=true;status.state=MD_ACQ_LISTEN;

@@ -21,6 +21,15 @@ menu "MiniDash display and UI"
         bool "Development USB telemetry injection"
         depends on !MINIDASH_CAN_ENABLE
         default y
+    config MINIDASH_CAR_VALIDATION_MODE
+        bool "Car validation: bounded read-only polling and evidence trace"
+        depends on MINIDASH_CAN_ENABLE
+        default n
+        help
+            Preserves all read-only and identity gates. At most four application
+            requests per second; required ISO-TP flow control is separate.
+            CAN without STANDARD_OBD remains hardware listen-only, with zero TX.
+            Captures bounded raw/decoded exchanges for the local evidence API.
     config MINIDASH_DISPLAY_ENABLE
         bool "Enable MiniDash SPI display and production UI"
         default n

@@ -8,6 +8,9 @@ Dates/test counts in historical delivery reports are not current acceptance.
 
 | Topic | Documents |
 |---|---|
+| Current single development baseline | [Branch matrix](development/branch-consolidation.md), [delivery / regression / memory](development/standalone-consolidation-2026-10-05.md) |
+| Standalone car validation | [Mode, export, readiness and first stationary session](validation/car-validation-mode.md) |
+| Host mobile configurator | [Web](web-configurator.md), [settings](device-settings.md); development tool only |
 | Latest analytics pipeline / scheduling | [Fix and measured cases](research/analytics-pipeline-scheduling-2026-10-04.md), [verification](research/analytics-pipeline-verification-2026-10-04.json) |
 | Derived Analytics / full metrics / evidence | [Delivery](research/engine-analytics-delivery-2026-10-04.md), [design/provenance](research/derived-engine-design-2026-10-04.md), [branch audit](research/analytics-integration-2026-10-04.md), [verification JSON](research/engine-analytics-verification-2026-10-04.json), [car collection](validation/engine-analytics-car-evidence-2026-10-04.md) |
 | Standalone implementation / research / tests | [Current report](research/standalone-final-2026-10-03.md), [source/license matrix](research/standalone-sources-and-matrix.md), [verification JSON](research/standalone-verification-2026-10-03.json), [REAL_CAR_TEST](../REAL_CAR_TEST.md) |

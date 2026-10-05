@@ -46,7 +46,7 @@ imply a Web UI. Brightness AUTO additionally needs a verified ambient source.
 | Coding/adaptation | No implementation or configuration endpoint | No implementation |
 | Wi-Fi / Web configuration | Explicit temporary AP + HTTP editor | Not a Lite capability |
 | BLE | Bring-up tests; no configuration app protocol | Not a Lite capability |
-| Brightness | BL powered from 3.3 V; FIXED | Hardware unconfirmed |
+| Brightness | Owner-confirmed GPIO4 LEDC PWM, manually controlled and bench-tested; AUTO needs ambient input | Hardware unconfirmed |
 | Logging | Host trace facilities; no embedded recording backend | Resource/storage dependent; not implemented |
 | OLED renderer | Not applicable | Not implemented |
 

@@ -1,6 +1,14 @@
 # Current feature and evidence matrix
 
-Latest continuation: shared native CAN/OBD → Analytics integration and freshness
+Current development baseline (2026-10-05): **`integration/standalone`**, with all
+remote histories plus recovered local mobile Web Configurator/settings.
+Car Validation Mode and GET evidence export are implemented; manufacturer sources
+remain disabled. See [delivery](development/standalone-consolidation-2026-10-05.md)
+and [current standalone car procedure](validation/car-validation-mode.md).
+Older sections retain their dates/scopes. VNCI is an optional host research blocker,
+not a dependency of the first standalone device test.
+
+Previous continuation (2026-10-04): shared native CAN/OBD → Analytics integration and freshness
 rescue scheduling; seven native groups. See [pipeline follow-up](research/analytics-pipeline-scheduling-2026-10-04.md).
 
 Updated 2026-10-04: `feature/engine-analytics`, integrated standalone + newer

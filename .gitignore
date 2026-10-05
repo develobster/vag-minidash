@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 .venv/
+.venv-*/
 venv/
 transport-venv/
 
@@ -16,8 +17,14 @@ artifacts/first-live/*
 
 # Build output
 build/
+/build-*/
 /firmware/build*/
 dist/
+node_modules/
+.minidash/
+work/
+test-results/
+playwright-report/
 *.egg-info/
 
 # ESP-IDF generated local configuration

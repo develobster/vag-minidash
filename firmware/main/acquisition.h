@@ -5,6 +5,8 @@
 #define MD_ACQ_MAX_BINDINGS 16U
 #define MD_ACQ_TRACE_SIZE 96U
 #define MD_ACQ_DTC_MAX 12U
+#define MD_ACQ_EXCHANGE_SIZE 16U
+#define MD_ACQ_VALIDATION_GAP_MS 250U
 typedef enum { MD_SOURCE_PASSIVE, MD_SOURCE_UDS, MD_SOURCE_OBD, MD_SOURCE_COUNT } md_source_t;
 typedef enum { MD_ACQ_LISTEN, MD_ACQ_DISCOVERY, MD_ACQ_CAPABILITIES,
                MD_ACQ_VIN, MD_ACQ_VERIFY_ECU, MD_ACQ_RUNNING, MD_ACQ_QUIET, MD_ACQ_FAULT } md_acq_state_t;
@@ -38,11 +40,24 @@ typedef struct {
 } md_vehicle_profile_t;
 typedef struct {
     bool allow_standard_obd; /* ISO 15765-4 11-bit/500 kbit preset ONLY. */
+    bool car_validation_mode; /* Bounded evidence recording; never relaxes TX gates. */
     uint32_t startup_ms;
     const md_vehicle_profile_t *profile;
 } md_acq_config_t;
 typedef struct { double value; uint32_t updated_ms, ttl_ms; bool valid; } md_acq_sample_t;
-typedef struct { md_can_frame_t frame; uint32_t ms; bool tx; } md_acq_trace_t;
+typedef struct { md_can_frame_t frame; uint32_t ms, sequence; bool tx; } md_acq_trace_t;
+typedef enum { MD_EXCHANGE_OK, MD_EXCHANGE_TIMEOUT, MD_EXCHANGE_NEGATIVE,
+               MD_EXCHANGE_MALFORMED, MD_EXCHANGE_TX_FAILED, MD_EXCHANGE_BUS_FAULT } md_exchange_result_t;
+typedef struct {
+    uint32_t sequence, request_ms, response_ms, elapsed_ms;
+    uint16_t request_id, response_id, parameter, raw_length;
+    uint8_t service, nrc, raw[MD_DIAG_PAYLOAD_MAX];
+    md_exchange_result_t result;
+    md_ui_signal_id_t signal;
+    double value;
+    bool value_available;
+    md_source_t source;
+} md_acq_exchange_t;
 typedef bool (*md_acq_send_t)(void *context, const md_can_frame_t *frame);
 typedef struct {
     md_acq_config_t config;
@@ -68,6 +83,11 @@ typedef struct {
     uint32_t dtc_ms;
     md_acq_trace_t trace[MD_ACQ_TRACE_SIZE];
     uint16_t trace_head, trace_count;
+    uint32_t trace_sequence, exchange_sequence, exchange_overwritten;
+    md_acq_exchange_t exchanges[MD_ACQ_EXCHANGE_SIZE];
+    uint16_t exchange_head, exchange_count;
+    uint16_t active_parameter;
+    md_ui_signal_id_t active_signal;
 } md_acquisition_t;
 
 void md_acq_init(md_acquisition_t *a, const md_acq_config_t *config,

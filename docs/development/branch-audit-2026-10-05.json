@@ -1,0 +1,167 @@
+{
+  "date": "2026-10-05",
+  "baseline": "751d2f8417a6e8dd54a6c6fffff4e522f80db49f",
+  "branches": [
+    {
+      "branch": "feature/diagnostic-data-import",
+      "head": "54d0ea53875196b7c60798910b5aa98a094a91f4",
+      "baseline_only": 48,
+      "unique_commits": 0,
+      "unique_commit_list": [],
+      "ancestor": true
+    },
+    {
+      "branch": "feature/esp32-display-prototype",
+      "head": "bdd5f7a2067ffb126c4037020f703ea809037594",
+      "baseline_only": 46,
+      "unique_commits": 7,
+      "unique_commit_list": [
+        "bdd5f7a2067ffb126c4037020f703ea809037594 Document device settings contracts and add mobile visual verification",
+        "6686c6dd7b716570d1b023174e4d3fd6dedfd6f0 Reset settings sheet scroll when opening another section",
+        "93a88a0e2be6e8f1786528844250c434ba2b3ed5 Extend Device with mobile settings sheets, search, units and guarded Apply lifecycle",
+        "f72b6da283ae07ea6d6230d8bce19bf6ef06f4be Add capability-validated device settings v2 and write-only protected Wi-Fi credentials",
+        "6a63edceded087b552df67a87777f99aed135a3d Verify runtime-to-Web source selection and document configurator operation",
+        "f99e9cc0c9ecc2a989a6aa2ff60108b76fe62e65 Build mobile-first configurator with touch layout editor, themes and offline shell",
+        "3dfd240f0504b53e217f7c5f210641b353bb27e3 Add versioned host configuration, SSE telemetry and canonical recording API"
+      ],
+      "ancestor": false
+    },
+    {
+      "branch": "feature/production-ui",
+      "head": "00c6317c08b055ae0f56791ed250225c14b4301e",
+      "baseline_only": 38,
+      "unique_commits": 0,
+      "unique_commit_list": [],
+      "ancestor": true
+    },
+    {
+      "branch": "feature/real-car-validation",
+      "head": "bf7e8ba67b10d445f79971dfd481e5d5c3d776ca",
+      "baseline_only": 11,
+      "unique_commits": 0,
+      "unique_commit_list": [],
+      "ancestor": true
+    },
+    {
+      "branch": "feature/repository-consolidation",
+      "head": "3e5c6ca90ca7a9e0fa421c9b5d41e6fcda92b38a",
+      "baseline_only": 18,
+      "unique_commits": 0,
+      "unique_commit_list": [],
+      "ancestor": true
+    },
+    {
+      "branch": "feature/research-replay-reliability",
+      "head": "22a346bee87f82c12943fd7a3277ea219d698d03",
+      "baseline_only": 22,
+      "unique_commits": 0,
+      "unique_commit_list": [],
+      "ancestor": true
+    },
+    {
+      "branch": "feature/ui-ux-touch-zones",
+      "head": "6f436dd29810e384e2d51cca9f886905abd9a7bd",
+      "baseline_only": 37,
+      "unique_commits": 0,
+      "unique_commit_list": [],
+      "ancestor": true
+    },
+    {
+      "branch": "origin/feature/diagnostic-data-import",
+      "head": "54d0ea53875196b7c60798910b5aa98a094a91f4",
+      "baseline_only": 48,
+      "unique_commits": 0,
+      "unique_commit_list": [],
+      "ancestor": true
+    },
+    {
+      "branch": "origin/feature/engine-analytics",
+      "head": "751d2f8417a6e8dd54a6c6fffff4e522f80db49f",
+      "baseline_only": 0,
+      "unique_commits": 0,
+      "unique_commit_list": [],
+      "ancestor": true
+    },
+    {
+      "branch": "origin/feature/esp32-display-prototype",
+      "head": "dc16a907f3420fbbf62245ff39081a1fbeb6e580",
+      "baseline_only": 46,
+      "unique_commits": 0,
+      "unique_commit_list": [],
+      "ancestor": true
+    },
+    {
+      "branch": "origin/feature/mqb-knowledge-import",
+      "head": "0b3121dfbf5eefbd5bd0c9cc3e82a6d321969d9e",
+      "baseline_only": 41,
+      "unique_commits": 0,
+      "unique_commit_list": [],
+      "ancestor": true
+    },
+    {
+      "branch": "origin/feature/production-ui",
+      "head": "00c6317c08b055ae0f56791ed250225c14b4301e",
+      "baseline_only": 38,
+      "unique_commits": 0,
+      "unique_commit_list": [],
+      "ancestor": true
+    },
+    {
+      "branch": "origin/feature/real-car-validation",
+      "head": "bf7e8ba67b10d445f79971dfd481e5d5c3d776ca",
+      "baseline_only": 11,
+      "unique_commits": 0,
+      "unique_commit_list": [],
+      "ancestor": true
+    },
+    {
+      "branch": "origin/feature/repository-consolidation",
+      "head": "3e5c6ca90ca7a9e0fa421c9b5d41e6fcda92b38a",
+      "baseline_only": 18,
+      "unique_commits": 0,
+      "unique_commit_list": [],
+      "ancestor": true
+    },
+    {
+      "branch": "origin/feature/research-replay-reliability",
+      "head": "22a346bee87f82c12943fd7a3277ea219d698d03",
+      "baseline_only": 22,
+      "unique_commits": 0,
+      "unique_commit_list": [],
+      "ancestor": true
+    },
+    {
+      "branch": "origin/feature/standalone-acquisition",
+      "head": "ab1c09cc9ba945ea57429a32b8379562f746fdf9",
+      "baseline_only": 14,
+      "unique_commits": 0,
+      "unique_commit_list": [],
+      "ancestor": true
+    },
+    {
+      "branch": "origin/feature/ui-ux-touch-zones",
+      "head": "6f436dd29810e384e2d51cca9f886905abd9a7bd",
+      "baseline_only": 37,
+      "unique_commits": 0,
+      "unique_commit_list": [],
+      "ancestor": true
+    },
+    {
+      "branch": "origin/main",
+      "head": "de7f071a2d7e574970614527d4397a274fa46813",
+      "baseline_only": 54,
+      "unique_commits": 0,
+      "unique_commit_list": [],
+      "ancestor": true
+    },
+    {
+      "branch": "origin/runtime/session-scheduler",
+      "head": "e62ca59bf2bafec96797d68632b3c0f1c0810515",
+      "baseline_only": 53,
+      "unique_commits": 0,
+      "unique_commit_list": [],
+      "ancestor": true
+    }
+  ],
+  "remote_default": "main"
+}

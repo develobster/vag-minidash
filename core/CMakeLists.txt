@@ -46,6 +46,11 @@ if(BUILD_TESTING)
     add_test(NAME backlight-driver-contract COMMAND minidash-backlight-tests)
     set(MD_JSON_SOURCE_DIR "" CACHE PATH "Optional cJSON source directory for editor contract tests")
     if(MD_JSON_SOURCE_DIR)
+        add_executable(minidash-validation-tests test_validation.c
+            ${MD_CORE_DIR}/validation_json.c ${MD_JSON_SOURCE_DIR}/cJSON.c)
+        target_include_directories(minidash-validation-tests PRIVATE ${MD_JSON_SOURCE_DIR})
+        target_link_libraries(minidash-validation-tests PRIVATE minidash-core)
+        add_test(NAME car-validation COMMAND minidash-validation-tests)
         add_executable(minidash-json-tests test_json.c
             ${MD_CORE_DIR}/ui_configuration_json.c ${MD_JSON_SOURCE_DIR}/cJSON.c)
         target_include_directories(minidash-json-tests PRIVATE ${MD_JSON_SOURCE_DIR})

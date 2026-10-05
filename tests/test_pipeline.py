@@ -8,7 +8,7 @@ import unittest
 import uuid
 from contextlib import redirect_stdout
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from minidash_live.__main__ import main
 from minidash_live.dbc import load_cantools_database
@@ -147,11 +147,11 @@ class PipelineIntegrationTests(unittest.TestCase):
             "probes": self.probes, "client_options": self.options,
         }])
 
-    def runtime(self):
+    def runtime(self, clock=time.monotonic):
         snapshot = self.discover()
         discovered = snapshot.ecus[0]
         registry = fixture_registry(discovered.identity)
-        availability = SourceAvailability(registry.definitions)
+        availability = SourceAvailability(registry.definitions, clock=clock)
         ecus = {"engine": discovered.identity}
         planner = AcquisitionPlanner(registry, snapshot.vehicle, ecus, availability)
         plan = planner.build(("engine.rpm", "engine.coolant_temperature"))
@@ -160,7 +160,7 @@ class PipelineIntegrationTests(unittest.TestCase):
         session = EcuSession(self.factory, verify=verify, client_options=self.options)
         database = load_cantools_database(ROOT / "tests/fixtures/minimal.dbc")
         engine = RuntimeEngine(plan, planner, {"engine": session}, {"fixture": database},
-                               cooldown=.001)
+                               cooldown=.001, clock=clock)
         return snapshot, registry, plan, session, engine
 
     def test_discover_cli_uses_transport_and_writes_snapshot(self):
@@ -195,7 +195,8 @@ class PipelineIntegrationTests(unittest.TestCase):
 
     def test_virtual_bus_end_to_end_and_can_to_uds_fallback(self):
         import can
-        snapshot, registry, plan, session, engine = self.runtime()
+        virtual_now = [0.0]
+        snapshot, registry, plan, session, engine = self.runtime(clock=lambda: virtual_now[0])
         try:
             self.assertEqual(snapshot.vehicle.vin, "TESTVIN0000000001")
             self.assertEqual(snapshot.ecus[0].identity.asam_id, "EV_TEST_ENGINE")
@@ -205,6 +206,7 @@ class PipelineIntegrationTests(unittest.TestCase):
 
             deadline = time.monotonic() + 2
             while time.monotonic() < deadline:
+                virtual_now[0] += .005
                 engine.step()
                 rows = engine.store.snapshot()
                 if {row["signal"] for row in rows if row["source"] == "uds" and
@@ -232,9 +234,11 @@ class PipelineIntegrationTests(unittest.TestCase):
             self.assertTrue(any(not job.enabled for job in plan.jobs
                                 if job.signal == "engine.rpm"))
 
-            time.sleep(.12)
+            # TTL is a data contract, independent of CPU scheduling during builds.
+            virtual_now[0] += .12
             deadline = time.monotonic() + 2
             while time.monotonic() < deadline:
+                virtual_now[0] += .005
                 engine.step()
                 selected = engine.snapshot()["decisions"]["engine.rpm"]["selected"]
                 if selected and selected["source"] == "uds":
@@ -290,6 +294,7 @@ class PipelineIntegrationTests(unittest.TestCase):
 class FingerprintTests(unittest.TestCase):
     def test_watch_duration_starts_after_catalog_setup(self):
         now = [0.0]
+        bridge, web_state, server = Mock(error=None), Mock(), Mock()
         def slow_catalog(*args, **kwargs):
             now[0] += 1.0  # More setup time than the requested acquisition duration.
             return []
@@ -304,12 +309,22 @@ class FingerprintTests(unittest.TestCase):
             output = io.StringIO()
             with redirect_stdout(output), \
                     patch('minidash_live.__main__.signal_catalog', side_effect=slow_catalog), \
+                    patch('minidash_live.__main__.open_serial_display_bridge', return_value=bridge), \
+                    patch('minidash_live.__main__.State', return_value=web_state), \
+                    patch('minidash_live.__main__.serve', return_value=(server, Mock())), \
                     patch('minidash_live.__main__.time.monotonic', side_effect=lambda: now[0]), \
                     patch('minidash_live.__main__.time.sleep', side_effect=sleep):
                 self.assertEqual(main(['watch', '--config', str(root / 'config.json'),
                     '--identity-snapshot', str(root / 'identity.json'),
+                    '--display-port', 'fixture', '--web-port', '0',
                     '--duration', '.02', '--interval', '.01', 'engine.rpm']), 0)
             self.assertIn('engine.rpm: unavailable', output.getvalue())
+            bridge.publish.assert_called()
+            web_state.update_runtime.assert_called()
+            self.assertEqual(bridge.publish.call_args.args[0], web_state.update_runtime.call_args.args[0])
+            bridge.close.assert_called_once()
+            server.shutdown.assert_called_once()
+            server.server_close.assert_called_once()
 
     def test_fingerprint_is_deterministic_and_omits_missing_fields(self):
         first = EcuIdentity(logical_role="engine", asam_id="EV_X", software_version="1")

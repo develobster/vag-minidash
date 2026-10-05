@@ -1,6 +1,8 @@
 #include "ui_web.h"
 #include "display_app.h"
 #include "vehicle_app.h"
+#include "validation_json.h"
+#include "esp_app_desc.h"
 #include "ui_configuration_nvs.h"
 #include "ui_touch_nvs.h"
 #include "sdkconfig.h"
@@ -55,6 +57,13 @@ static esp_err_t get_handler(httpd_req_t *req)
     cJSON *root = NULL;
     if (!strcmp(req->uri,"/api/session")) {
         root = cJSON_CreateObject(); cJSON_AddStringToObject(root,"token",s_token);
+    } else if (!strcmp(req->uri,"/api/validation")) {
+        md_vehicle_validation_t *snapshot=malloc(sizeof(*snapshot));
+        if(!snapshot || !md_vehicle_app_validation(snapshot)) {
+            free(snapshot);return httpd_resp_send_err(req,HTTPD_500_INTERNAL_SERVER_ERROR,"vehicle snapshot unavailable");
+        }
+        root=md_validation_json(snapshot,esp_app_get_description()->version,(uint64_t)esp_timer_get_time()/1000);
+        free(snapshot);
     } else if (!strcmp(req->uri,"/api/presets")) {
         root=md_analytics_presets_json();
     } else if (!strcmp(req->uri,"/api/analytics")) {
@@ -201,11 +210,11 @@ static void web_task(void *argument)
         esp_wifi_set_config(WIFI_IF_AP,&wifi)!=ESP_OK || esp_wifi_start()!=ESP_OK) goto cleanup;
     wifi_started=true;
     httpd_config_t server=HTTPD_DEFAULT_CONFIG(); server.task_priority=2;
-    server.stack_size=12288; server.max_open_sockets=3; server.max_uri_handlers=15; server.lru_purge_enable=true;
+    server.stack_size=12288; server.max_open_sockets=3; server.max_uri_handlers=16; server.lru_purge_enable=true;
     server.recv_wait_timeout=3; server.send_wait_timeout=3;
     if (httpd_start(&s_server,&server)!=ESP_OK) goto cleanup;
-    static const char *const gets[]={"/","/api/session","/api/config","/api/signals","/api/device","/api/layouts","/api/themes","/api/defaults","/api/presets","/api/analytics"};
-    for (unsigned i=0;i<10;++i) {
+    static const char *const gets[]={"/","/api/session","/api/config","/api/signals","/api/device","/api/layouts","/api/themes","/api/defaults","/api/presets","/api/analytics","/api/validation"};
+    for (unsigned i=0;i<sizeof(gets)/sizeof(gets[0]);++i) {
         httpd_uri_t uri={.uri=gets[i],.method=HTTP_GET,.handler=get_handler};
         if (httpd_register_uri_handler(s_server,&uri)!=ESP_OK) goto cleanup;
     }

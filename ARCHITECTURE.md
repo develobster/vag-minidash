@@ -1,4 +1,7 @@
-> Historical design/lab note retained for context. Current implementation and evidence:
+> Current production: CAR → OBD-II → MiniDash / ESP32-S3 → CAN → ISO-TP →
+> UDS/OBD-II → acquisition → canonical → analytics → history/events → UI.
+> `integration/standalone` is the development baseline, with no external runtime.
+> The design/lab note below is historical. Current implementation and evidence:
 > [status](docs/status.md), [architecture](docs/architecture/overview.md),
 > [development](docs/development.md). Plans/simulator features below
 > are not proof of live device or vehicle support.

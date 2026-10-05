@@ -37,8 +37,10 @@ bool md_backlight_init(void)
         (pin >= 19 && pin <= 20) || (pin >= 26 && pin <= 37) || pin >= 39 ||
         pin == CONFIG_MINIDASH_LCD_PIN_SCLK || pin == CONFIG_MINIDASH_LCD_PIN_MOSI ||
         pin == CONFIG_MINIDASH_LCD_PIN_MISO || pin == CONFIG_MINIDASH_LCD_PIN_CS ||
-        pin == CONFIG_MINIDASH_LCD_PIN_DC || pin == CONFIG_MINIDASH_LCD_PIN_RST ||
-        (CONFIG_MINIDASH_TOUCH_ENABLE && pin == CONFIG_MINIDASH_TOUCH_PIN_CS)) return false;
+        pin == CONFIG_MINIDASH_LCD_PIN_DC || pin == CONFIG_MINIDASH_LCD_PIN_RST) return false;
+#if CONFIG_MINIDASH_TOUCH_ENABLE
+    if (pin == CONFIG_MINIDASH_TOUCH_PIN_CS) return false;
+#endif
     const uint32_t off = !CONFIG_MINIDASH_LCD_BL_ACTIVE_HIGH;
     /* Preload latch before enabling output; stay dark until UI restores NVS. */
     if (gpio_set_level(pin, off) != ESP_OK) return false;

@@ -36,7 +36,7 @@ Settings uses a different interaction pattern because changing a value is a sepa
 
 ## Calibration and physical constraints
 
-The fitted controller is the marked XPT2046. Full-screen gestures work without coordinates, but location-based controls require a raw-X/Y to logical-screen affine calibration. The on-device wizard uses multiple targets, rejects degenerate/noisy fits, stores a versioned record with panel geometry and CRC in NVS, and can be reopened from Settings. Uncalibrated units retain the prior gesture route so the wizard is reachable without a PC. The known backlight LED is tied to 3.3 V; the brightness setting remains fixed until a confirmed low-current control input or external LED driver is installed. No GPIO drives the LED load directly.
+The fitted controller is the marked XPT2046. Full-screen gestures work without coordinates, but location-based controls require a raw-X/Y to logical-screen affine calibration. The on-device wizard uses multiple targets, rejects degenerate/noisy fits, stores a versioned record with panel geometry and CRC in NVS, and can be reopened from Settings. Uncalibrated units retain the prior gesture route so the wizard is reachable without a PC. Manual brightness uses owner-confirmed GPIO4 LEDC PWM with saved settings and recorded bench acceptance. AUTO still needs an evidenced ambient source. Electrical load/PWM/temperature acceptance for permanent installation remains separate; see [backlight evidence](../hardware/backlight-pwm-2026-09-30.md).
 
 ## Acceptance on the real panel
 
