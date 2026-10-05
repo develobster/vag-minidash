@@ -1,26 +1,33 @@
-# Current architecture
+# Актуальная архитектура
 
-Updated 2026-10-05. Development baseline: `integration/standalone`.
-CAR → OBD-II connector → protected MiniDash hardware → ESP32-S3 → CAN/TWAI
-→ ISO-TP → UDS / OBD-II → acquisition → canonical signals → Derived Metrics /
-Engine Analytics → bounded history/statistics/events → UI/display.
+Обновлено 2026-10-05. База разработки: `integration/standalone`.
+Автомобиль → разъём OBD-II → защищённое оборудование MiniDash → ESP32-S3
+→ CAN/TWAI → ISO-TP → UDS/OBD-II → сбор → канонические сигналы → производные
+метрики / аналитика → ограниченные история/статистика/события → интерфейс/дисплей.
 
-PC, Python, VNCI, ODIS, J2534, phone, Raspberry Pi, external OBD dongle and host
-Web Configurator are unnecessary after flashing. They remain optional development,
-research, replay, diagnostics, flashing and evidence-validation tools.
+После прошивки ПК, Python, VNCI, ODIS, J2534, телефон, Raspberry Pi, внешний
+OBD-адаптер и конфигуратор на ПК необязательны. Они остаются инструментами
+разработки, исследований, воспроизведения, диагностики, прошивки и проверки доказательств.
 
-Car Validation Mode uses the same acquisition and canonical bridge. The passive
-preset never leaves hardware listen-only. The active preset collects four standard
-sources with a 250 ms application-request floor, retaining read/identity/length
-gates. Fixed raw/exchange rings feed a locked snapshot and GET-only
-`/api/validation` on the existing temporary local AP; export cannot trigger CAN
-traffic. Manufacturer profiles remain NULL. Phone/collector absence does not
-change acquisition or display. See [mode and limits](../validation/car-validation-mode.md).
+Режим проверки автомобиля использует общий сбор и канонический мост.
+Пассивный набор всегда остаётся в аппаратном прослушивании. Активный собирает
+четыре стандартных источника с минимумом 250 мс между запросами приложения,
+сохраняя проверки чтения/идентичности/длины. Фиксированные буферы кадров/обменов
+передают согласованный снимок в GET `/api/validation` через существующую
+временную точку доступа. Экспорт не вызывает CAN-трафик. Фирменные профили
+остаются NULL. Отсутствие телефона/сборщика не меняет сбор и дисплей.
+См. [режим и ограничения](../validation/car-validation-mode.md).
 
-The recovered mobile host Web Configurator consumes the host's arbitrated
-canonical snapshot; its settings/recordings remain host files. No MCU settings
-synchronization or ECU writes are added. Device acquisition/replay/analytics
-continue to share firmware sources; historical simulators stay research tools.
+Восстановленный мобильный конфигуратор на ПК получает канонический снимок
+после выбора источников в среде ПК; настройки/записи остаются файлами ПК.
+Синхронизация настроек MCU и запись в ЭБУ не добавлены. Сбор, воспроизведение
+и аналитика устройства продолжают использовать общие исходники прошивки;
+исторические симуляторы остаются исследовательскими инструментами.
+
+Локализация затрагивает представление: русские подписи не меняют канонические
+ID, единицы, масштаб или планировщик. GET `/api/signals` дополнен `label_ru`,
+существующий `label` сохранён. Схема настроек остаётся 4.
+См. [перевод и стендовая загрузка](../development/russian-ui-flash-2026-10-05.md).
 
 Production runs on ESP32: transceiver/TWAI → native
 ISO-TP/OBD and evidence-gated UDS/passive → per-source samples/TTL/arbitration

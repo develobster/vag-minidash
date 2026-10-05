@@ -1,4 +1,5 @@
 #include "ui_web.h"
+#include "ui_i18n.h"
 #include "ui_platform_selftest.h"
 #include <stdio.h>
 #include <string.h>
@@ -39,7 +40,7 @@ int main(int argc,char **argv) {
     cJSON_AddItemToObject(root,"config",md_configuration_json(&config,1));
     cJSON_AddItemToObject(root,"defaults",md_configuration_json(&config,1));
     cJSON *signals=cJSON_AddArrayToObject(root,"signals");
-    for (unsigned i=0;i<MD_SIGNAL_COUNT;++i) { cJSON *o=cJSON_CreateObject(); cJSON_AddStringToObject(o,"id",md_ui_signal_definitions[i].canonical_name); cJSON_AddStringToObject(o,"label",md_ui_signal_definitions[i].label); cJSON_AddStringToObject(o,"unit",md_ui_signal_definitions[i].canonical_unit); cJSON_AddNumberToObject(o,"precision",md_ui_signal_definitions[i].decimals); cJSON_AddItemToArray(signals,o); }
+    for (unsigned i=0;i<MD_SIGNAL_COUNT;++i) { cJSON *o=cJSON_CreateObject(); cJSON_AddStringToObject(o,"id",md_ui_signal_definitions[i].canonical_name); cJSON_AddStringToObject(o,"label",md_ui_signal_definitions[i].label); cJSON_AddStringToObject(o,"label_ru",md_ui_i18n_signal_label(MD_UI_LANGUAGE_RUSSIAN,i)); cJSON_AddStringToObject(o,"unit",md_ui_signal_definitions[i].canonical_unit); cJSON_AddNumberToObject(o,"precision",md_ui_signal_definitions[i].decimals); cJSON_AddItemToArray(signals,o); }
     cJSON_AddItemToObject(root,"presets",md_analytics_presets_json());
     cJSON *themes=cJSON_AddArrayToObject(root,"themes");
     for (unsigned i=0;i<MD_UI_THEME_COUNT;++i) { config.common.theme=i; config.common.palette=md_ui_theme_palette(i,false); cJSON *preset=md_configuration_json(&config,1); md_ui_theme_json_metadata(preset,i); cJSON_AddItemToArray(themes,preset); }

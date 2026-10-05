@@ -29,6 +29,8 @@ const selectOf=id=>elements[id].children.flatMap(x=>x.children).find(x=>x.tagNam
 const change=(select,value)=>{select.value=String(value);select.onchange()};
 (async()=>{
     await tick();assert.equal(elements.message.textContent,'Соединение с устройством установлено');
+    assert.equal(elements.gauges.children[0].children[0].textContent,'ОБОРОТЫ ДВИГАТЕЛЯ · rpm');
+    assert.equal(selectOf('analyticpresets').children[1].textContent,'ДВИГАТЕЛЬ');
     const rotation=()=>elements.general.children.find(x=>x.textContent==='Поворот экрана').children[0];
     assert.equal(rotation().children.length,4);
     for(const r of [1,2,3,0]) {
@@ -60,9 +62,9 @@ const change=(select,value)=>{select.value=String(value);select.onchange()};
     assert.equal(selectOf('pages').children.length,4);
     change(selectOf('pageform'),'5');assert.equal(elements.widgets.children.length,8);
     const widget=elements.widgets.children[0], type=widget.children[2].children[0];change(type,1);
-    assert.equal(elements.preview.children[0].children[2].textContent,'Bar · NO DATA');
+    assert.equal(elements.preview.children[0].children[2].textContent,'Шкала · НЕТ ДАННЫХ');
     change(selectOf('pageform'),'0');assert.equal(elements.widgets.children[0].children.length,11);
-    await elements.try.click();assert.match(elements.message.textContent,/Preview/);
+    await elements.try.click();assert.match(elements.message.textContent,/Предпросмотр/);
     await elements.cancel.click();assert.equal(elements.widgets.children.length,4);assert.equal(selectOf('pages').children.length,1);
     elements.add.click();await elements.save.click();assert.match(elements.message.textContent,/Сохранено/);
     elements.delete.click();await elements.cancel.click();assert.equal(selectOf('pages').children.length,2);
@@ -71,7 +73,7 @@ const change=(select,value)=>{select.value=String(value);select.onchange()};
     assert.equal(selectOf('analyticpresets').children.length,7);
     change(selectOf('analyticpresets'),1);
     assert.equal(elements.widgets.children.length,8);
-    assert.equal(elements.preview.children[0].children[0].textContent,'RETARD C1');
+    assert.equal(elements.preview.children[0].children[0].textContent,'КОРРЕКЦИЯ ЗАЖИГАНИЯ ЦИЛ. 1');
     const metric=elements.widgets.children[0].children[1].children[0];
     change(metric,'engine.misfires_per_min');
     await elements.save.click();

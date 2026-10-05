@@ -1,139 +1,151 @@
-# Car Validation Mode — Tiguan II 2017 / CZPA / DQ500 / 4Motion
+# Проверка в автомобиле — Tiguan II 2017 / CZPA / DQ500 / 4Motion
 
-Baseline: `integration/standalone`. This is first-session preparation, not a claim
-that the new image or CAN wiring has passed physical vehicle acceptance.
+База: `integration/standalone`. Документ описывает подготовку первого сеанса.
+Приёмка проводки CAN и работы в автомобиле ещё требуется. Последующая
+[загрузка русского интерфейса на стенде](../development/russian-ui-flash-2026-10-05.md)
+имеет отдельные результаты и ограничения.
 
-## Safety and implementation
+## Ограничения и реализация
 
-`CONFIG_MINIDASH_CAR_VALIDATION_MODE` is build-time; host/device configuration
-cannot enable ECU writes. Two explicit presets use the reviewed installation
-GPIO15 TX / GPIO5 RX and retain GPIO4 backlight. Verify actual wiring before use.
+`CONFIG_MINIDASH_CAR_VALIDATION_MODE` выбирается при сборке; настройки ПК или
+устройства не могут включить запись в ЭБУ. Два явных набора настроек используют
+проверенные назначения GPIO15 TX / GPIO5 RX и сохраняют подсветку GPIO4.
+Перед использованием сверить фактическую проводку.
 
-| Preset | CAN behavior | Diagnostic policy |
+| Набор настроек | Поведение CAN | Диагностическая политика |
 |---|---|---|
-| `sdkconfig.car-validation-listen` | Hardware listen-only throughout; no ACK/TX/flow control | Raw RX only; no unverified manufacturer decode |
-| `sdkconfig.car-validation` | Initial 1.5 s hardware listen-only, then standard OBD reads | At most 4 application requests/s, single outstanding transaction, bounded retries/timeouts/QUIET |
+| `sdkconfig.car-validation-listen` | Всегда аппаратное прослушивание: без ACK, TX и управления потоком | Только исходные RX-кадры; неподтверждённые фирменные декодеры выключены |
+| `sdkconfig.car-validation` | Первые 1,5 с аппаратное прослушивание, затем стандартное чтение OBD | Не более 4 запросов приложения/с; одна текущая транзакция; ограниченные повторы/таймауты/QUIET |
 
-Active collection fixes demand to RPM, speed, coolant and ECU supply voltage.
-Supported-PID discovery and Mode09 VIN are retained. The existing stationary
-Mode03 read remains gated by fresh speed=0 and explicit UI request; it is optional,
-not part of the initial sequence. Required ISO-TP flow control may add TX frames
-and has its existing authenticated address/service/length gate. No coding,
-adaptation, DTC clear, actuator test, diagnostic session change, TesterPresent,
-SecurityAccess, routine, arbitrary raw command or write operation is added.
-The default non-validation scheduler retains the 100 ms floor and 12-source
-600 ms speed / 195-requests synthetic regression contract.
+Активный сбор фиксирует запросы оборотов, скорости, температуры ОЖ и напряжения
+питания ЭБУ. Сохранены определение поддерживаемых PID и VIN через Mode09.
+Чтение Mode03 по-прежнему требует свежей скорости 0 и явного действия в
+интерфейсе; оно необязательно и не входит в начальную последовательность.
+Управление потоком ISO-TP может добавлять TX-кадры; сохранена проверка адреса,
+сервиса и длины. Не добавлены кодирование, адаптация, очистка DTC, тесты
+исполнителей, смена диагностической сессии, TesterPresent, SecurityAccess,
+процедуры, произвольные команды или запись. Обычный планировщик сохраняет
+минимальный интервал 100 мс и синтетический контракт 12 источников:
+максимальный интервал скорости 600 мс / 195 запросов.
 
-The compiled manufacturer profile remains NULL. Knowledge/confidence, an ODIS
-label, nominal VIN/model or a successful synthetic trace never activates a binding.
-Future manufacturer reads require the existing compiled VIN/address/license/
-definition/observed exact ECU identity gates. Validation mode does not bypass them.
+Скомпилированный фирменный профиль остаётся NULL. Оценка уверенности, подпись
+ODIS, предполагаемый VIN/модель или успешная синтетическая трасса не включают
+источник. Будущее фирменное чтение требует проверок VIN, адреса, лицензии,
+описания и наблюдаемой точной идентичности ЭБУ. Режим проверки сохраняет эти условия.
 
-## Trace and export
+## Трассировка и экспорт
 
-The existing temporary device AP exposes **GET `/api/validation`** and a Download
-evidence snapshot link in the local editor. One locked snapshot contains:
+Временная точка доступа устройства предоставляет **GET `/api/validation`** и
+ссылку «Скачать снимок проверки» в локальном редакторе. Один согласованный
+снимок содержит:
 
-- Firmware version, 64-bit boot uptime, monotonic frame/request/response ms, VIN
-  (private), chosen standard response address and supported PID bitmaps.
-- 96 raw CAN frames with sequence, direction, ID, DLC, extended/remote flags.
-- 16 complete/partial diagnostic exchanges (up to 128 payload bytes), service,
-  PID/DID, request/response addresses, response time, raw payload, decoded canonical
-  value/source/validity, NRC, timeout/malformed/TX-failed/bus-fault outcomes.
-- All current canonical/derived signal values, units, ages, validity and source,
-  plus RX/TX/drop/error/bus-off/overwrite counters. Unavailable/stale values are null.
+- Версию прошивки, 64-битное время работы, монотонные миллисекунды кадров/
+  запросов/ответов, приватный VIN, выбранный стандартный адрес ответа и карты PID.
+- 96 исходных CAN-кадров с последовательностью, направлением, ID, DLC,
+  признаками расширенного идентификатора и удалённого запроса.
+- 16 полных/частичных диагностических обменов (до 128 байт полезной нагрузки):
+  сервис, PID/DID, адреса запроса/ответа, время ответа, исходную нагрузку,
+  декодированное каноническое значение, источник, достоверность, NRC,
+  таймауты/неверный формат/ошибки TX/сбои шины.
+- Текущие канонические/производные значения, единицы, возраст, достоверность
+  и источник; счётчики RX/TX/потерь/ошибок/bus-off/перезаписей.
+  Недоступные и устаревшие значения равны null.
 
-Frame timestamps are firmware processing timestamps, not hardware wire timestamps.
-Response time is the application's request-to-complete/error elapsed time, including
-queue/scheduling effects; do not interpret it as isolated ECU execution time.
+Время кадра соответствует его обработке прошивкой. Это не аппаратная отметка
+времени на проводе. Время ответа измеряется от запроса приложения до завершения/
+ошибки, включая очереди и планирование; оно не равно времени исполнения в ЭБУ.
 
-Acquisition uses fixed storage and no new sample-path allocation. JSON/export
-allocation occurs outside the CAN mutex after copying a bounded snapshot. The AP
-is opt-in and expires after 600 s; no phone/PC is required for device operation.
+Сбор использует фиксированное хранилище и не выделяет новую память на пути
+каждого измерения. Память JSON выделяется вне CAN mutex после копирования
+ограниченного снимка. Точка доступа включается явно и отключается через 600 с.
+Для работы устройства телефон или ПК не требуется.
 
-**This is bounded evidence, not guaranteed continuous CAN recording.** Raw frames
-may overwrite in milliseconds on a busy bus. Diagnostic exchanges are separate,
-so raw traffic cannot evict them. A nonzero cumulative overwrite counter can be
-normal even when consecutive exports overlap; sequence gaps show actual missing
-records. Save gaps/errors and do not claim lossless capture. Persistent device
-logging is not implemented; for complete passive wire evidence use an independently
-validated receive-only recorder in a separate session. Do not run two active
-diagnostic clients together.
+**Объём доказательств ограничен; непрерывная запись CAN не гарантируется.**
+На занятой шине исходные кадры могут перезаписаться за миллисекунды. Обмены
+хранятся отдельно, поэтому исходный трафик не вытесняет их. Ненулевой накопленный
+счётчик перезаписей допустим даже при перекрывающихся выгрузках; разрывы номеров
+показывают фактические пропуски. Сохранять сведения о пропусках и ошибках.
+Постоянный журнал устройства не реализован. Для полной пассивной трассы нужен
+независимо проверенный приёмный регистратор в отдельном сеансе. Два активных
+диагностических клиента одновременно не запускать.
 
-An optional development PC can connect to the device AP and collect GET snapshots:
+Необязательный ПК разработки может подключиться к точке доступа и собирать GET-снимки:
 
 ```sh
 python tools/capture_car_validation.py --output PRIVATE_NEW_SESSION.jsonl --duration 60 --interval 0.5
 ```
 
-The collector has no CAN/VCI or write path, preserves raw snapshots, adds capture
-UTC/boot epochs and reports missing frame/exchange sequences. Existing files are
-never overwritten. HTTP failure leaves the partial file; preserve it and restart
-with a new file. Boot/restart and 32-bit sequence wrap are handled. Session files
-contain private VIN/traffic: hash and store outside tracked source directories.
-The snapshot schema is distinct from legacy `can_capture` replay input; do not
-feed it to a different reader without a reviewed explicit conversion.
+Сборщик не имеет пути CAN/VCI или записи. Он сохраняет исходные снимки, добавляет
+UTC и эпохи загрузки, сообщает пропущенные номера кадров/обменов. Существующие
+файлы не перезаписываются. При ошибке HTTP остаётся частичный файл: сохранить
+его и продолжить в новом файле. Обработаны перезагрузка и переполнение 32-битной
+последовательности. VIN/трафик приватны: вычислить хеши и хранить вне отслеживаемых
+исходников. Схема снимка отличается от старого входа `can_capture`; преобразование
+для другого читателя должно быть явным и проверенным.
 
-## READY FOR CAR — conditional on protected wiring/bench checks
+## Готовность к первому сеансу при проверенной проводке и стенде
 
-Stationary display/touch/NVS and RX/errors can be checked in passive validation.
-Then standard supported-PID/selected-ECU discovery, RPM/speed/coolant/voltage,
-unavailable states, loss/QUIET/reconnect behavior, and raw/decoded/latency evidence
-can be checked in active validation. Existing standard standalone mode also has
-12 optional OBD sources and derived analytics; their presence and accuracy must
-be measured on this ECU before interpreting results. Validation's four-source
-subset intentionally leaves other metrics unavailable. Do not test performance
-runs or change device settings while driving.
+В пассивном режиме можно проверить дисплей/сенсор/NVS, RX и ошибки на стоянке.
+Затем в активном режиме проверить поддерживаемые PID, выбранный ЭБУ, обороты/
+скорость/ОЖ/напряжение, недоступные значения, потерю связи/QUIET/восстановление,
+исходные и декодированные значения и задержки. Обычный автономный режим
+содержит 12 необязательных OBD-источников и производную аналитику; наличие и
+точность каждого требуют измерений на этом ЭБУ. Четыре источника режима
+проверки оставляют остальные показатели недоступными. Замеры разгона и изменение
+настроек во время движения не входят в первый сеанс.
 
-## BLOCKED BY VEHICLE EVIDENCE
+## Что требует доказательств из автомобиля
 
-| Binding / route | Evidence still required |
+| Источник / маршрут | Недостающие доказательства |
 |---|---|
-| Standard 11-bit/500-kbit OBD path on this assembled device | Actual connector/tap, protected electrical integration, responder/capabilities, raw lengths, timing and independent reference comparison |
-| CZPA native manufacturer profile / F405 | Existing host/ODIS evidence is Engine 7E0/7E8 and F405 A−40 for one exact identity; repeat native transport and fingerprint/layout evidence before compiling any profile |
-| DQ500 ATF / selected gear | Existing 2104 / 3816 measuring-value observations do not confirm raw DID layout, endpoint, signedness/scaling or applicability; native bindings disabled |
-| Haldex temperatures/pump/status | Existing 2BF1 / 028D / 2BE4 observations need raw route, payload, scaling, units, identity and validity evidence; disabled |
-| MQB passive RPM/speed/wheels/temperatures/steering/brake | Pinned openDBC candidates (e.g. 0A8/0FD/0B2/640/086/106) are source definitions, not evidence of visibility/scaling/quality at this Tiguan OBD tap; disabled |
-| Retard, misfires, requested/actual VAG boost and drivetrain analytics | Exact ECU endpoints, identifiers, raw samples, offsets/endian/sign/scaling/units, resets/invalid sentinels and reference evidence; unavailable |
+| Стандартный OBD 11 бит / 500 кбит/с на собранном устройстве | Фактический разъём/точка подключения, защищённая электрическая схема, ответчик/возможности, длины, время и независимое сравнение |
+| Фирменный профиль CZPA / F405 на MCU | Имеются данные ПК/ODIS: Engine 7E0/7E8 и F405 A−40 для одной точной идентичности; перед компиляцией профиля повторить транспорт MCU, идентификацию и проверку структуры |
+| DQ500 ATF / передача | Наблюдения измеряемых величин 2104 / 3816 не подтверждают исходный DID, адрес, знаковость/масштаб или применимость; источники MCU выключены |
+| Температуры/насос/статус Haldex | Для 2BF1 / 028D / 2BE4 нужны маршрут, полезная нагрузка, масштаб, единицы, идентичность и достоверность; выключены |
+| Пассивные MQB обороты/скорость/колёса/температуры/руль/тормоз | Закреплённые кандидаты openDBC (например 0A8/0FD/0B2/640/086/106) описывают источники, но не доказывают их видимость/масштаб/качество на OBD этого Tiguan; выключены |
+| Коррекции зажигания, пропуски, заданный/фактический VAG наддув и аналитика трансмиссии | Точные адреса ЭБУ, идентификаторы, исходные образцы, смещения/порядок байтов/знак/масштаб/единицы, сбросы/признаки недействительности и независимая проверка; недоступны |
 
-See the existing [identity/source register and analytics protocol](engine-analytics-car-evidence-2026-10-04.md)
-and [MQB evidence manifest](../runtime/tiguan-mqb-validation-manifest.json).
-No identifiers or scaling were guessed or enabled during consolidation.
+См. [реестр идентичности/источников и протокол аналитики](engine-analytics-car-evidence-2026-10-04.md)
+и [манифест доказательств MQB](../runtime/tiguan-mqb-validation-manifest.json).
+При консолидации идентификаторы и масштабы не придумывались и не включались.
 
-## NEXT CAR SESSION
+## Следующий автомобильный сеанс
 
-1. **On the bench:** save factory/NVS/config/calibration backups. Check protected
-   power, ground, transceiver voltage and actual OBD pin orientation; no 12 V to
-   MCU and no added vehicle-bus terminator. Confirm TX15/RX5 and GPIO4 separation.
-   Keep the physical power switch. Verify partitions before flashing; do not erase
-   NVS or change partitions. Record exact commit, preset, binary/config SHA-256.
-2. From `firmware/`, build the passive preset in a fresh build/config in the IDF environment:
+1. **На столе:** сохранить заводскую память/NVS/настройки/калибровку. Проверить
+   защищённое питание, массу, напряжение трансивера и ориентацию контактов OBD;
+   12 В на MCU не подавать, терминатор в шину автомобиля не добавлять.
+   Сверить TX15/RX5 и отдельный GPIO4. Сохранить физический выключатель.
+   До прошивки сверить разделы; NVS не стирать, разметку не менять. Записать
+   точный коммит, набор настроек, SHA-256 образа и конфигурации.
+2. В среде IDF из `firmware/` собрать пассивный набор с отдельными путями:
    `idf.py -B build-car-listen -D SDKCONFIG=sdkconfig.car-listen.generated -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.car-validation-listen" build`.
-   Flash only on the bench using the established board/port/backup procedure.
-   Confirm generated CAN=y, validation=y, standard OBD=n, host injection=n;
-   check screen/touch/save/reboot before connection.
-3. **Connect:** vehicle stationary, P and parking brake, other active diagnostic
-   clients disconnected. Connect with device power off, then switch on. Check
-   SERVICE STATUS RX and errors; **TX must remain zero**. Save passive snapshots,
-   wiring notes, power readings and local timestamps. Absent RX alone is inconclusive.
-   Stop and disconnect for bus-off, instability or changes in vehicle behavior.
-4. After passive/wiring acceptance, disconnect the car and return to the bench.
-   Build/flash `sdkconfig.car-validation` in another fresh build/config. Reconnect
-   stationary and observe LISTEN → discovery/capabilities/VIN → LIVE, or bounded
-   QUIET/error. Record chosen response address and supported bitmaps; do not force
-   a missing response or enable manufacturer candidates.
-5. Save 30 s ignition-on/engine-off and, if the environment permits normal engine
-   operation with ventilation, 60 s stable idle. Compare speed=0 and RPM with the
-   cluster; compare coolant and module voltage with a known reference in a
-   **separate** read-only diagnostic session. Module voltage is not terminal
-   voltage. Note each value/unit/time/difference and per-source sample interval.
-   Save repeated JSON/JSONL snapshots, exact raw responses, NRC/timeouts/drops/gaps
-   and reference files; unavailable values must not become a reassuring zero.
-6. Switch off/disconnect after the test. QUIET does not cut power; do not leave the
-   prototype powered overnight. Hash private originals and record ON/QUIET/OFF
-   current, boot→LIVE, reconnect/NVS results and any failure. Review offline before
-   scheduling a manufacturer evidence session or compiling any new binding.
+   Прошивать только на столе по проверенной процедуре платы/порта/резервирования.
+   Проверить CAN=y, validation=y, standard OBD=n, host injection=n;
+   до подключения проверить экран/сенсор/сохранение/перезагрузку.
+3. **Подключение:** машина неподвижна, P и стояночный тормоз, другие активные
+   диагностические клиенты отключены. Подключить выключенное устройство,
+   затем включить. На экране «Статус системы» проверить RX и ошибки;
+   **TX должен оставаться нулевым**. Сохранить пассивные снимки, схему,
+   питание и локальные отметки времени. Отсутствие RX само по себе не даёт
+   вывода. При bus-off, нестабильности или изменении поведения машины отключиться.
+4. После приёмки пассивного режима/проводки отключить автомобиль и вернуться
+   на стол. Отдельно собрать/загрузить `sdkconfig.car-validation`. На стоянке
+   наблюдать LISTEN → поиск/возможности/VIN → LIVE либо ограниченное QUIET/ошибку.
+   Записать адрес ответа и карты PID; не принуждать отсутствующий ответ
+   и не включать фирменные кандидаты.
+5. Сохранить 30 с при включённом зажигании/выключенном двигателе и, если условия
+   допускают обычную работу двигателя с вентиляцией, 60 с устойчивого холостого
+   хода. Сравнить скорость 0 и обороты с приборкой; ОЖ и напряжение блока —
+   с известным эталоном в **отдельном** диагностическом сеансе только чтения.
+   Напряжение ЭБУ не равно напряжению на клеммах. Записать значение/единицы/
+   время/разницу/интервал источника. Сохранить JSON/JSONL, точные исходные ответы,
+   NRC/таймауты/потери/пропуски и эталонные файлы. Недоступные значения не заменять нулём.
+6. После проверки выключить и отключить устройство. QUIET не обесточивает его;
+   прототип на ночь включённым не оставлять. Хешировать приватные оригиналы,
+   записать ток ON/QUIET/OFF, время до LIVE, восстановление/NVS и сбои.
+   Проверить всё без автомобиля перед сбором фирменных доказательств или новой привязкой.
 
-No vehicle request, flashing or hardware connection was performed by repository
-acceptance. Permanent automotive power/sleep, CAN physical acceptance, real heap/
-task watermarks and complete passive recording remain separate physical gates.
+Проверки репозитория при консолидации не выполняли автомобильных запросов,
+прошивки или аппаратного подключения. Постоянное автомобильное питание/сон,
+физическая приёмка CAN, реальная память/стеки задач и полная пассивная запись
+остаются отдельными этапами. Стендовая прошивка отражена в отдельном отчёте выше.

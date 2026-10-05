@@ -1,15 +1,16 @@
-# Documentation index
+# Указатель документации
 
-Use [status](status.md), [development](development.md), and
-[architecture overview](architecture/overview.md) as the current entry points.
-Dates/test counts in historical delivery reports are not current acceptance.
+Начать с [состояния](status.md), [разработки](development.md) и
+[архитектуры](architecture/overview.md). Даты и количества тестов исторических
+отчётов не являются актуальной приёмкой.
 
-## Current references
+## Актуальные материалы
 
-| Topic | Documents |
+| Тема | Документы |
 |---|---|
-| Current single development baseline | [Branch matrix](development/branch-consolidation.md), [delivery / regression / memory](development/standalone-consolidation-2026-10-05.md) |
-| Standalone car validation | [Mode, export, readiness and first stationary session](validation/car-validation-mode.md) |
+| Единая база разработки | [Матрица веток](development/branch-consolidation.md), [поставка / регрессии / память](development/standalone-consolidation-2026-10-05.md) |
+| Русский интерфейс и стендовая прошивка | [Перевод, проверки, сохранение настроек и результат загрузки](development/russian-ui-flash-2026-10-05.md) |
+| Автономная проверка автомобиля | [Режим, экспорт, готовность и первый сеанс на стоянке](validation/car-validation-mode.md) |
 | Host mobile configurator | [Web](web-configurator.md), [settings](device-settings.md); development tool only |
 | Latest analytics pipeline / scheduling | [Fix and measured cases](research/analytics-pipeline-scheduling-2026-10-04.md), [verification](research/analytics-pipeline-verification-2026-10-04.json) |
 | Derived Analytics / full metrics / evidence | [Delivery](research/engine-analytics-delivery-2026-10-04.md), [design/provenance](research/derived-engine-design-2026-10-04.md), [branch audit](research/analytics-integration-2026-10-04.md), [verification JSON](research/engine-analytics-verification-2026-10-04.json), [car collection](validation/engine-analytics-car-evidence-2026-10-04.md) |

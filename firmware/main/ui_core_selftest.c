@@ -499,6 +499,15 @@ static bool test_language_setting_and_text(void)
         strcmp(md_ui_i18n_text(settings.language, "Language"), "Язык") != 0 ||
         strcmp(md_ui_i18n_signal_label(settings.language,
             MD_SIGNAL_ENGINE_RPM), "ОБОРОТЫ ДВИГАТЕЛЯ") != 0) return false;
+    /* Every selectable signal needs a Russian label that fits the renderer;
+     * new catalog entries must not silently revert to English or split UTF-8. */
+    for (int id = 0; id < MD_SIGNAL_COUNT; ++id) {
+        const char *full = md_ui_i18n_signal_label(settings.language, id);
+        const char *compact = md_ui_i18n_compact_signal_label(settings.language, id, NULL);
+        if (!full || !compact || !full[0] || !compact[0] ||
+            strlen(full) >= 64U || strlen(compact) >= 32U ||
+            strcmp(full, md_ui_signal_definitions[id].label) == 0) return false;
+    }
     uint8_t wire[MD_UI_SETTINGS_WIRE_SIZE];
     md_ui_settings_t restored;
     size_t written = 0;

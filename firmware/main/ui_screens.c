@@ -1843,7 +1843,7 @@ void md_ui_screens_update(md_ui_screen_t screen,
     if (screen==MD_UI_SCREEN_FOCUS && s_theme_style.gauge_style) {
         bool matched=false;
         const md_instrument_profile_t *p=md_instrument_active(&s_instrument_selection,now_ms,&matched);
-        char name[64]; snprintf(name,sizeof(name),"%s%s",s_gauge_auto ? p->name : "MANUAL",s_gauge_auto && !matched ? " *" : "");
+        char name[64]; snprintf(name,sizeof(name),"%s%s",s_gauge_auto ? p->name : md_ui_i18n_text(s_language,"MANUAL"),s_gauge_auto && !matched ? " *" : "");
         set_static_text(view->title,view->title_text,sizeof(view->title_text),name);
     }
     if (screen == MD_UI_SCREEN_FOCUS && state->focused_signal < MD_SIGNAL_COUNT && s_focus_stats) {
@@ -1856,13 +1856,16 @@ void md_ui_screens_update(md_ui_screen_t screen,
             md_ui_format_signal(md_ui_signal_definition(state->focused_signal), &sample, settings, high, sizeof(high), unit, sizeof(unit));
         }
         const char *source=md_derived_definition(state->focused_signal)?"LOCAL":state->focused_signal==MD_SIGNAL_ECU_SUPPLY_VOLTAGE?"ECU":strncmp(md_signal_provenance(state->focused_signal),"candidate",9)==0?"CANDIDATE":"OBD/CAN";
-        snprintf(s_focus_stats_text, sizeof(s_focus_stats_text), "MIN %s | MAX %s | %s%s", low, high,source,h->demo && h->valid ? " DEMO" : "");
+        snprintf(s_focus_stats_text, sizeof(s_focus_stats_text), "%s %s | %s %s | %s%s%s",
+            md_ui_i18n_text(s_language,"MIN"),low,md_ui_i18n_text(s_language,"MAX"),high,
+            md_ui_i18n_text(s_language,source),h->demo && h->valid ? " " : "",
+            h->demo && h->valid ? md_ui_i18n_text(s_language,"DEMO") : "");
         lv_label_set_text(s_focus_stats, s_focus_stats_text);
     }
     if ((screen == MD_UI_SCREEN_CUSTOM || (screen == MD_UI_SCREEN_DASHBOARD && settings->dashboard == MD_UI_DASHBOARD_CUSTOM)) && s_page_model.title[0])
     {
         lv_obj_set_style_text_font(view->title,s_theme_style.font_family==1 ? &md_ui_font_mono_16 : &md_ui_font_ru_16,0);
-        set_static_text(view->title, view->title_text, sizeof(view->title_text), s_page_model.title);
+        set_ui_text(view->title, view->title_text, sizeof(view->title_text), s_page_model.title);
     }
     if (screen == MD_UI_SCREEN_SETTINGS) {
         if(s_wifi_switch) {
@@ -1953,7 +1956,10 @@ void md_ui_screens_config_credentials(const char *ssid, const char *password)
 {
     if (!s_config_credentials) return;
     char text[192];
-    snprintf(text, sizeof(text), "SSID: %s\nPassword: %s\n\nhttp://192.168.4.1\nSettings > Wi-Fi to stop", ssid, password);
+    const char *format = s_language == MD_UI_LANGUAGE_RUSSIAN
+        ? "Сеть: %s\nПароль: %s\n\nhttp://192.168.4.1\nОткл.: Настройки > Wi-Fi"
+        : "SSID: %s\nPassword: %s\n\nhttp://192.168.4.1\nSettings > Wi-Fi to stop";
+    snprintf(text, sizeof(text), format, ssid, password);
     lv_label_set_text(s_config_credentials, text);
 }
 static void renderer_show(void *context, md_ui_screen_t screen, const md_ui_settings_t *settings)

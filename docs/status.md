@@ -1,12 +1,16 @@
-# Current feature and evidence matrix
+# Текущие возможности и доказательства
 
-Current development baseline (2026-10-05): **`integration/standalone`**, with all
-remote histories plus recovered local mobile Web Configurator/settings.
-Car Validation Mode and GET evidence export are implemented; manufacturer sources
-remain disabled. See [delivery](development/standalone-consolidation-2026-10-05.md)
-and [current standalone car procedure](validation/car-validation-mode.md).
-Older sections retain their dates/scopes. VNCI is an optional host research blocker,
-not a dependency of the first standalone device test.
+База разработки (2026-10-05): **`integration/standalone`**, все серверные истории
+и восстановленный локальный мобильный конфигуратор/настройки.
+Режим проверки автомобиля и GET-экспорт реализованы; фирменные источники
+выключены. См. [консолидацию](development/standalone-consolidation-2026-10-05.md)
+и [автономную проверку автомобиля](validation/car-validation-mode.md).
+Старые разделы сохраняют даты/контекст. VNCI ограничивает необязательные
+исследования на ПК и не требуется для первого автономного теста.
+
+Русские подписи всех 92 показателей, диагностика и локальные веб-настройки
+дополнены. Результаты сборки и последующей стендовой загрузки представлены
+в [отдельном отчёте](development/russian-ui-flash-2026-10-05.md).
 
 Previous continuation (2026-10-04): shared native CAN/OBD → Analytics integration and freshness
 rescue scheduling; seven native groups. See [pipeline follow-up](research/analytics-pipeline-scheduling-2026-10-04.md).

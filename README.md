@@ -1,105 +1,109 @@
 # MiniDash / vag-minidash
 
-Development baseline: **`integration/standalone`**. Continue work on this branch.
-See the [complete branch map](docs/development/branch-consolidation.md),
-[delivery / regression results](docs/development/standalone-consolidation-2026-10-05.md),
-and [Car Validation Mode / first stationary session](docs/validation/car-validation-mode.md).
-Old remote branches remain intact.
+Единая база разработки: **`integration/standalone`**. Продолжать работу в этой ветке.
+См. [полную карту веток](docs/development/branch-consolidation.md),
+[результаты консолидации и регрессий](docs/development/standalone-consolidation-2026-10-05.md),
+[режим проверки автомобиля и первый сеанс на стоянке](docs/validation/car-validation-mode.md)
+и [русский интерфейс и стендовую прошивку](docs/development/russian-ui-flash-2026-10-05.md).
+Старые серверные ветки сохранены.
 
-Standalone automotive dashboard in development. ESP32-S3 firmware now owns
-CAN/ISO-TP/OBD acquisition, bounded derived analytics and display publishing. Python remains a
-development/research tool, not a production dependency. The autonomous path is
-offline-tested; physical-board and vehicle acceptance are still required.
+Автономная автомобильная панель в разработке. Прошивка ESP32-S3 выполняет
+сбор CAN/ISO-TP/OBD, ограниченную производную аналитику и вывод на дисплей.
+Python остаётся инструментом разработки/исследований. Автономный путь проверен
+без автомобиля; физическая приёмка проводки и автомобиля ещё требуется.
 
-## Mobile Web Configurator
+## Мобильный веб-конфигуратор на ПК
 
 `python -m minidash_live.configurator` → http://127.0.0.1:8765.
-Пять mobile-first страниц, canonical simulation/SSE, screens/widgets/themes,
-host logging и versioned backup. Для телефона в одной сети с ПК:
-`.\tools\Run-WebConfigurator.ps1 -Lan`. Существующий `watch` поддерживает
-`--web-port 8765`. Синхронизация этого host-инструмента с ESP32 и OTA пока
-недоступны; у прошивки есть собственный временный локальный Wi-Fi редактор.
-Возможности, API, проверки и ограничения host-инструмента:
-[web-configurator.md](docs/web-configurator.md).
+Пять страниц с мобильным интерфейсом, каноническая симуляция/SSE, экраны,
+виджеты/темы, журнал на ПК и версионированная резервная копия. Для телефона
+в одной сети с ПК: `.\tools\Run-WebConfigurator.ps1 -Lan`. Существующий
+`watch` поддерживает `--web-port 8765`. Синхронизация с ESP32 и OTA пока
+недоступны; у прошивки есть собственный временный локальный редактор Wi-Fi.
+Возможности, API, проверки и ограничения:
+[веб-конфигуратор](docs/web-configurator.md).
 
-Device Settings / Advanced расширены schema v2, capability detection, безопасным
-Apply, защищёнными Wi-Fi credentials и diagnostic bundle:
-[device-settings.md](docs/device-settings.md).
+Настройки устройства / расширенные настройки используют схему v2, определение
+возможностей, защищённое применение, Wi-Fi реквизиты и диагностический пакет:
+[настройки](docs/device-settings.md).
 
-Первый дисплейный прототип ESP32-S3 (ST7789/ILI9341 backends), граница host/firmware и проверка
-проводки описаны в [display-prototype.md](docs/hardware/display-prototype.md).
+Первый дисплейный прототип ESP32-S3 (ST7789/ILI9341), граница ПК/прошивки
+и проверка проводки описаны в [дисплейном прототипе](docs/hardware/display-prototype.md).
 
-## Start here
+## С чего начать
 
-- [Latest CAN/OBD → Analytics pipeline and scheduling fix](docs/research/analytics-pipeline-scheduling-2026-10-04.md)
+- [Русский интерфейс, проверки и загрузка на плату](docs/development/russian-ui-flash-2026-10-05.md)
+- [Актуальный конвейер CAN/OBD → аналитика и исправление планировщика](docs/research/analytics-pipeline-scheduling-2026-10-04.md)
+- [Производная аналитика: метрики, проверки, оставшаяся работа](docs/research/engine-analytics-delivery-2026-10-04.md)
+- [Сбор доказательств CZPA/DQ500/Haldex только чтением](docs/validation/engine-analytics-car-evidence-2026-10-04.md)
+- [Автономная реализация, проверки и оставшаяся работа](docs/research/standalone-final-2026-10-03.md)
+- [Источники, лицензии и сравнение проектов](docs/research/standalone-sources-and-matrix.md)
+- [Первый автономный тест на столе/в автомобиле](REAL_CAR_TEST.md)
+- [Актуальные возможности и пределы доказательств](docs/status.md)
+- [Сборка, тесты и карта репозитория](docs/development.md)
+- [Актуальная архитектура](docs/architecture/overview.md)
+- [Указатель документации: актуальная, исследовательская и историческая](docs/README.md)
+- [Аудит консолидации и рекомендации по веткам](docs/research/repository-consolidation-2026-09-30.md)
+- [Первый автомобильный сеанс: команды и ограничения VNCI на ПК](docs/validation/first-real-car-session.md)
+- [Подготовка автомобиля и матрица готовности](docs/validation/real-car-preparation-2026-09-30.md)
+- [Состояние проекта и практический план](docs/validation/practical-next-work-2026-10-01.md)
+- [Экран параметра и профили автомобильных шкал](docs/ui/focus-instruments-2026-10-01.md)
+- [Инструкции работы с проектом](AGENTS.md)
 
-- [Derived Analytics delivery, metrics, tests and remaining work](docs/research/engine-analytics-delivery-2026-10-04.md)
-- [Read-only CZPA/DQ500/Haldex evidence procedure](docs/validation/engine-analytics-car-evidence-2026-10-04.md)
-- [Standalone implementation, verification and remaining work](docs/research/standalone-final-2026-10-03.md)
-- [Source/license review and competitor matrix](docs/research/standalone-sources-and-matrix.md)
-- [First standalone bench/car test](REAL_CAR_TEST.md)
-- [Current feature status and evidence limits](docs/status.md)
-- [Build, tests and repository map](docs/development.md)
-- [Current architecture](docs/architecture/overview.md)
-- [Documentation index: current, research and historical](docs/README.md)
-- [Repository consolidation audit and branch recommendations](docs/research/repository-consolidation-2026-09-30.md)
-- [First real-car session: commands and current VNCI blockers](docs/validation/first-real-car-session.md)
-- [Real-car preparation delivery and readiness matrix](docs/validation/real-car-preparation-2026-09-30.md)
-- [Current state and practical next-work plan](docs/validation/practical-next-work-2026-10-01.md)
-- [Focus instruments and vehicle scale profiles](docs/ui/focus-instruments-2026-10-01.md)
-- [Project working instructions](AGENTS.md)
+## Текущие возможности
 
-## Current capabilities
+Экраны ESP32-S3/LVGL, аффинная калибровка XPT2046 в NVS, явные сенсорные
+кнопки, навигация, английские/русские шрифты, выбор сигнала каждой карточки,
+четыре пользовательские страницы, сетки/темы/виджеты и включаемый вручную
+временный локальный веб-редактор Wi-Fi. Среда Python содержит знания с
+проверкой идентичности, пассивный сбор CAN/UDS, выбор источников, CLI/трассы
+и воспроизведение записанного CAN без автомобиля.
 
-ESP32-S3 LVGL screens, XPT2046 affine calibration in NVS, explicit touch controls,
-semantic navigation, English/Russian fonts, per-card signal selection, four Custom
-pages, layouts/themes/widgets and an explicit temporary local Wi-Fi Web editor.
-The Python runtime has identity-scoped knowledge, passive CAN/UDS acquisition,
-source arbitration, CLI/trace facilities and offline recorded CAN replay.
+Интерфейс имеет 92 канонических ID (66 производных), шесть шаблонов аналитики,
+постраничный выбор виджета, минимум/максимум/историю/источник на экране параметра
+и настраиваемые события. Схема 4 переносит старые настройки. Статистика/события
+ограничены памятью; новые пороги по умолчанию выключены, фирменные источники отключены.
 
-The UI has 92 canonical IDs (66 derived), six analytics presets, a paged Widget
-Picker, Focus min/max/history/source and configurable events. Schema 4 migrates
-older UI settings. Statistics/events stay bounded in RAM; all new thresholds
-default off and manufacturer bindings stay disabled.
+Канонические измерения поступают из задачи CAN на устройстве. По умолчанию
+CAN выключен; явные `sdkconfig.standalone` и `sdkconfig.listen-only` назначают
+GPIO15 TX/GPIO5 RX для проверенной монтажной схемы. Автономный режим поддерживает
+стандартный OBD 11 бит / 500 кбит/с и чтение сохранённых экологических DTC Mode03
+из выбранного ЭБУ на неподвижном автомобиле. Включённых VAG-профилей нет;
+очистка DTC, кодирование/адаптация и продуктовый BLE не реализованы. GPIO4
+сохраняет принятую владельцем ШИМ-подсветку. QUIET останавливает опрос, но
+не питание: использовать физический выключатель до проверки защищённого
+автоматического питания.
 
-The UI receives canonical samples from the native CAN task. Default builds keep
-CAN disabled; explicit `sdkconfig.standalone` and `sdkconfig.listen-only` presets
-provision GPIO15 TX/GPIO5 RX for reviewed installation wiring, not assumed wiring.
-Standalone supports standard 11-bit/500-kbit OBD and stationary Mode03 stored
-emissions DTC reading from the selected ECU. No VAG profiles ship enabled; DTC
-clear, coding/adaptation and product BLE remain unimplemented. GPIO4 retains the owner-accepted PWM backlight. QUIET stops polling, not electrical power:
-use the physical switch until a protected automatic power system is validated.
+Кандидаты MQB/UDS и синтетическое воспроизведение не подтверждают работу в машине.
+Только документированный декодер ОЖ F405 имеет доказательства точной идентичности
+Engine из ODIS/физической трассы; физический путь VNCI MiniDash требует собственной
+приёмки. См. [сеанс ПК с VNCI](docs/validation/first-real-car-session.md) и
+[проверку MQB](docs/runtime/tiguan-mqb-live-validation.md). Для автономного
+устройства использовать актуальную инструкцию проверки автомобиля выше.
 
-MQB/UDS candidates and synthetic replay are not vehicle validation. Only the
-documented F405 coolant decoder has exact Engine identity evidence from an
-ODIS/physical trace; MiniDash's physical VNCI route still needs its own acceptance.
-See the current [first-car procedure](docs/validation/first-real-car-session.md) and the
-[MQB validation workflow](docs/runtime/tiguan-mqb-live-validation.md).
-
-The first-session tools record private sequential UDS evidence and replay it
-through production discovery/planning/decoding/store/arbitration. Windows VNCI
-remains blocked: locally installed D-PDU DLLs are not J2534 FunctionLibrary DLLs;
-MiniDash D-PDU and Windows passive CAN adapters are not implemented. Check offline:
+Инструменты первого сеанса записывают приватные последовательные UDS-доказательства
+и воспроизводят их через основные обнаружение/планирование/декодирование/
+хранилище/выбор источников. Windows VNCI заблокирован: установленные D-PDU DLL
+не являются J2534 FunctionLibrary; адаптеры D-PDU MiniDash и пассивного CAN Windows
+не реализованы. Проверка без подключения к автомобилю:
 
 ```sh
 python tools/real_car_preflight.py --config config/examples/tiguan-vnci-engine-read-only.template.json
 ```
 
-Expected current result: `BLOCKED`, exit 1, explicit blockers. No vehicle I/O.
+Ожидается `BLOCKED`, код выхода 1, явные причины. Обращений к автомобилю нет.
 
-## Offline checks
+## Проверки без автомобиля
 
 ```sh
 python -m pip install -r requirements-transport.txt -r requirements-data.txt
 python -m unittest discover -s tests -v
 ```
 
-For the native core, editor logic, firmware and repeatable acceptance command,
-see [development](docs/development.md). No test command here flashes a device.
-Private captures, OEM databases, factory backups and generated builds stay local;
-see [artifact policy](docs/artifacts.md). Fixture licenses are retained in
-[tests/fixtures/README.md](tests/fixtures/README.md); a root project license has
-not yet been selected.
+Нативное ядро, логика редактора, прошивка и повторяемая приёмка описаны
+в [разработке](docs/development.md). Эти команды не прошивают устройство.
+Приватные записи, базы OEM, заводские резервные копии и сборки остаются локально;
+см. [политику артефактов](docs/artifacts.md). Лицензии тестовых данных сохранены
+в [tests/fixtures/README.md](tests/fixtures/README.md); лицензия всего проекта ещё не выбрана.
 
-Earlier version notes are preserved in the
-[historical README](docs/history/README-pre-consolidation.md).
+Старые заметки сохранены в [историческом README](docs/history/README-pre-consolidation.md).

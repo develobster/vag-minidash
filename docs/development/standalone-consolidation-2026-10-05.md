@@ -1,129 +1,138 @@
-# Standalone consolidation delivery — 2026-10-05
+# Результаты консолидации автономного MiniDash — 2026-10-05
 
-Development continues on **`integration/standalone`**. This branch starts at
-`751d2f8417a6e8dd54a6c6fffff4e522f80db49f` and recovers, through a normal merge, the seven useful
-local-only commits ending at `bdd5f7a2067ffb126c4037020f703ea809037594`.
-All 12 old remote branch histories are ancestors of the selected base. The
-[branch matrix](branch-consolidation.md) and [SHA/count audit](branch-audit-2026-10-05.json)
-record the evidence and disposition. Old remote heads and `main` are retained.
+Разработка продолжается в **`integration/standalone`**. Ветка начинается от
+`751d2f8417a6e8dd54a6c6fffff4e522f80db49f` и обычным слиянием возвращает семь
+полезных локальных коммитов до `bdd5f7a2067ffb126c4037020f703ea809037594`.
+Истории всех 12 старых серверных веток являются предками выбранной базы.
+[Матрица веток](branch-consolidation.md) и [аудит SHA/количеств](branch-audit-2026-10-05.json)
+содержат доказательства и решения. Старые вершины и `main` сохранены.
 
-## Delivered behavior and preservation
+Это исторический отчёт консолидации. Последующие перевод интерфейса и
+[стендовая загрузка](russian-ui-flash-2026-10-05.md) имеют отдельную проверку.
 
-- Recovered mobile host Web Configurator: configuration/SSE/recording, screen and
-  theme editor, settings v2/capabilities, guarded Apply and protected Wi-Fi secrets,
-  offline shell and browser tests. Host settings remain host-side; firmware remains
-  schema 4. No implicit firmware settings sync or host production dependency.
-- Resolved watch CLI conflicts by retaining serial instrument-profile publication,
-  offline replay and Web publication together. A combined-consumer test proves
-  both receive the same runtime snapshot and close correctly; duration starts
-  after catalog/setup. Existing registry/identity/provenance and stronger MCD
-  scalar/endian/applicability work is preserved rather than replaying old dirty edits.
-- Added build-time Car Validation Mode with passive and active presets. It uses
-  production acquisition, transport, canonical publication and analytics. Passive
-  means hardware zero TX/ACK; active reads four standard sources with a 250 ms
-  request floor. Read-only allowlist, selected responder, exact lengths, identity
-  gates, bounded retries, timeouts and QUIET remain. No manufacturer profile ships.
-- Added bounded raw/exchange trace with sequence/time/raw/decoded/source/validity,
-  NRC/timeouts/errors and response time; one locked snapshot feeds local GET
-  `/api/validation`. The existing AP has a download link and expires after 600 s.
-  Optional GET-only collector preserves private JSONL/boot epochs and reports gaps.
-- Preserved display/touch/navigation/NVS/settings/layouts/themes/rotation/Focus,
-  the device local editor, all 92 canonical IDs/66 derived nodes, statistics,
-  history/events/performance timers/staleness/unavailable states, Mode03 DTC read,
-  fail-closed knowledge and existing replay. Corrected two stale FIXED backlight
-  descriptions using the existing GPIO4 acceptance report. No source directories
-  are moved and no proprietary/local hardware artifacts are imported.
-- Fixed the existing headless/no-touch backlight compile failure: the touch-CS
-  GPIO collision check is compiled only when touch is enabled. Two display-only
-  tasks are explicitly marked unused in headless builds. The enabled-touch GPIO
-  protection remains; all seven firmware images and both native toolchains
-  were rebuilt after this configuration failure was found.
-- Updated README/current architecture/developer instructions to continue from one
-  integration branch. Historical PC/VNCI documents remain explicitly historical.
-  The acceptance runner handles the Windows analytics `.exe` harness and now
-  requires the eighth native validation group.
+## Поставленная функциональность и сохранённая работа
 
-Production is CAR → OBD-II → protected MiniDash hardware → ESP32-S3 → CAN →
-ISO-TP → UDS/OBD-II → acquisition → canonical → Derived Metrics/Engine Analytics
-→ history/statistics/events → display. PC/Python/VNCI/ODIS/J2534/phone/Raspberry Pi/
-external dongle/host Configurator remain optional development and evidence tools.
+- Восстановлен мобильный веб-конфигуратор на ПК: конфигурация/SSE/запись,
+  редактор экранов/тем, настройки v2 и возможности, защищённое применение и
+  Wi-Fi секреты, автономная оболочка и браузерные тесты. Настройки ПК остаются
+  на ПК; прошивка использует схему 4. Автоматической синхронизации настроек
+  прошивки и обязательной зависимости от конфигуратора нет.
+- Конфликты CLI watch разрешены с совместным сохранением публикации профиля
+  приборов через USB, воспроизведения трасс и веб-публикации. Тест двух
+  потребителей подтверждает общий снимок и корректное закрытие; отсчёт
+  длительности начинается после каталога/подготовки. Сохранены реестр,
+  идентичность, происхождение и более строгая обработка MCD скаляров,
+  порядка байтов и применимости; старые незакоммиченные правки не дублировались.
+- Добавлен режим проверки автомобиля при сборке с пассивным и активным набором.
+  Используются основные сбор, транспорт, каноническая публикация и аналитика.
+  Пассивный режим аппаратно исключает TX/ACK; активный читает четыре стандартных
+  источника с минимумом 250 мс между запросами. Сохранены разрешённые чтения,
+  выбранный ответчик, точные длины, проверки идентичности, ограниченные повторы,
+  таймауты и QUIET. Фирменный профиль в поставку не включён.
+- Добавлены ограниченные трассы кадров/обменов: последовательность, время,
+  исходные/декодированные значения, источник, достоверность, NRC, ошибки,
+  таймауты и время ответа. Согласованный снимок обслуживает GET `/api/validation`.
+  Временная точка доступа содержит ссылку скачивания и отключается через 600 с.
+  Необязательный GET-сборщик сохраняет приватные JSONL/эпохи загрузки и сообщает пропуски.
+- Сохранены дисплей, сенсор, навигация, NVS, настройки, сетки/темы, поворот,
+  экран параметра, локальный редактор, 92 канонических ID/66 производных узлов,
+  статистика, история/события/таймеры разгона, устаревание/недоступность,
+  чтение Mode03, знания с запретом неподтверждённых источников и воспроизведение.
+  Два устаревших описания фиксированной подсветки исправлены по существующему
+  отчёту GPIO4. Каталоги исходников не перенесены, приватные аппаратные и
+  проприетарные артефакты не импортированы.
+- Исправлена ошибка сборки без дисплея/сенсора: проверка конфликта GPIO сенсора
+  с подсветкой компилируется только при включённом сенсоре. Две дисплейные
+  задачи отмечены неиспользуемыми в сборке без дисплея. Защита GPIO включённого
+  сенсора сохранена; после обнаружения ошибки пересобраны все семь образов
+  и оба нативных инструментария.
+- README, актуальная архитектура и инструкции разработчика направляют работу
+  в единую ветку. Исторические документы ПК/VNCI сохранены с отметкой контекста.
+  Запускатель приёмки поддерживает аналитический `.exe` на Windows и требует
+  восьмую нативную группу проверки автомобиля.
 
-## Regression evidence
+Основной путь: автомобиль → OBD-II → защищённое оборудование MiniDash → ESP32-S3
+→ CAN → ISO-TP → UDS/OBD-II → сбор → канонические сигналы → производные метрики/
+аналитика → история/статистика/события → дисплей. ПК, Python, VNCI, ODIS, J2534,
+телефон, Raspberry Pi, внешний адаптер и конфигуратор остаются необязательными
+инструментами разработки и сбора доказательств.
 
-Full machine-readable results, firmware configuration flags, hashes and memory
-measurements are in [consolidation-verification-2026-10-05.json](consolidation-verification-2026-10-05.json).
-Local raw logs stay in `.local/`; no car or physical board was connected/flashed.
+## Проверки регрессий
 
-| Gate | Result |
+Машинные результаты, параметры сборок, хеши и память приведены в
+[consolidation-verification-2026-10-05.json](consolidation-verification-2026-10-05.json).
+Исходные журналы остались в `.local/`. Во время консолидации плата и автомобиль
+не подключались, прошивка не загружалась.
+
+| Проверка | Результат |
 |---|---|
-| Python | 223 tests, 222 PASS and one expected Windows AF_CAN skip; all optional CAN/ISO-TP/DBC/UDS dependencies present |
-| Native | Eight CTest groups PASS, including canonical/analytics/acquisition/pipeline/JSON/UI/instruments/backlight and Car Validation |
-| Scheduler | Full 12-PID fast scenarios: speed maximum 600 ms, RPM maximum 1100 ms, 195 requests/20 s; unchanged request count. 300 ms overload: 66 requests, timing result unavailable |
-| Standalone VirtualBus / exact replay | PASS, 27 TX frames; production C core, VIN/DTC ISO-TP, quiet/loss/fault/reconnect |
-| Analytics synthetic replay | 12 scenarios PASS, 66 embedded assertions, 47 independent Python oracle comparisons, 9 malformed inputs |
-| Device Web logic / host Web build | PASS; fresh native registry fixture; static production assets and 10 Node model/unit tests |
-| Host browser suite | 19 Playwright scenarios PASS, mobile/desktop/settings/offline/reconnect/capability/recording/privacy |
-| ASan + UBSan | All eight native groups and both standalone/analytics replay verifiers PASS with recover disabled |
-| Generated catalogs/traces | Analytics catalog, instrument profiles and reviewed synthetic traces consistent with committed generated files |
-| ESP32 | Seven configurations PASS with zero warnings: ordinary standalone, listen-only, active/passive validation, ST7789 host display, ILI9341 and headless |
+| Python | 223 теста: 222 пройдены, один ожидаемый пропуск Windows AF_CAN; необязательные зависимости CAN/ISO-TP/DBC/UDS установлены |
+| Нативное ядро | Пройдены восемь групп CTest: канонические сигналы/аналитика/сбор/конвейер/JSON/интерфейс/приборы/подсветка и проверка автомобиля |
+| Планировщик | Быстрые сценарии полного набора 12 PID: максимум интервала скорости 600 мс, оборотов 1100 мс, 195 запросов/20 с; количество запросов сохранено. Перегрузка с ответом 300 мс: 66 запросов, оценка своевременности недоступна |
+| Автономный VirtualBus / точное воспроизведение | Пройдено, 27 TX-кадров; основное ядро C, VIN/DTC ISO-TP, ожидание/потеря/сбой/восстановление |
+| Синтетическое воспроизведение аналитики | 12 сценариев, 66 встроенных утверждений, 47 независимых сравнений Python, 9 некорректных входов пройдены |
+| Логика редактора устройства / веб-сборка ПК | Пройдены; новый нативный реестр, итоговые статические файлы и 10 Node-тестов модели/единиц |
+| Браузерные тесты ПК | 19 сценариев Playwright пройдены: мобильный/настольный вид, настройки, отсутствие сети, восстановление, возможности, запись, приватность |
+| ASan + UBSan | Восемь нативных групп и оба проверяющих инструмента автономного/аналитического воспроизведения пройдены; продолжение после ошибки отключено |
+| Генерация каталогов/трасс | Каталог аналитики, профили приборов и проверенные синтетические трассы совпадают с сохранёнными генерируемыми файлами |
+| ESP32 | Семь конфигураций собраны без предупреждений: обычная автономная, только прослушивание, активная/пассивная проверка, ST7789 с источником ПК, ILI9341, без дисплея |
 
-The first concurrent full Python run found fixture timing failures: a 100 ms CAN
-sample and 1 s candidate could expire during loaded Windows scheduling. The
-CAN→UDS test now advances the already-supported runtime/store/availability clock
-explicitly; production TTLs and request timing are unchanged. The host API test
-accepts an expired candidate as stale while still requiring a hidden value and
-correct source. Full acceptance subsequently passed. The watch combined-consumer
-test was also rerun after strengthening the merge contract.
+Первый полный Python-запуск одновременно с другой нагрузкой выявил зависимость
+тестовых образцов от планирования Windows: CAN-образец 100 мс и кандидат 1 с
+могли устареть. Тест CAN→UDS теперь явно продвигает уже поддерживаемые часы
+runtime/store/availability. Основные TTL и запросы сохранены. Тест API ПК
+допускает устаревший кандидат, но требует скрытого значения и правильного
+источника. Полная приёмка затем прошла. Тест двух потребителей watch повторён
+после усиления контракта слияния.
 
-Native toolchain: existing Zig 0.13.0 (Clang 18.1.6), CMake 3.30.2/Ninja 1.12.1,
-cJSON from installed ESP-IDF 5.5.5. Sanitizers use scoped
-[LLVM-MinGW 20260922 / LLVM 23.1.2 UCRT](https://github.com/mstorsjo/llvm-mingw/releases/tag/20260922)
-because the installed bare-metal compiler cannot run Windows host sanitizers.
-Downloaded archive SHA-256:
+Нативные инструменты: установленный Zig 0.13.0 (Clang 18.1.6), CMake 3.30.2,
+Ninja 1.12.1, cJSON из ESP-IDF 5.5.5. Санитайзеры используют локальный
+[LLVM-MinGW 20260922 / LLVM 23.1.2 UCRT](https://github.com/mstorsjo/llvm-mingw/releases/tag/20260922):
+компилятор для микроконтроллера не запускает санитайзеры Windows.
+SHA-256 скачанного архива:
 `e3ad77d117a4bea19a7a3b333341824d79a5a371004a10e25b8504e7b3047666`.
-No global toolchain/dependency upgrade. LeakSanitizer and GNU allocation-wrap
-instrumentation are not claimed on Windows; native/sanitizer tests are not RTOS
-heap/stack/physical CAN acceptance.
+Глобальные инструменты/зависимости не обновлялись. LeakSanitizer и GNU allocation-wrap
+на Windows не проверялись; эти тесты не измеряют RTOS heap/стеки/физический CAN.
 
-Firmware: installed ESP-IDF 5.5.5 / xtensa-esp-elf 14.2.0_20260121, ESP32-S3.
-All four external components match the existing lock hashes; dependency lock
-SHA-256 of the committed LF bytes remains
+Прошивка: установленный ESP-IDF 5.5.5 / xtensa-esp-elf 14.2.0_20260121, ESP32-S3.
+Все четыре внешних компонента совпадают с закреплёнными хешами. SHA-256
+сохранённых LF-байтов файла зависимостей:
 `e8f34402c90bc55635eb48b1bfe8dbe87fd0edc15ad0c6ae85803a4dd7fe896e`.
-The Windows worktree uses CRLF; the verification JSON also records its raw hash.
-No version solver, partition change, NVS erase or hardware flash. Builds use fresh
-SDKCONFIG/build paths with local hash-verified components and component manager
-disabled as documented in [development](../development.md).
+В Windows рабочие файлы имеют CRLF; JSON также содержит их исходный хеш.
+Решатель версий, смена разделов, стирание NVS и аппаратная прошивка не выполнялись.
+Использованы отдельные SDKCONFIG/каталоги сборки, компоненты с проверенными
+хешами и отключённый менеджер компонентов, как описано в [разработке](../development.md).
 
-The acceptance images were built before the consolidation commit. Their embedded
-IDF project-version strings are recorded rather than replaced with a later Git
-SHA; normalized hashes witness the exact firmware/native source content tested.
-Subsequent bench images should record their own commit, preset and image hash.
+Проверенные образы собраны до коммита консолидации. Встроенные строки версии
+IDF записаны фактически; они не заменены более поздним SHA. Нормализованные
+хеши фиксируют точные проверенные исходники прошивки/ядра. Следующие стендовые
+образы должны иметь собственные коммит, набор настроек и хеш.
 
-## Fresh before/after memory comparison
+## Сравнение памяти до и после
 
-The before image was rebuilt from archived `751d2f8` source with the same local
-locked components/toolchain/standalone defaults. The after image includes the
-consolidated source and validation export; validation polling itself is disabled
-in the ordinary standalone preset. Sizes are linked image/static allocation,
-not measurements of live free heap or stack watermarks.
+Исходный образ заново собран из архива `751d2f8` теми же закреплёнными компонентами,
+инструментами и обычными автономными настройками. Итоговый образ включает
+консолидацию и экспорт проверки; специальный опрос проверки в обычном наборе
+выключен. Это размеры скомпонованного образа/статической памяти; реальная
+свободная куча и минимальный остаток стеков не измерялись.
 
-| Measurement | Before `751d2f8` | After ordinary standalone | Delta |
+| Измерение | До `751d2f8` | После, обычный автономный режим | Разница |
 |---|---:|---:|---:|
-| App binary | 1,832,960 B | 1,837,200 B | +4,240 B |
-| Internal static data + BSS | 176,768 B | 180,128 B | +3,360 B |
-| Used DIRAM (including executable DIRAM) | 271,367 B | 274,727 B | +3,360 B |
-| Remaining DIRAM | 70,393 B | 67,033 B | −3,360 B |
-| App partition free | 1,312,768 B | 1,308,528 B | −4,240 B |
+| Образ приложения | 1 832 960 Б | 1 837 200 Б | +4 240 Б |
+| Внутренние статические данные + BSS | 176 768 Б | 180 128 Б | +3 360 Б |
+| Занятая DIRAM, включая исполняемый код | 271 367 Б | 274 727 Б | +3 360 Б |
+| Остаток DIRAM | 70 393 Б | 67 033 Б | −3 360 Б |
+| Остаток раздела приложения | 1 312 768 Б | 1 308 528 Б | −4 240 Б |
 
-Analytics external PSRAM storage, task-stack budget and normal scheduler demand
-are unchanged. New internal RAM holds bounded diagnostic evidence. The native
-acquisition/exchange struct sizes and final per-preset image/RAM figures are in
-the verification JSON. Real heap/FPS/task watermarks under CAN+AP load still need
-physical measurement; no synthetic measurement is called vehicle validation.
+Хранилище аналитики во внешней PSRAM, бюджет стеков и обычный запрос планировщика
+сохранены. Новая внутренняя память хранит ограниченные диагностические доказательства.
+Размеры структур сбора/обменов и итоговые размеры каждого набора есть в JSON.
+Реальная куча/FPS/остаток стеков при CAN+точке доступа требуют аппаратных измерений.
+Синтетические результаты не являются проверкой автомобиля.
 
-## Reproduce and recover
+## Повторение и восстановление
 
-From the integration checkout, use installed/pinned dependencies:
+Из интеграционного каталога с установленными/закреплёнными зависимостями:
 
 ```sh
 python -m unittest discover -s tests -v
@@ -135,57 +144,59 @@ node tools/build-web.mjs
 npx playwright test
 ```
 
-On Windows choose the installed C compiler/Ninja explicitly and use the existing
-environment paths documented in `docs/development.md`. Sanitized builds use
-`-g -O1 -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer`;
-place the scoped LLVM bin/DLL directory on PATH and `ASAN_OPTIONS=detect_leaks=0`.
-The verification JSON records the actual commands/configs. Temporary browser data,
-compiler caches, firmware output and private traces remain ignored.
+В Windows явно выбрать установленный компилятор C и Ninja; пути среды приведены
+в `docs/development.md`. Флаги санитайзеров:
+`-g -O1 -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer`.
+Локальный каталог LLVM bin/DLL добавить в PATH, установить `ASAN_OPTIONS=detect_leaks=0`.
+Фактические команды/конфигурации записаны в JSON. Временные браузерные данные,
+кеши компилятора, сборки и приватные трассы исключены из Git.
 
-For firmware, combine `sdkconfig.defaults` with standalone/listen/validation
-presets using new SDKCONFIG and build paths. Download only hash-verified locked
-components with `tools/prepare_locked_components.py`. ILI9341 and headless builds
-are compile checks, not new hardware acceptance. To recover on a bench, use the
-existing known-good app image and saved NVS/calibration/partition checks; do not
-reset the repository or erase hardware to address an evidence gap.
+Для прошивки объединить `sdkconfig.defaults` с автономными/пассивными/проверочными
+наборами, используя отдельные SDKCONFIG и каталог сборки. Закреплённые компоненты
+с проверкой хешей подготавливает `tools/prepare_locked_components.py`. ILI9341 и
+режим без дисплея проверены компиляцией, аппаратная приёмка не выполнялась.
+Для восстановления на столе использовать известный исправный образ и сохранённые
+NVS/калибровку/проверку разделов. Отсутствие доказательств не требует сброса
+репозитория или стирания устройства.
 
-## Remaining work in priority order
+## Оставшаяся работа по приоритету
 
-1. **P0, physical first session:** follow [Car Validation Mode](../validation/car-validation-mode.md).
-   Components: protected power/transceiver/firmware/AP. Acceptance: passive TX=0,
-   stable display/NVS, no bus fault, then supported standard readings/raw/decoded
-   reference/timing/gap evidence. Needs assembled wiring and stationary Tiguan;
-   electrical protection/sleep and real CPU/heap watermarks remain physical gates.
-2. **P1, manufacturer evidence:** one identified ECU/source at a time in a separate
-   read-only reference session. Components: provider definitions, compiled profile,
-   provenance and fixtures. Acceptance: observed native endpoints and exact ECU
-   identity plus raw lengths/endian/scaling/units/invalid/TTL/reference evidence.
-   DQ500/Haldex/MQB/retard/misfires/charge bindings remain disabled until reviewed.
-3. **P1, evidence completeness:** measure CAN queue drops, AP load and ring gaps;
-   preserve originals and replay offline. A verified independent passive recorder
-   is needed if the short device buffer cannot capture the required wire evidence.
-4. **Backlog only:** persistent device recording, protected automatic power/sleep,
-   additional evidence-backed manufacturer sources. Do not add cosmetic features,
-   raw-command controls, DTC clear/coding/adaptation or a host runtime dependency
-   as a continuation of this consolidation.
+1. **P0, первый физический сеанс:** следовать [инструкции проверки](../validation/car-validation-mode.md).
+   Компоненты: защищённое питание/трансивер/прошивка/точка доступа. Приёмка:
+   пассивный TX=0, устойчивые дисплей/NVS, отсутствие сбоев шины, затем
+   поддерживаемые стандартные значения, исходное/декодированное сравнение,
+   время и пропуски. Нужны собранная проводка и неподвижный Tiguan; защита/сон
+   и реальные показатели CPU/кучи остаются аппаратными условиями.
+2. **P1, фирменные доказательства:** по одному идентифицированному ЭБУ/источнику
+   в отдельном эталонном сеансе чтения. Компоненты: описания источников,
+   скомпилированный профиль, происхождение и тестовые трассы. Приёмка:
+   наблюдаемые адреса MCU, точная идентичность ЭБУ, длины/порядок байтов/масштаб/
+   единицы/недействительность/TTL/эталон. DQ500/Haldex/MQB/коррекции/пропуски/
+   заданный наддув выключены до проверки.
+3. **P1, полнота доказательств:** измерить потери очереди CAN, нагрузку точки
+   доступа и пропуски буферов; сохранить оригиналы и воспроизвести без автомобиля.
+   Если короткого буфера мало, нужен независимо проверенный пассивный регистратор.
+4. **Дальнейший план:** постоянная запись, защищённое автоматическое питание/сон,
+   дополнительные подтверждённые фирменные источники. Эта консолидация не включает
+   косметические функции, произвольные команды, очистку DTC, кодирование/адаптацию
+   или обязательную зависимость от ПК.
 
-## Git delivery
+## Поставка в Git
 
-Implementation merge:
+Коммит слияния реализации:
 [`091bb4446beaf8a401dc862e2b71607dd040dad8`](https://github.com/develobster/vag-minidash/commit/091bb4446beaf8a401dc862e2b71607dd040dad8).
-Its parents are `751d2f8417a6e8dd54a6c6fffff4e522f80db49f` and
-`bdd5f7a2067ffb126c4037020f703ea809037594`; both histories are retained.
+Его родители — `751d2f8417a6e8dd54a6c6fffff4e522f80db49f` и
+`bdd5f7a2067ffb126c4037020f703ea809037594`; обе истории сохранены.
 
-The merge was pushed to `origin/integration/standalone`; a separate remote query
-confirmed the same SHA. All 12 original remote heads remained unchanged and are
-ancestors of the integration tip. The remote default still points to `main` at
-`de7f071a2d7e574970614527d4397a274fa46813`. The integration checkout was clean and
-its upstream was set to `origin/integration/standalone` at verification.
+Слияние отправлено в `origin/integration/standalone`; независимый запрос
+подтвердил тот же SHA. Все 12 исходных серверных вершин остались прежними
+и являются предками интеграционной вершины. Серверная ветка по умолчанию —
+`main` на `de7f071a2d7e574970614527d4397a274fa46813`. При проверке интеграционный
+каталог был чист, upstream установлен в `origin/integration/standalone`.
 
-The following documentation commit records this verified implementation merge.
-The tested firmware/native source hashes are checked against the committed tree;
-the final branch tip is reported in the delivery message and can be checked with
-`git rev-parse HEAD` and `git ls-remote origin refs/heads/integration/standalone`.
-Original dirty worktrees, the stash and private artifacts remain preserved in
-their original locations. Repository `AGENTS.md` directs subsequent development
-to this one integration branch.
+Следующий документационный коммит `24053d2c3c01bc08e7829e36872089b861087cef`
+зафиксировал проверенное слияние. Хеши проверенных исходников прошивки/ядра
+сверены с сохранённым деревом. Актуальную вершину можно проверить через
+`git rev-parse HEAD` и `git ls-remote origin refs/heads/integration/standalone`.
+Исходные каталоги с правками, stash и приватные артефакты сохранены на прежних
+местах. `AGENTS.md` направляет дальнейшую разработку в эту единую ветку.

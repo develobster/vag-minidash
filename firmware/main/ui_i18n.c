@@ -55,6 +55,20 @@ static const translation_t s_translations[] = {
     {"SAMPLES", "ИЗМЕРЕНИЯ"},
     {"STALE", "УСТАРЕЛО"},
     {"ERRORS", "ОШИБКИ"},
+    {"CAN RX", "CAN ПРИЁМ"}, {"CAN TX", "CAN ПЕРЕДАЧА"},
+    {"TIMEOUTS", "ТАЙМАУТЫ"}, {"RX DROPS", "ПОТЕРИ ПРИЁМА"},
+    {"STORED DTC", "КОДЫ ОШИБОК"},
+    {"HOLD: READ DTC / RETRY CAN", "УДЕРЖ.: КОДЫ / ПОВТОР CAN"},
+    {"0 STORED", "0 КОДОВ"}, {"HOLD TO READ", "УДЕРЖ. ЧТЕНИЕ"},
+    {"LISTEN", "ПРОСЛУШИВАНИЕ"},
+    {"DISCOVERY", "ПОИСК ЭБУ"}, {"CAPABILITIES", "ПОДДЕРЖКА"},
+    {"IDENTIFY", "ИДЕНТИФИКАЦИЯ"}, {"VERIFY ECU", "ПРОВЕРКА ЭБУ"},
+    {"QUIET", "ОЖИДАНИЕ"}, {"CAN FAULT", "СБОЙ CAN"}, {"MANUAL", "РУЧНОЙ"},
+    {"LOCAL", "РАСЧЁТ"}, {"ECU", "ЭБУ"},
+    {"CANDIDATE", "НЕ ПОДТВ."}, {"MIN", "МИН"}, {"MAX", "МАКС"},
+    {"ENGINE", "ДВИГАТЕЛЬ"}, {"KNOCK / RETARD", "КОРР. ЗАЖИГАНИЯ"},
+    {"MISFIRE", "ПРОПУСКИ"}, {"THERMAL", "ТЕМПЕРАТУРЫ"},
+    {"TRIP / PERFORMANCE", "ПОЕЗДКА / ДИНАМИКА"},
     {"Dashboard", "Дашборд"},
     {"Theme", "Тема"},
     {"Day / night", "День / ночь"},
@@ -129,6 +143,7 @@ static const translation_t s_translations[] = {
     {"PAGE", "СТР."},
     {"MORE", "ДАЛЕЕ"},
     {"READY", "ГОТОВО"},
+    {"Starting...", "Запуск..."},
     {"PWM", "ШИМ"},
     {"ENGLISH", "АНГЛИЙСКИЙ"},
     {"RUSSIAN", "РУССКИЙ"},
@@ -150,11 +165,17 @@ static const char *const s_signal_labels_ru[MD_SIGNAL_COUNT] = {
     "ТЕМПЕРАТУРА МАСЛА", "НАГРУЗКА ДВИГАТЕЛЯ", "ДАВЛЕНИЕ НАДДУВА",
     "АТМОСФЕРНОЕ ДАВЛЕНИЕ", "НАДДУВ", "ТЕМПЕРАТУРА МАСЛА КПП",
     "ПЕРЕДАЧА", "ТЕМПЕРАТУРА МУФТЫ AWD", "НАПРЯЖЕНИЕ АКБ",
+#define MD_SIGNAL_RU(id, full, compact) [MD_SIGNAL_##id] = full,
+#include "ui_signal_translations.inc"
+#undef MD_SIGNAL_RU
 };
 
 static const char *const s_signal_labels_ru_compact[MD_SIGNAL_COUNT] = {
     "ОБ/МИН", "СКОР.", "ОЖ", "МАСЛО", "НАГР.", "НАДД.",
     "АТМ.", "БУСТ", "КПП", "ПЕР.", "AWD", "АКБ",
+#define MD_SIGNAL_RU(id, full, compact) [MD_SIGNAL_##id] = compact,
+#include "ui_signal_translations.inc"
+#undef MD_SIGNAL_RU
 };
 
 const char *md_ui_i18n_text(md_ui_language_t language, const char *english)
@@ -170,10 +191,11 @@ const char *md_ui_i18n_text(md_ui_language_t language, const char *english)
 const char *md_ui_i18n_signal_label(md_ui_language_t language,
                                     md_ui_signal_id_t signal)
 {
-    if (signal < 0 || signal >= MD_SIGNAL_COUNT) return "SIGNAL";
-    if (!s_signal_labels_en[signal]) return md_ui_signal_definitions[signal].label;
-    return language == MD_UI_LANGUAGE_RUSSIAN
-        ? s_signal_labels_ru[signal] : s_signal_labels_en[signal];
+    if (signal < 0 || signal >= MD_SIGNAL_COUNT) return md_ui_i18n_text(language, "SIGNAL");
+    if (language == MD_UI_LANGUAGE_RUSSIAN && s_signal_labels_ru[signal])
+        return s_signal_labels_ru[signal];
+    return s_signal_labels_en[signal] ? s_signal_labels_en[signal]
+        : md_ui_signal_definitions[signal].label;
 }
 
 const char *md_ui_i18n_compact_signal_label(md_ui_language_t language,
@@ -181,9 +203,9 @@ const char *md_ui_i18n_compact_signal_label(md_ui_language_t language,
                                             const char *fallback)
 {
     if (signal < 0 || signal >= MD_SIGNAL_COUNT)
-        return fallback ? fallback : "SIGNAL";
-    if (!s_signal_labels_en_compact[signal]) return md_ui_signal_definitions[signal].label;
-    return language == MD_UI_LANGUAGE_RUSSIAN
-        ? s_signal_labels_ru_compact[signal]
-        : s_signal_labels_en_compact[signal];
+        return fallback ? fallback : md_ui_i18n_text(language, "SIGNAL");
+    if (language == MD_UI_LANGUAGE_RUSSIAN && s_signal_labels_ru_compact[signal])
+        return s_signal_labels_ru_compact[signal];
+    return s_signal_labels_en_compact[signal] ? s_signal_labels_en_compact[signal]
+        : md_ui_signal_definitions[signal].label;
 }

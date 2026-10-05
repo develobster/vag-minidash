@@ -1,87 +1,90 @@
-# MiniDash branch consolidation — 2026-10-05
+# Консолидация веток MiniDash — 2026-10-05
 
-The sole development baseline is **`integration/standalone`**. Old refs are
-preserved; no force push, ref deletion, `main` merge or default-branch change is
-part of this delivery. The remote default remains `main`.
+Единая база дальнейшей разработки — **`integration/standalone`**. Старые ссылки
+сохранены. Эта поставка не включает принудительную отправку, удаление веток,
+слияние в `main` или смену ветки по умолчанию. На сервере ею остаётся `main`.
 
-## Evidence and baseline choice
+## Основания для выбора базы
 
-Fetched every advertised origin head and examined every local branch, all three
-existing worktrees, the commit graph, merge parents, unique commit/file diffs,
-the local stash and uncommitted changes. Machine-readable SHAs/counts are in
-[branch-audit-2026-10-05.json](branch-audit-2026-10-05.json).
+Получены все опубликованные ветки origin; изучены все локальные ветки, три
+существующих рабочих каталога, граф коммитов, родители слияний, уникальные
+коммиты и изменения файлов, локальный stash и незакоммиченные правки.
+Полные SHA и количества записаны в [машинном отчёте](branch-audit-2026-10-05.json).
 
-`751d2f8417a6e8dd54a6c6fffff4e522f80db49f` has **zero missing commits from every
-one of the 12 remote branches**. This is an ancestry result, not a date/name
-assumption. It includes merge `874c202` (UI + MQB knowledge), consolidation
-`3e5c6ca`, standalone `ab1c09c` and merge `6ae2ed4` (standalone + real-car UI
-`bf7e8ba`), followed by bounded analytics and scheduler fix `2a124f7`.
+У `751d2f8417a6e8dd54a6c6fffff4e522f80db49f` **нет отсутствующих коммитов ни
+из одной из 12 серверных веток**. Это результат проверки родства коммитов.
+База включает слияние `874c202` (интерфейс и знания MQB), консолидацию `3e5c6ca`,
+автономный сбор `ab1c09c`, слияние `6ae2ed4` (автономный сбор и автомобильный
+интерфейс `bf7e8ba`), затем ограниченную аналитику и исправление планировщика `2a124f7`.
 
-Its tree contains the current display/touch/navigation/settings/themes/layouts,
-standard CAN/ISO-TP/OBD and evidence-gated UDS/passive core, canonical bridge,
-derived windows/history/timers/events/validity, fail-closed MQB/diagnostic
-knowledge, native/replay/acceptance harnesses and bounded stationary DTC reads.
-It does not contain the newer **local-only mobile host Web Configurator**.
+Дерево содержит актуальные дисплей, сенсор, навигацию, настройки, темы и сетки;
+стандартный CAN/ISO-TP/OBD и ядро UDS/пассивного сбора с проверкой доказательств;
+канонический мост, окна расчётов, историю, таймеры, события и достоверность;
+знания MQB/диагностики с запретом неподтверждённых источников; нативные тесты,
+воспроизведение трасс и ограниченное чтение DTC при неподвижном автомобиле.
+В нём отсутствовал более новый **мобильный веб-конфигуратор, сохранённый только локально**.
 
-## Branch → unique commits → functionality → integrated → useful → archive
+## Ветки, уникальные коммиты и судьба функциональности
 
-Unique counts below are relative to `751d2f8` before this work. Parent counts and
-full SHAs are in the JSON. "Safe-to-archive" concerns committed history after
-origin integration verification, not permission to delete a ref or dirty checkout.
+Количество уникальных коммитов указано относительно `751d2f8` до этой работы.
+Полные SHA и количества родителей есть в JSON. Возможность архивирования
+относится к сохранённой истории после проверки серверной интеграции; она не
+разрешает удалять ветку или рабочий каталог с незакоммиченными изменениями.
 
-| Branch / audited tip | Unique commits | Functionality and integration evidence | Status / useful? / archive |
+| Ветка / проверенная вершина | Уникальные коммиты | Функциональность и подтверждение интеграции | Статус / полезность / архивирование |
 |---|---:|---|---|
-| `main` / `de7f071` | 0 | Audited v0.9 ancestor, 54 baseline-only commits | Historical; preserve default branch; no automatic archive |
-| `runtime/session-scheduler` / `e62ca59` | 0 | Early UDS sessions/passive store; ancestry retained, newer bounded MCU scheduler is production | Superseded; history useful; safe-to-archive |
-| `feature/diagnostic-data-import` / `54d0ea5` | 0 | Registry, identity/provider boundaries, scalar import, first Engine route; retained | Superseded; useful code/evidence retained; safe-to-archive |
-| `feature/esp32-display-prototype` remote / `dc16a90` | 0 | ST7789/ILI9341 and XPT2046 foundation; retained through production UI | Superseded; safe-to-archive remote history only |
-| `feature/production-ui` / `00c6317` | 0 | LVGL canonical UI/settings/USB bridge; retained by `6f436dd` and later merges | Superseded; useful; safe-to-archive |
-| `feature/ui-ux-touch-zones` / `6f436dd` | 0 | Configurable portable UI/touch/local AP editor and targets; retained | Superseded; useful; safe-to-archive |
-| `feature/mqb-knowledge-import` / `0b3121d` | 0 | Provenance/scoped MQB candidates/evidence gates; merged by `874c202` | Superseded; useful fail-closed research; safe-to-archive |
-| `feature/research-replay-reliability` / `22a346b` | 0 | Offline CAN replay, watch timing, typed MCD recovery, branch research; retained | Superseded; useful; safe-to-archive |
-| `feature/repository-consolidation` / `3e5c6ca` | 0 | Current/historical docs, artifact protection and acceptance runner; retained | Superseded; useful; safe-to-archive |
-| `feature/real-car-validation` / `bf7e8ba` | 0 | Strict host evidence/replay plus PWM, rotation, themes and Focus scales; `6ae2ed4` | Superseded; useful; preserve dirty worktree before archive |
-| `feature/standalone-acquisition` / `ab1c09c` | 0 | MCU CAN/ISO-TP/OBD/UDS runtime, DTC read, quiet/recovery, locked builds; `6ae2ed4` | Superseded; useful; safe-to-archive |
-| `feature/engine-analytics` / `751d2f8` | 0 | 92 canonical IDs, 66 derived nodes, statistics/history/events/timers and full-PID freshness fix | Selected baseline, now superseded by integration; safe-to-archive after delivery |
-| **Local** `feature/esp32-display-prototype` / `bdd5f7a` | **7** | Mobile host configurator, canonical SSE/logging, settings v2/capabilities/secrets and browser tests | **Contained unique work; normal merge into integration; useful; dirty checkout preserved** |
+| `main` / `de7f071` | 0 | Предок v0.9; 54 коммита существуют только в выбранной базе | Историческая; оставить веткой по умолчанию; не архивировать автоматически |
+| `runtime/session-scheduler` / `e62ca59` | 0 | Ранние UDS-сессии и пассивное хранилище; история сохранена, используется новый ограниченный планировщик MCU | Заменена; история полезна; можно архивировать |
+| `feature/diagnostic-data-import` / `54d0ea5` | 0 | Реестр, границы идентичности/источников, импорт скаляров, первый маршрут Engine; сохранены | Заменена; код и доказательства сохранены; можно архивировать |
+| Серверная `feature/esp32-display-prototype` / `dc16a90` | 0 | Основа ST7789/ILI9341 и XPT2046 сохранена в актуальном интерфейсе | Заменена; можно архивировать только серверную историю |
+| `feature/production-ui` / `00c6317` | 0 | Канонический интерфейс LVGL, настройки и USB-мост; сохранены через `6f436dd` и последующие слияния | Заменена; полезна; можно архивировать |
+| `feature/ui-ux-touch-zones` / `6f436dd` | 0 | Переносимый настраиваемый интерфейс, сенсор, локальный редактор Wi-Fi и целевые платформы; сохранены | Заменена; полезна; можно архивировать |
+| `feature/mqb-knowledge-import` / `0b3121d` | 0 | Происхождение данных, кандидаты MQB и проверка доказательств; включены через `874c202` | Заменена; полезные исследования с запретом неподтверждённых данных; можно архивировать |
+| `feature/research-replay-reliability` / `22a346b` | 0 | Воспроизведение CAN без автомобиля, время watch, типизированное восстановление MCD, исследования веток; сохранены | Заменена; полезна; можно архивировать |
+| `feature/repository-consolidation` / `3e5c6ca` | 0 | Актуальная/историческая документация, защита артефактов и запуск проверок; сохранены | Заменена; полезна; можно архивировать |
+| `feature/real-car-validation` / `bf7e8ba` | 0 | Строгие доказательства/воспроизведение на ПК, ШИМ, поворот, темы, шкалы параметров; `6ae2ed4` | Заменена; полезна; перед архивированием сохранить незакоммиченные правки |
+| `feature/standalone-acquisition` / `ab1c09c` | 0 | Автономный CAN/ISO-TP/OBD/UDS на MCU, чтение DTC, ожидание/восстановление, закреплённые сборки; `6ae2ed4` | Заменена; полезна; можно архивировать |
+| `feature/engine-analytics` / `751d2f8` | 0 | 92 канонических ID, 66 производных узлов, статистика, история, события, таймеры, исправление свежести полного набора PID | Выбранная база, затем заменена интеграцией; можно архивировать после поставки |
+| **Локальная** `feature/esp32-display-prototype` / `bdd5f7a` | **7** | Мобильный конфигуратор на ПК, канонические SSE/журнал, настройки v2, возможности, секреты и браузерные тесты | **Уникальная полезная работа включена обычным слиянием; исходный каталог с правками сохранён** |
 
-All other local branch tips match the remote tips in this table. No extra
-development branches were created. `integration/standalone` uses a separate
-checkout because the original display checkout has unrelated uncommitted work.
+Остальные локальные вершины совпадают с серверными из таблицы. Дополнительные
+ветки разработки не создавались. `integration/standalone` использует отдельный
+рабочий каталог: исходный каталог дисплейной ветки содержит посторонние правки.
 
-### Recovered seven commits
+### Восстановленные семь коммитов
 
 `3dfd240`, `f99e9cc`, `6a63edc`, `f72b6da`, `93a88a0`, `6686c6d`, `bdd5f7a`:
-host configuration/SSE/recording API; mobile editor/themes/offline shell; source
-selection proof; capability-validated settings and protected Wi-Fi secrets;
-mobile settings sheets/search/units/Apply; scroll reset; contracts/visual proof.
-The normal consolidation merge retains their original ancestry. README and
-`minidash_live/__main__.py` conflicts combine both paths: serial instrument
-profiles, watch duration after setup, offline replay CLI, and Web publication.
-Neither host configurator nor serial bridge becomes a production dependency.
+API конфигурации/SSE/записи на ПК; мобильный редактор, темы и автономная оболочка;
+проверка выбора источников; настройки с проверкой возможностей и защитой Wi-Fi
+секретов; мобильные панели настроек, поиск, единицы и применение; сброс прокрутки;
+контракты и визуальная проверка. Обычное слияние сохраняет исходное родство.
+Конфликты README и `minidash_live/__main__.py` разрешены с сохранением обоих путей:
+публикация профилей приборов через USB, отсчёт watch после подготовки, CLI
+воспроизведения и веб-публикация. Конфигуратор на ПК и последовательный мост
+остаются необязательными для автономной работы.
 
-### Local changes/stash disposition
+### Локальные изменения и stash
 
-The original display worktree's typed MCD FLOAT32/TEXTTABLE recovery and fixture
-were already integrated at `013d350`. Its older endian validation, profile signed
-defaults, provenance fields, applicability tests and source notes are superseded
-by the stricter baseline; copying the dirty diff would regress them. Hardware and
-ODIS extraction artifacts remain private and untouched.
+Восстановление типизированных MCD FLOAT32/TEXTTABLE и тестовая трасса из исходного
+дисплейного каталога уже включены в `013d350`. Старые проверки порядка байтов,
+знаковости профиля, происхождения, применимости и заметки заменены более строгой
+базой; перенос незакоммиченного diff вернул бы старую реализацию. Аппаратные
+артефакты и извлечения ODIS остались приватными и нетронутыми.
 
-The real-car worktree has five uncommitted documentation edits. Two stale FIXED
-backlight claims in targets/UX were corrected using the existing committed GPIO4
-acceptance record. The rest mostly changes an old VNCI-first roadmap; current
-standalone priorities replace that roadmap in the new report. These unrelated
-working changes remain in their original checkout.
+В автомобильном рабочем каталоге пять незакоммиченных правок документации.
+Два устаревших утверждения о фиксированной подсветке в документах платформ/UX
+исправлены на основании сохранённого отчёта приёмки GPIO4. Остальные правки
+в основном меняют старый план с приоритетом VNCI; в новом отчёте актуальны
+автономные этапы. Эти посторонние правки остались в исходном каталоге.
 
-The local stash `a09cf6f` contains consolidation docs/tests/runner already committed
-by `34aa05f`/`b1d38c1` and subsequently improved. Exact artifact/history/acceptance
-files match; current overview/runner are newer. No stash pop or duplicate transfer.
-The production UI worktree is clean. No user changes or original worktrees are reset.
+Stash `a09cf6f` содержит документацию/тесты/запуск проверок, уже включённые через
+`34aa05f`/`b1d38c1` и улучшенные позже. Файлы истории/артефактов/приёмки совпадают,
+текущие обзор и запускатель новее. Stash не извлекался, повторного переноса нет.
+Каталог production UI чист. Пользовательские изменения и исходные каталоги не сбрасывались.
 
-## Future work
+## Дальнейшая работа
 
-Use `integration/standalone` for subsequent fixes. Do not treat an old README or
-feature branch as the latest product. No obsolete PC-only runtime is promoted;
-historical simulator/research code is retained with an explicit scope. Archive
-decisions are documentation only: **all old remote branches still exist**.
+Продолжать исправления в `integration/standalone`. Сверять старые README и ветки
+с актуальным продуктом. Исторические симуляторы/исследования сохранены с явной
+областью применения. Решения об архивировании остаются документацией:
+**все старые серверные ветки существуют**.

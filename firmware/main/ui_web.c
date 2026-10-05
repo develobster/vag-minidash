@@ -1,4 +1,5 @@
 #include "ui_web.h"
+#include "ui_i18n.h"
 #include "display_app.h"
 #include "vehicle_app.h"
 #include "validation_json.h"
@@ -84,6 +85,7 @@ static esp_err_t get_handler(httpd_req_t *req)
         for (unsigned i=0;i<MD_SIGNAL_COUNT;++i) {
             cJSON *o=cJSON_CreateObject(); const md_ui_signal_definition_t *d=&md_ui_signal_definitions[i];
             cJSON_AddStringToObject(o,"id",d->canonical_name); cJSON_AddStringToObject(o,"label",d->label);
+            cJSON_AddStringToObject(o,"label_ru",md_ui_i18n_signal_label(MD_UI_LANGUAGE_RUSSIAN,i));
             cJSON_AddStringToObject(o,"unit",d->canonical_unit); cJSON_AddNumberToObject(o,"precision",d->decimals);
             cJSON_AddStringToObject(o,"provenance",md_signal_provenance(i));
             const md_derived_node_t *node=md_derived_definition(i);cJSON_AddBoolToObject(o,"derived",node!=NULL);

@@ -1,10 +1,11 @@
-# Developer entry and repeatable acceptance
+# Разработка и повторяемые проверки
 
-Current branch: **`integration/standalone`**. See the
-[branch map](development/branch-consolidation.md),
-[delivery / regression](development/standalone-consolidation-2026-10-05.md),
-[host configurator](web-configurator.md), and
-[Car Validation Mode](validation/car-validation-mode.md).
+Текущая ветка: **`integration/standalone`**. См.
+[карту веток](development/branch-consolidation.md),
+[поставку и регрессии](development/standalone-consolidation-2026-10-05.md),
+[конфигуратор на ПК](web-configurator.md),
+[режим проверки автомобиля](validation/car-validation-mode.md) и
+[русский интерфейс/стендовую прошивку](development/russian-ui-flash-2026-10-05.md).
 The inherited merge `6ae2ed4` preserves
 standalone `ab1c09c` and diverged real-car/UI `bf7e8ba`. See the
 [analytics delivery](research/engine-analytics-delivery-2026-10-04.md) and
