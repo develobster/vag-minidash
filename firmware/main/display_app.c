@@ -411,7 +411,8 @@ static bool effective_day_mode(const md_ui_settings_t *settings)
     return settings->day_night == MD_UI_DAY_NIGHT_DAY;
 }
 
-static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms)
+static md_ui_diagnostics_t diagnostics_snapshot(const md_ui_signal_store_t *signals,
+                                               uint32_t now_ms)
 {
     md_ui_diagnostics_t diagnostics = {0};
     const esp_app_desc_t *app = esp_app_get_description();
@@ -425,7 +426,8 @@ static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms)
     diagnostics.display_ready = s_display_ready;
     diagnostics.touch_ready = s_touch_ready;
     diagnostics.brightness_control = CONFIG_MINIDASH_LCD_PIN_BL >= 0;
-    md_vehicle_status_t vehicle;
+    /* Only ui_task calls this helper; keep the analytics-sized copy off its stack. */
+    static md_vehicle_status_t vehicle;
     if (md_vehicle_app_status(&vehicle)) {
         diagnostics.transport_available=true;
         snprintf(diagnostics.transport_state,sizeof(diagnostics.transport_state),"%s",md_acq_state_name(vehicle.state));
@@ -443,11 +445,8 @@ static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms)
                         &diagnostics.average_render_ms,
                         &diagnostics.render_metrics_available);
 
-    md_ui_signal_store_t snapshot;
-    portENTER_CRITICAL(&s_signal_mux);
-    snapshot = s_signal_store;
-    portEXIT_CRITICAL(&s_signal_mux);
-    diagnostics.signal_summary = md_ui_signal_summary(&snapshot, now_ms);
+    /* Summarize the same immutable snapshot that the renderer receives. */
+    diagnostics.signal_summary = md_ui_signal_summary(signals, now_ms);
     return diagnostics;
 }
 
@@ -1101,12 +1100,13 @@ static void ui_task(void *argument)
         last_update = now_ticks;
         if (state.sleeping || !lvgl_port_lock(20)) continue;
 
-        md_ui_signal_store_t signals;
+        /* ui_task is the sole owner; keep the large snapshot off its 8 KiB stack. */
+        static md_ui_signal_store_t signals;
         portENTER_CRITICAL(&s_signal_mux);
         signals = s_signal_store;
         portEXIT_CRITICAL(&s_signal_mux);
         const uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000);
-        const md_ui_diagnostics_t diagnostics = diagnostics_snapshot(now_ms);
+        const md_ui_diagnostics_t diagnostics = diagnostics_snapshot(&signals, now_ms);
         md_ui_lvgl_renderer()->update(NULL,state.screen, &settings, &state, &signals,
                              now_ms, &diagnostics);
         lvgl_port_unlock();
