@@ -1,5 +1,11 @@
 # MiniDash embedded UI status
 
+Bench update (2026-10-13): ST7789 image and XPT2046 touch confirmed after the
+CAN UI stack fix and matching UART bootloader/app flashing. Stable for 70
+seconds; saved 70% brightness and calibration loaded. See [acceptance and
+automatic stack guards](../hardware/can-display-acceptance-2026-10-13.md) and
+[manual flashing](../hardware/manual-flashing-ru.md). Vehicle tests remain open.
+
 Focus update (2026-10-01): Volkswagen/Porsche now show a value-driven needle
 only in single-signal Focus; ordinary cards have no instrument arcs. Five
 reference vehicle profiles, Tiguan fallback and Auto/manual ranges use schema 3.

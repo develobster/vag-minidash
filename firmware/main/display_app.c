@@ -1128,7 +1128,7 @@ void md_display_app_start(void)
         ESP_LOGE(TAG, "Could not start settings storage task");
         return;
     }
-    if (xTaskCreate(ui_task, "ui_controller", 8192, NULL, 3, &s_ui_task) != pdPASS) {
+    if (xTaskCreate(ui_task, "ui_controller", MD_UI_TASK_STACK_BYTES, NULL, 3, &s_ui_task) != pdPASS) {
         ESP_LOGE(TAG, "Could not start UI controller task");
         s_ui_task = NULL;
         return;

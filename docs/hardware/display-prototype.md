@@ -3,7 +3,9 @@
 CAN bench diagnosis (2026-10-13): the analytics worktree at `751d2f8` lacks
 the working backup's UI snapshot stack fix. See [measured stack overflow,
 COM3 console routing, safe application-only verification and recovery](can-display-startup-2026-10-13.md).
-Physical acceptance of the new correction remains pending.
+The owner confirmed working image and touch after authorized application and
+matching UART bootloader flashing. See [bench acceptance and build guards](can-display-acceptance-2026-10-13.md)
+and the [manual Windows flashing guide](manual-flashing-ru.md).
 
 Wi-Fi/theme update (2026-10-01): local settings remain editable with AP enabled;
 Wi-Fi shows an ON/OFF indicator. Eleven themes now include Volkswagen/Porsche,

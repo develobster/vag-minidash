@@ -1,10 +1,17 @@
 # CAN bench build: black display and UI stack regression, 2026-10-13
 
+Follow-up completed with explicit flashing authorization: [bench acceptance,
+matching UART bootloader, build guards and branch delivery](can-display-acceptance-2026-10-13.md).
+The owner confirmed image and touch. Use the [manual flashing guide](manual-flashing-ru.md).
+The report below records the earlier read-only phase. The app-only assumption
+for a USB-to-UART console transition was disproved on this board: first flash
+the matching UART bootloader as well as the app.
+
 ## Finding and limits of the evidence
 
 The `751d2f8` engine-analytics build contains a demonstrable UI task stack
-overflow. The fixed image has been prepared for bench verification; physical
-display/touch acceptance after flashing remains pending. CANH/CANL must remain
+overflow. The fixed image was initially prepared for bench verification;
+display/touch acceptance is now recorded in the follow-up above. CANH/CANL must remain
 disconnected during this work.
 
 The local worktree was clean, at detached
@@ -177,8 +184,9 @@ idf.py -B build-can-diagnostic -D SDKCONFIG=sdkconfig.can-diagnostic.generated -
 idf.py -B build-can-diagnostic -D SDKCONFIG=sdkconfig.can-diagnostic.generated -p COM3 monitor
 ```
 
-The old bootloader can continue to hide its own logs on UART; the new
-application reconfigures its primary console to UART0 when it starts.
+For an initial USB-to-UART transition, first run `bootloader-flash` with the
+same build/configuration/port arguments. The USB bootloader disables UART pin
+routing; a matching UART bootloader is required for this board's COM3 console.
 Expected application milestones are `MINIDASH_BOOT`, backlight `INIT`,
 `Display initialized with ST7789`, `STARTUP begin/end`, `UI ready`, and touch
 initialization. `MINIDASH_READY` alone is printed before UI setup and does

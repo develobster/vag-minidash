@@ -1,5 +1,12 @@
 # Current feature and evidence matrix
 
+Bench update (2026-10-13): CAN listen-only firmware starts with working
+display/touch (owner-confirmed), saved calibration and brightness, stable UART
+for 70 seconds. The UI stack regression is fixed and guarded during builds.
+See [acceptance/limits](hardware/can-display-acceptance-2026-10-13.md) and
+[manual flashing](hardware/manual-flashing-ru.md). Vehicle tests remain open.
+The dated delivery paragraphs below retain their earlier evidence context.
+
 Latest continuation: shared native CAN/OBD → Analytics integration and freshness
 rescue scheduling; seven native groups. See [pipeline follow-up](research/analytics-pipeline-scheduling-2026-10-04.md).
 

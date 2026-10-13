@@ -3,9 +3,13 @@
 Standalone automotive dashboard in development. ESP32-S3 firmware now owns
 CAN/ISO-TP/OBD acquisition, bounded derived analytics and display publishing. Python remains a
 development/research tool, not a production dependency. The autonomous path is
-offline-tested; physical-board and vehicle acceptance are still required.
+offline-tested; startup/display/touch bench acceptance has passed, while real
+CAN/power/vehicle acceptance remains open.
 
 ## Start here
+
+- [Manual Windows flashing guide](docs/hardware/manual-flashing-ru.md)
+- [CAN display bench acceptance and automatic stack protection](docs/hardware/can-display-acceptance-2026-10-13.md)
 
 - [Latest CAN/OBD → Analytics pipeline and scheduling fix](docs/research/analytics-pipeline-scheduling-2026-10-04.md)
 

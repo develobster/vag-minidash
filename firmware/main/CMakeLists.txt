@@ -15,3 +15,20 @@ idf_component_register(
                    esp_driver_spi esp_lcd esp_lcd_ili9341 esp_lvgl_port
                    esp_http_client esp_http_server json esp_netif esp_timer lvgl nvs_flash esp_wifi spi_flash
 )
+
+# The UI controller has an 8 KiB task stack. Reserve room for nested NVS/LVGL
+# calls; reject the analytics regression's 4384/5840-byte local frames in every
+# firmware build, including builds outside the optional bench scripts.
+set_source_files_properties("display_app.c" PROPERTIES
+    COMPILE_OPTIONS "-fstack-usage;-Werror=stack-usage=3072")
+
+# Use one task budget for allocation and the post-compile check of nested paths.
+set(MD_UI_TASK_STACK_BYTES 8192)
+target_compile_definitions(${COMPONENT_LIB} PRIVATE
+    MD_UI_TASK_STACK_BYTES=${MD_UI_TASK_STACK_BYTES})
+set_source_files_properties("ui_configuration.c" "ui_configuration_nvs.c" PROPERTIES
+    COMPILE_OPTIONS "-fstack-usage")
+add_custom_command(TARGET ${COMPONENT_LIB} POST_BUILD
+    COMMAND ${PYTHON} ${CMAKE_CURRENT_LIST_DIR}/../../tools/check_ui_stack_budget.py
+        --build-dir ${CMAKE_BINARY_DIR} --stack-bytes ${MD_UI_TASK_STACK_BYTES}
+    VERBATIM)
