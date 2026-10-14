@@ -1,5 +1,15 @@
 # ESP32-S3 display prototype (Rev.A software)
 
+Актуальная база (2026-10-14): `integration/standalone`. Исправления запуска
+дисплея и автоматическая защита стека включены в неё без потери конфигуратора,
+русского интерфейса и режима проверки автомобиля. См.
+[результаты интеграции](../development/standalone-realignment-2026-10-14.md)
+и [актуальную ручную инструкцию](manual-flashing-ru.md).
+[Стендовая приёмка 13 октября](can-display-acceptance-2026-10-13.md) подтверждает
+изображение/тач отдельного образа и необходимость согласованного UART-загрузчика;
+она не подтверждает новый объединённый образ. Ранее сделанное предположение об
+обновлении только приложения при переходе USB→UART оказалось неверным на этой плате.
+
 Wi-Fi/theme update (2026-10-01): local settings remain editable with AP enabled;
 Wi-Fi shows an ON/OFF indicator. Eleven themes now include Volkswagen/Porsche,
 monospaced retro fonts and distinct frames/instrument artwork. See

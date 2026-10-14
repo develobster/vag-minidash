@@ -433,7 +433,8 @@ static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms,
     diagnostics.display_ready = s_display_ready;
     diagnostics.touch_ready = s_touch_ready;
     diagnostics.brightness_control = CONFIG_MINIDASH_LCD_PIN_BL >= 0;
-    md_vehicle_status_t vehicle;
+    /* Only ui_task calls this helper; keep the analytics-sized copy off its stack. */
+    static md_vehicle_status_t vehicle;
     if (md_vehicle_app_status(&vehicle)) {
         diagnostics.transport_available=true;
         snprintf(diagnostics.transport_state,sizeof(diagnostics.transport_state),"%s",md_acq_state_name(vehicle.state));
@@ -1143,7 +1144,7 @@ void md_display_app_start(void)
         ESP_LOGE(TAG, "Could not start settings storage task");
         return;
     }
-    if (xTaskCreate(ui_task, "ui_controller", 8192, NULL, 3, &s_ui_task) != pdPASS) {
+    if (xTaskCreate(ui_task, "ui_controller", MD_UI_TASK_STACK_BYTES, NULL, 3, &s_ui_task) != pdPASS) {
         ESP_LOGE(TAG, "Could not start UI controller task");
         s_ui_task = NULL;
         return;

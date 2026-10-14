@@ -1,11 +1,18 @@
 # Разработка и повторяемые проверки
 
 Текущая ветка: **`integration/standalone`**. См.
+[интеграцию экранных исправлений и свежие проверки от 14 октября](development/standalone-realignment-2026-10-14.md),
 [карту веток](development/branch-consolidation.md),
 [поставку и регрессии](development/standalone-consolidation-2026-10-05.md),
 [конфигуратор на ПК](web-configurator.md),
 [режим проверки автомобиля](validation/car-validation-mode.md) и
 [русский интерфейс/стендовую прошивку](development/russian-ui-flash-2026-10-05.md).
+Обычная сборка прошивки теперь проверяет собственные кадры `display_app.c`
+до 3072 байт и известные вложенные пути UI с резервом 1024 байта при стеке
+8192 байта. Исходный код `751d2f8` должен отклоняться скриптом
+`python tools/check_ui_stack_regression.py --build-dir <путь-сборки>`.
+Для UART0 доступен последний overlay `sdkconfig.uart-console`; при смене
+профиля консоли нужен согласованный загрузчик по [инструкции](hardware/manual-flashing-ru.md).
 The inherited merge `6ae2ed4` preserves
 standalone `ab1c09c` and diverged real-car/UI `bf7e8ba`. See the
 [analytics delivery](research/engine-analytics-delivery-2026-10-04.md) and

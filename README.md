@@ -1,6 +1,8 @@
 # MiniDash / vag-minidash
 
 Единая база разработки: **`integration/standalone`**. Продолжать работу в этой ветке.
+Исправления запуска дисплея и защита стека из октябрьской ветки включены в эту
+базу. См. [объединение и новые проверки от 14 октября](docs/development/standalone-realignment-2026-10-14.md).
 См. [полную карту веток](docs/development/branch-consolidation.md),
 [результаты консолидации и регрессий](docs/development/standalone-consolidation-2026-10-05.md),
 [режим проверки автомобиля и первый сеанс на стоянке](docs/validation/car-validation-mode.md)
@@ -32,6 +34,9 @@ Python остаётся инструментом разработки/иссле
 
 ## С чего начать
 
+- [Актуальная интеграция экранных исправлений и защиты сборки](docs/development/standalone-realignment-2026-10-14.md)
+- [Ручная прошивка на Windows: единая ветка и согласованная консоль](docs/hardware/manual-flashing-ru.md)
+- [Стендовая приёмка дисплея/тача от 13 октября и её ограничения](docs/hardware/can-display-acceptance-2026-10-13.md)
 - [Русский интерфейс, проверки и загрузка на плату](docs/development/russian-ui-flash-2026-10-05.md)
 - [Актуальный конвейер CAN/OBD → аналитика и исправление планировщика](docs/research/analytics-pipeline-scheduling-2026-10-04.md)
 - [Производная аналитика: метрики, проверки, оставшаяся работа](docs/research/engine-analytics-delivery-2026-10-04.md)

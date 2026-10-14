@@ -1,0 +1,8 @@
+# Optional bench console for the CH343 USB-UART bridge (COM3 on this board).
+# Apply last, with a separate generated SDKCONFIG and build directory.
+# UART0 defaults on ESP32-S3 are TX=GPIO43, RX=GPIO44; no display/CAN pin changes.
+# CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG is not set
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+# CONFIG_ESP_CONSOLE_SECONDARY_NONE is not set
+CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG=y
+CONFIG_ESP_CONSOLE_UART_BAUDRATE=115200
