@@ -1,0 +1,152 @@
+{
+  "date": "2026-10-14",
+  "task": "Стендовая загрузка объединённой версии с сохранением настроек",
+  "branch": "integration/standalone",
+  "firmware": {
+    "source_commit": "875106bf1cdd6ae477941d0115911d33b8509751",
+    "source_tree_clean_at_build": true,
+    "embedded_version": "875106b",
+    "previous_version": "da1e6b7",
+    "bytes": 1856576,
+    "sha256": "fb52400f1becbf85a057b7562af7a19dc4f5accd69a2e0fdf94413c01b1394b8",
+    "local_artifact": "artifacts/hardware/vag-minidash-875106b-passive-validation-uart.bin",
+    "preset": "sdkconfig.defaults;sdkconfig.car-validation-listen;sdkconfig.uart-console",
+    "sdkconfig_sha256_lf": "90ef9b8ef87cce8dd422e25514df896806b1ed55285f77c4d5cd61974cb6b7af",
+    "sdk": "ESP-IDF v5.5.5",
+    "compiler": "Xtensa GCC 14.2.0_20260121",
+    "build_warnings": 0,
+    "stack_guard": {
+      "diagnostics_frames_bytes": 1616,
+      "saved_config_frames_bytes": 5792,
+      "reserve_bytes": 1024,
+      "task_stack_bytes": 8192,
+      "result": "PASS"
+    },
+    "linker_internal_data_bss_bytes": 183192,
+    "linker_remaining_diram_bytes": 62917,
+    "runtime_heap_or_stack_minimum_measured": false
+  },
+  "board": {
+    "chip": "ESP32-S3 QFN56 rev. 0.2",
+    "flash_bytes": 16777216,
+    "psram_bytes": 8388608,
+    "port": "COM3",
+    "adapter": "CH343",
+    "usb_vid_pid": "1A86:55D3",
+    "console": "UART0 115200; secondary USB Serial JTAG",
+    "secure_boot_enabled": false,
+    "flash_encryption_enabled": false,
+    "power": "USB only",
+    "canh_canl_connected": false,
+    "can_mode": "permanently passive listen-only; Car Validation",
+    "standard_obd_enabled": false,
+    "host_injection_enabled": false
+  },
+  "preservation": {
+    "initial_full_backup": {
+      "local_path": "artifacts/hardware/before-875106b-passive-uart-20261014.bin",
+      "bytes": 16777216,
+      "sha256": "989c478b37904f7b4ebf22da342e846f664b517b6b542c317dc5c27960febb3c"
+    },
+    "latest_protected_checkpoint": {
+      "local_path": "artifacts/hardware/before-875106b-latest-protected-20261014.bin",
+      "bytes": 65536,
+      "sha256": "48eae497a70b4a8daea0b628e1035db7ab2b3db4ebf8acd592732c4024c35a04",
+      "reason": "Старая версия штатно сохранила common.last_screen после первоначальной полной копии; запись при первом обнаружении изменения остановлена до прошивки."
+    },
+    "postflash_protected_prefix_matches_latest_checkpoint": true,
+    "bootloader_bytes": 22272,
+    "bootloader_sha256": "c0ee5dbb9f34f973270e943889095304908f25b65d0e7ff6d17f9b67ab5ac95c",
+    "bootloader_matches_previously_accepted_uart": true,
+    "bootloader_build_config_equal": true,
+    "partition_table_exact_match": true,
+    "partitions": [
+      {
+        "type": 1,
+        "subtype": 2,
+        "offset": 36864,
+        "size": 24576,
+        "name": "nvs",
+        "flags": 0
+      },
+      {
+        "type": 1,
+        "subtype": 1,
+        "offset": 61440,
+        "size": 4096,
+        "name": "phy_init",
+        "flags": 0
+      },
+      {
+        "type": 0,
+        "subtype": 0,
+        "offset": 65536,
+        "size": 3145728,
+        "name": "factory",
+        "flags": 0
+      }
+    ],
+    "written_regions": [
+      {
+        "offset": 65536,
+        "bytes": 1856576,
+        "kind": "application"
+      }
+    ],
+    "bootloader_written": false,
+    "nvs_phy_or_partition_table_written": false,
+    "full_flash_erase": false,
+    "write_hash_verified": true,
+    "independent_verify_flash": "PASS"
+  },
+  "checks": {
+    "hardware": {
+      "version": "875106b",
+      "port": "COM3",
+      "ui_tests_passed": 27,
+      "ui_tests_failed": 0,
+      "lvgl_view_test": "PASS",
+      "protected_prefix_64k_equal": true,
+      "nvs_calibration_phy_bootloader_preserved": true,
+      "common_settings_equal": true,
+      "platform_equal": true,
+      "language": 1,
+      "brightness": 70,
+      "rotation": 0,
+      "reboot_settings_equal": true,
+      "display_init": "ST7789 320x240",
+      "touch_init": "XPT2046 calibrated edge controls active",
+      "visual_confirmation": true,
+      "physical_touch_confirmation": true,
+      "human_confirmation": "Да, изображение и тач работают",
+      "human_connection_confirmation": "Да, только USB; CANH/CANL отключены"
+    },
+    "uart_soak": {
+      "seconds": 75.1,
+      "status_query_seconds": [
+        0,
+        25,
+        55
+      ],
+      "boot_counts": [
+        1,
+        1,
+        1
+      ],
+      "unexpected_rom_boots": 0,
+      "panic_watchdog_or_stack_overflow": false
+    },
+    "settings_schema_before": 4,
+    "settings_schema_after": 4,
+    "settings_migration_needed": false
+  },
+  "not_verified": [
+    "Полное отключение USB и холодное включение этой версии",
+    "Длительная нагрузка UI+CAN+Wi-Fi и минимальные остатки памяти/стеков",
+    "Все сочетания поворота и яркости",
+    "Автомобильное питание, трансивер, проводка и физический RX/TX CAN",
+    "Фирменные источники данных ЭБУ"
+  ],
+  "provenance": "Существующий код и закреплённые зависимости; новые внешние реализации/лицензии не добавлены.",
+  "private_artifacts_published": false
+}

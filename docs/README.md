@@ -8,6 +8,7 @@
 
 | Тема | Документы |
 |---|---|
+| Стендовая загрузка единой версии 14 октября | [Образ 875106b, 27 проверок UI, подтверждённые дисплей/тач и сохранность настроек](hardware/standalone-flash-2026-10-14.md), [машинная сводка](hardware/standalone-flash-verification-2026-10-14.json) |
 | Актуальная интеграция от 14 октября | [Слияние, защита стека, свежие регрессии и оставшаяся работа](development/standalone-realignment-2026-10-14.md) |
 | Дисплей, консоль и ручная прошивка | [Инструкция для единой ветки](hardware/manual-flashing-ru.md), [стендовая приёмка 13 октября](hardware/can-display-acceptance-2026-10-13.md), [исходная диагностика](hardware/can-display-startup-2026-10-13.md) |
 | Единая база разработки | [Матрица веток](development/branch-consolidation.md), [поставка / регрессии / память](development/standalone-consolidation-2026-10-05.md) |
