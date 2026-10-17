@@ -1,5 +1,15 @@
 # MiniDash / vag-minidash
 
+An ESP32-S3 automotive telemetry dashboard with CAN/ISO-TP/OBD acquisition,
+a touchscreen UI, bounded derived analytics, and a local web configurator.
+Python tools support research, replay, and offline validation; the standalone
+device does not require a phone or PC. This is an early-stage project:
+display/touch bench results are documented, and full vehicle acceptance is pending.
+
+[Contributing](CONTRIBUTING.md) ·
+[Publication readiness and Codex application draft](docs/development/open-source-readiness-2026-10-17.md).
+Root licensing is pending owner approval; the MIT proposal is not yet effective.
+
 Единая база разработки: **`integration/standalone`**. Продолжать работу в этой ветке.
 Исправления запуска дисплея и защита стека из октябрьской ветки включены в эту
 базу. См. [объединение и новые проверки от 14 октября](docs/development/standalone-realignment-2026-10-14.md).
