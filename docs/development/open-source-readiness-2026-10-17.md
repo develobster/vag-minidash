@@ -6,8 +6,10 @@ Owner approved MIT adoption and public exposure including existing commit
 history on 2026-10-17. Root LICENSE is now MIT; third-party notices are retained.
 Repository visibility is now public and the default branch is
 integration/standalone. GitHub's settings page and repository metadata both
-confirmed the change on 2026-10-17 after authenticated administrative access. The Codex application remains unsubmitted because the
-applicant's full name, exact ChatGPT email and Organization ID are missing.
+confirmed the change on 2026-10-17 after authenticated administrative access. The Codex application was submitted on 2026-10-17 after the owner supplied the
+required account information and explicitly confirmed acceptance of the program
+terms. The official form displayed a successful submission acknowledgment.
+This confirms receipt, not selection or activation of any benefit.
 
 Current development baseline: `integration/standalone`, reviewed at
 `1de3133ec713ba98117e04dabc1ea0de1238d626`. Its existing consolidation includes
@@ -123,12 +125,12 @@ Personal account data must be supplied privately to the form, not committed here
 4. DONE: made the repository public after the owner's confirmation. GitHub's
    settings and repository metadata confirm public visibility; existing branches
    and history can now be copied by others.
-5. Complete legal first/last name, exact ChatGPT-account email and OpenAI
-   Organization ID in the application. A new ChatGPT account is unnecessary.
-   Never commit account identifiers, credentials or the completed personal form.
-6. Submit only after confirming the program terms at the final action.
-   Acceptance is discretionary; submission does not activate Pro immediately.
+5. DONE: completed applicant identity and organization fields privately in the
+   official form. No account identifiers or credentials are committed here.
+6. DONE: submitted after explicit owner confirmation of the program terms.
+   The form acknowledged receipt and said selected applicants will be contacted.
+   Selection is discretionary; no Pro/API/Security benefit is activated by this report.
 
 After each completed administrative step, update this report with verified
-results. Publication is complete; application submission is still pending. Documentation-only
+results. Publication and application submission are complete; selection remains pending. Documentation-only
 adoption changed no runtime code; no firmware/build tests were rerun.
