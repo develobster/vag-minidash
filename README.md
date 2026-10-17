@@ -8,7 +8,7 @@ display/touch bench results are documented, and full vehicle acceptance is pendi
 
 [Contributing](CONTRIBUTING.md) ·
 [Publication readiness and Codex application draft](docs/development/open-source-readiness-2026-10-17.md).
-Root licensing is pending owner approval; the MIT proposal is not yet effective.
+Licensed under [MIT](LICENSE); bundled third-party materials retain their own notices.
 
 Единая база разработки: **`integration/standalone`**. Продолжать работу в этой ветке.
 Исправления запуска дисплея и защита стека из октябрьской ветки включены в эту
@@ -122,6 +122,6 @@ python -m unittest discover -s tests -v
 в [разработке](docs/development.md). Эти команды не прошивают устройство.
 Приватные записи, базы OEM, заводские резервные копии и сборки остаются локально;
 см. [политику артефактов](docs/artifacts.md). Лицензии тестовых данных сохранены
-в [tests/fixtures/README.md](tests/fixtures/README.md); лицензия всего проекта ещё не выбрана.
+в [tests/fixtures/README.md](tests/fixtures/README.md); авторский код проекта распространяется по [MIT](LICENSE), сторонние материалы сохраняют свои лицензии.
 
 Старые заметки сохранены в [историческом README](docs/history/README-pre-consolidation.md).

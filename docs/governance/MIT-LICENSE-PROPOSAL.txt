@@ -1,8 +1,7 @@
-PROPOSAL ONLY — NOT AN EFFECTIVE PROJECT LICENSE
+HISTORICAL PROPOSAL — ADOPTED ON 2026-10-17
 
-The following is draft text for owner review. It grants no project-wide rights
-unless the owner approves adoption and the text is installed as root LICENSE.
-Existing third-party licenses remain applicable to their respective materials.
+The owner approved MIT licensing. Root LICENSE is authoritative; third-party
+materials retain their existing terms. The originally proposed text follows.
 
 MIT License
 

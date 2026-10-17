@@ -19,6 +19,7 @@ backups or build output in a contribution. Use reviewed synthetic fixtures and
 retain source/license notices. See [artifact policy](docs/artifacts.md) and
 [fixture notices](tests/fixtures/README.md).
 
-A root project license is still pending owner approval. See the
+Project-authored code is licensed under [MIT](LICENSE). Third-party materials
+retain their existing license notices. See the
 [publication preparation report](docs/development/open-source-readiness-2026-10-17.md).
 No contributor license agreement or rights assignment is introduced here.

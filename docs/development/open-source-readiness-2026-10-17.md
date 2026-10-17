@@ -2,9 +2,12 @@
 
 ## Status
 
-Prepared for owner review. Repository remains private, its default branch remains
-`main`, and no root license has been adopted. The Codex application has not been
-submitted. This report is preparation, not a declaration that publication is complete.
+Owner approved MIT adoption and public exposure including existing commit
+history on 2026-10-17. Root LICENSE is now MIT; third-party notices are retained.
+Repository visibility is still private and the default branch is still main at
+this update. Publication requires GitHub administrative access, and the browser
+is currently signed out. The Codex application remains unsubmitted because the
+applicant's full name, exact ChatGPT email and Organization ID are missing.
 
 Current development baseline: `integration/standalone`, reviewed at
 `1de3133ec713ba98117e04dabc1ea0de1238d626`. Its existing consolidation includes
@@ -55,18 +58,17 @@ outside the review. No attachments were identified in the returned PR body. No l
 
 ## License proposal
 
-[Proposed MIT text](../governance/MIT-LICENSE-PROPOSAL.txt) is a draft only.
-It does not grant a project-wide license until the owner approves adoption and it
-is installed as root `LICENSE`. MIT would allow reuse, modification, distribution
-and commercial use with the notice retained. Original third-party terms remain
+[Root MIT license](../../LICENSE) was adopted with the owner's approval on
+2026-10-17. The [historical proposal](../governance/MIT-LICENSE-PROPOSAL.txt) is
+retained for context. MIT allows reuse, modification, distribution and commercial
+use with the notice retained. Original third-party terms remain
 applicable: opendbc fixture notices are in
 [tests/fixtures/README.md](../../tests/fixtures/README.md); bundled font OFL
 notices remain beside the generated font files. Dependency and upstream rights
 are not replaced by the proposed root license.
 
-The current README and source matrix explicitly record that the root license is
-undecided. Update the current statements when adopting the license; dated
-historical observations should retain their context.
+Current README, contributor guidance and source matrix now point to root MIT.
+Dated historical observations retain their context.
 
 ## Prepared publication changes
 
@@ -111,11 +113,11 @@ Personal account data must be supplied privately to the form, not committed here
 
 ## Remaining actions and acceptance
 
-1. Owner chooses the project license. If MIT is approved, add root LICENSE and
-   update current README/source-matrix wording; retain third-party notices.
-2. Obtain the owner's decision about public disclosure of the personal Gmail
-   commit identity. Recheck refs and public-facing repository settings immediately
-   before publication; PNG and returned Actions/issue/PR surfaces were reviewed.
+1. DONE: owner approved MIT; root LICENSE and current documentation updated.
+   Existing third-party notices were preserved.
+2. DONE: owner confirmed public disclosure of history, including its Gmail
+   identity. Recheck refs and settings before publication. PNG and returned
+   Actions/issue/PR surfaces were reviewed.
 3. Make the current baseline discoverable as the default branch, preferably
    `integration/standalone` to preserve the standing no-main-merge instruction.
    No code/history merge is needed. Repository administration permission is
@@ -129,4 +131,5 @@ Personal account data must be supplied privately to the form, not committed here
    Acceptance is discretionary; submission does not activate Pro immediately.
 
 After each completed administrative step, update this report with verified
-results. Publication and application submission are still pending.
+results. Publication and application submission are still pending. Documentation-only
+adoption changed no runtime code; no firmware/build tests were rerun.
