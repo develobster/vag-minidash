@@ -4,9 +4,9 @@
 
 Owner approved MIT adoption and public exposure including existing commit
 history on 2026-10-17. Root LICENSE is now MIT; third-party notices are retained.
-Repository visibility is still private and the default branch is still main at
-this update. Publication requires GitHub administrative access, and the browser
-is currently signed out. The Codex application remains unsubmitted because the
+Repository visibility is now public and the default branch is
+integration/standalone. GitHub's settings page and repository metadata both
+confirmed the change on 2026-10-17 after authenticated administrative access. The Codex application remains unsubmitted because the
 applicant's full name, exact ChatGPT email and Organization ID are missing.
 
 Current development baseline: `integration/standalone`, reviewed at
@@ -118,12 +118,11 @@ Personal account data must be supplied privately to the form, not committed here
 2. DONE: owner confirmed public disclosure of history, including its Gmail
    identity. Recheck refs and settings before publication. PNG and returned
    Actions/issue/PR surfaces were reviewed.
-3. Make the current baseline discoverable as the default branch, preferably
-   `integration/standalone` to preserve the standing no-main-merge instruction.
-   No code/history merge is needed. Repository administration permission is
-   required.
-4. Make the repository public and verify anonymous access. The owner must accept
-   that existing branches/history can be copied by others.
+3. DONE: changed the default branch to integration/standalone through GitHub
+   settings, with no code/history merge into main.
+4. DONE: made the repository public after the owner's confirmation. GitHub's
+   settings and repository metadata confirm public visibility; existing branches
+   and history can now be copied by others.
 5. Complete legal first/last name, exact ChatGPT-account email and OpenAI
    Organization ID in the application. A new ChatGPT account is unnecessary.
    Never commit account identifiers, credentials or the completed personal form.
@@ -131,5 +130,5 @@ Personal account data must be supplied privately to the form, not committed here
    Acceptance is discretionary; submission does not activate Pro immediately.
 
 After each completed administrative step, update this report with verified
-results. Publication and application submission are still pending. Documentation-only
+results. Publication is complete; application submission is still pending. Documentation-only
 adoption changed no runtime code; no firmware/build tests were rerun.
