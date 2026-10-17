@@ -767,7 +767,7 @@ static void create_diagnostics_screen(screen_view_t *view)
         {"TIMEOUTS", DIAG_CAN_TIMEOUTS}, {"RX DROPS", DIAG_CAN_DROPS},
         {"DISPLAY", DIAG_DISPLAY}, {"TOUCH", DIAG_TOUCH},
         {"STORED DTC", DIAG_DTC}, {"TRANSPORT", DIAG_TRANSPORT},
-        {"ECUS", DIAG_ECUS}, {"SAMPLES", DIAG_SIGNALS},
+        {"ECUS", DIAG_ECUS}, {"VALID SIGNALS", DIAG_SIGNALS},
         {"STALE", DIAG_STALE}, {"ERRORS", DIAG_ERRORS},
     };
     style_root(view, "SERVICE STATUS", "HOLD: READ DTC / RETRY CAN");
@@ -1679,7 +1679,7 @@ static void update_diagnostic_field(field_view_t *field,
     case DIAG_CAN_DROPS: snprintf(text,sizeof(text),"%lu",(unsigned long)diag->can_dropped);break;
     case DIAG_DTC: snprintf(text,sizeof(text),"%s",diag->dtc_text);break;
     case DIAG_SIGNALS:
-        (void)snprintf(text, sizeof(text), "%u / %u", diag->signal_summary.sample_count,
+        (void)snprintf(text, sizeof(text), "%u / %u", diag->signal_summary.valid_count,
                        MD_SIGNAL_COUNT);
         break;
     case DIAG_STALE:

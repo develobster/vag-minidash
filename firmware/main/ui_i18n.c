@@ -53,6 +53,7 @@ static const translation_t s_translations[] = {
     {"TRANSPORT", "ТРАНСПОРТ"},
     {"ECUS", "БЛОКИ ЭБУ"},
     {"SAMPLES", "ИЗМЕРЕНИЯ"},
+    {"VALID SIGNALS", "ДОСТУПНО"},
     {"STALE", "УСТАРЕЛО"},
     {"ERRORS", "ОШИБКИ"},
     {"CAN RX", "CAN ПРИЁМ"}, {"CAN TX", "CAN ПЕРЕДАЧА"},

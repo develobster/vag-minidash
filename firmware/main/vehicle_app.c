@@ -155,6 +155,8 @@ static void vehicle_task(void *unused)
         .car_validation_mode=true,
 #endif
         .startup_ms=1500,.profile=NULL};
+    ESP_LOGI(TAG,"CAN 500 kbit/s TX=%d RX=%d standard_obd=%s VAG_profile=none UDS=off",
+        CONFIG_MINIDASH_CAN_TX_GPIO,CONFIG_MINIDASH_CAN_RX_GPIO,allow_obd?"on":"off");
     xSemaphoreTake(lock,portMAX_DELAY);
     md_acq_init(&engine,&config,send_can,NULL,now_ms());
     md_ui_signal_store_init(&canonical);(void)md_derived_init(&analytics,&pending_analytics,now_ms());

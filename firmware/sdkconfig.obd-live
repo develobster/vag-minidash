@@ -1,0 +1,9 @@
+# Autonomous standard read-only OBD-II telemetry for the verified MiniDash wiring.
+# Vehicle connection uses OBD power only; disconnect OBD before attaching USB.
+CONFIG_MINIDASH_CAN_ENABLE=y
+CONFIG_MINIDASH_CAN_TX_GPIO=15
+CONFIG_MINIDASH_CAN_RX_GPIO=5
+CONFIG_MINIDASH_STANDARD_OBD=y
+# CONFIG_MINIDASH_CAR_VALIDATION_MODE is not set
+# CONFIG_MINIDASH_HOST_INJECTION is not set
+CONFIG_TWAI_ERRATA_FIX_LISTEN_ONLY_DOM=y
