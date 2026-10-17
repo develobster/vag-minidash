@@ -37,16 +37,21 @@ Results:
 - No tracked factory flash image or raw OEM database was identified in the
   reviewed file trees. Existing private-artifact exclusions are documented in
   [artifacts](../artifacts.md).
-- The connector could not decode `minidash_live/web/icon-192.png` and
-  `icon-512.png`; neither PNG content nor embedded metadata was inspected.
+- Both PNG icons were retrieved through base64 file access, inspected visually
+  and parsed: plain MiniDash M icons, only IHDR/IDAT/IEND chunks, no auxiliary
+  metadata.
+- The Actions runs endpoint returned zero runs. The issue listing returned only
+  PR #1; its body was reviewed and its discussion endpoint returned no comments.
+- All 72 commits used one personal Gmail identity in author/committer metadata.
+  The address is intentionally omitted from this report; making history public
+  exposes it. Obtain the owner's decision about that disclosure before publication.
 
 Limits: these are heuristic text checks, not an exhaustive secret detector or a
-security audit. Commit author metadata was not redacted; author name/email and
+security audit. Commit author metadata was reviewed but not redacted; author name/email and
 dates become public with Git history. Unreachable objects, deleted refs, local
 worktrees/stashes, ignored files, LFS payloads and private external artifacts were
-not reviewed. Repository settings, Actions logs/artifacts, issue/PR discussions
-and attachments need their own disclosure review before making the repository
-public. No license clearance of every source line is claimed.
+not reviewed. Repository settings and any surfaces not returned by these endpoints remain
+outside the review. No attachments were identified in the returned PR body. No license clearance of every source line is claimed.
 
 ## License proposal
 
@@ -108,9 +113,9 @@ Personal account data must be supplied privately to the form, not committed here
 
 1. Owner chooses the project license. If MIT is approved, add root LICENSE and
    update current README/source-matrix wording; retain third-party notices.
-2. Inspect the two PNGs and review existing Actions/issue/PR/attachment surfaces
-   for disclosure. Review the real commit identity metadata before publication.
-   Recheck refs if the repository has changed.
+2. Obtain the owner's decision about public disclosure of the personal Gmail
+   commit identity. Recheck refs and public-facing repository settings immediately
+   before publication; PNG and returned Actions/issue/PR surfaces were reviewed.
 3. Make the current baseline discoverable as the default branch, preferably
    `integration/standalone` to preserve the standing no-main-merge instruction.
    No code/history merge is needed. Repository administration permission is
