@@ -22,6 +22,13 @@ idf_component_register(
 set_source_files_properties("display_app.c" PROPERTIES
     COMPILE_OPTIONS "-fstack-usage;-Werror=stack-usage=3072")
 
+# Explicit bench-only image; normal builds contain no automatic loopback test.
+option(MINIDASH_USB_CAN_BENCH "USB-only external-transceiver loopback image; disconnect OBD" OFF)
+if(MINIDASH_USB_CAN_BENCH)
+    target_sources(${COMPONENT_LIB} PRIVATE "can_usb_bench.c")
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE MINIDASH_USB_CAN_BENCH=1)
+endif()
+
 # Use one task budget for allocation and the post-compile check of nested paths.
 set(MD_UI_TASK_STACK_BYTES 8192)
 target_compile_definitions(${COMPONENT_LIB} PRIVATE

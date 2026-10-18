@@ -25,6 +25,9 @@
 #include "ui_web.h"
 #include "ui_core_selftest.h"
 #include "vehicle_app.h"
+#ifdef MINIDASH_USB_CAN_BENCH
+#include "can_usb_bench.h"
+#endif
 
 /* Board self-tests are development tooling; CAN runs in its own task. */
 #define PSRAM_TEST_BYTES (6U * 1024U * 1024U)
@@ -392,6 +395,10 @@ static void print_ready(void)
 
 void app_main(void)
 {
+#ifdef MINIDASH_USB_CAN_BENCH
+    md_can_usb_bench();
+    return;
+#endif
     if (!md_backlight_init()) {
         ESP_LOGE("md_backlight", "Early backlight initialization failed");
         return;
