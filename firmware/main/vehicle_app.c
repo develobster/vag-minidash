@@ -78,6 +78,17 @@ bool md_vehicle_app_validation(md_vehicle_validation_t *out)
 static twai_handle_t can;
 static bool normal_mode;
 static uint32_t dropped_base;
+static uint32_t arbitration_base, bus_error_base;
+static void read_can_status(const twai_status_info_t *info)
+{
+    status.rx_dropped=dropped_base+info->rx_missed_count+info->rx_overrun_count;
+    status.arbitration_lost=arbitration_base+info->arb_lost_count;
+    status.bus_errors=bus_error_base+info->bus_error_count;
+    status.tx_error_counter=info->tx_error_counter;
+    status.rx_error_counter=info->rx_error_counter;
+    if(status.tx_error_counter>status.peak_tx_error_counter)status.peak_tx_error_counter=status.tx_error_counter;
+    if(status.rx_error_counter>status.peak_rx_error_counter)status.peak_rx_error_counter=status.rx_error_counter;
+}
 static uint32_t now_ms(void) { return (uint32_t)(esp_timer_get_time()/1000); }
 static bool send_can(void *unused,const md_can_frame_t *f)
 {
@@ -108,7 +119,12 @@ static bool install_can(bool normal)
 {
     if(can) {
         twai_status_info_t info;
-        if(twai_get_status_info_v2(can,&info)==ESP_OK) dropped_base+=info.rx_missed_count+info.rx_overrun_count;
+        if(twai_get_status_info_v2(can,&info)==ESP_OK) {
+            read_can_status(&info);
+            dropped_base=status.rx_dropped;
+            arbitration_base=status.arbitration_lost;
+            bus_error_base=status.bus_errors;
+        }
         (void)twai_stop_v2(can);(void)twai_driver_uninstall_v2(can);can=NULL;
     }
     normal_mode=false;
@@ -182,7 +198,13 @@ static void vehicle_task(void *unused)
             if(alerts&TWAI_ALERT_TX_FAILED) engine.tx_failed++;
         }
         twai_status_info_t info;
-        if(can && twai_get_status_info_v2(can,&info)==ESP_OK) status.rx_dropped=dropped_base+info.rx_missed_count+info.rx_overrun_count;
+        if(can && twai_get_status_info_v2(can,&info)==ESP_OK) {
+            read_can_status(&info);
+            if(alerts&TWAI_ALERT_TX_FAILED)
+                ESP_LOGW(TAG,"TX failed: arbitration=%lu bus_errors=%lu TEC=%lu REC=%lu",
+                    (unsigned long)status.arbitration_lost,(unsigned long)status.bus_errors,
+                    (unsigned long)status.tx_error_counter,(unsigned long)status.rx_error_counter);
+        }
         bool requested=atomic_exchange(&scan,false);
         if(requested && fault && pins_valid()) {recovery_attempts=0;recovery_at=now;}
         if(fault && recovery_attempts<3 && (int32_t)(now-recovery_at)>=0) {

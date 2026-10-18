@@ -11,8 +11,8 @@ display/touch bench results are documented, and full vehicle acceptance is pendi
 Licensed under [MIT](LICENSE); bundled third-party materials retain their own notices.
 
 Единая база разработки: **`integration/standalone`**. Продолжать работу в этой ветке.
-На устройство установлен [образ `wifi1018`](docs/hardware/wifi-obd-2026-10-18.md):
-пароль Wi-Fi `12345678`, этапы запуска AP и счётчик ошибок TX на экране.
+На устройство установлен [образ `canerr18`](docs/hardware/can-transmit-diagnostics-2026-10-18.md):
+счётчики арбитража/ошибок шины и TX на экране, пароль Wi-Fi `12345678`.
 Запуск и сохранность настроек проверены по USB. Предыдущая проверка на Tiguan
 не дала ответов ECU. Открытие Wi-Fi страницы с телефона подтверждено;
 живые автомобильные значения ещё требуют проверки.

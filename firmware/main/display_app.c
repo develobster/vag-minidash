@@ -442,6 +442,8 @@ static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms,
         diagnostics.ecu_count=vehicle.ecu_count;diagnostics.selected_ecu=vehicle.ecu_id;
         diagnostics.can_rx=vehicle.rx;diagnostics.can_tx=vehicle.tx;
         diagnostics.can_tx_failed=vehicle.tx_failed;
+        diagnostics.can_arbitration_lost=vehicle.arbitration_lost;
+        diagnostics.can_bus_errors=vehicle.bus_errors;
         diagnostics.can_timeouts=vehicle.timeouts;diagnostics.can_dropped=vehicle.rx_dropped;
         if(vehicle.dtc_valid && vehicle.dtc_count) {
             char code[6];md_acq_format_dtc(vehicle.dtc[(now_ms/2000)%vehicle.dtc_count],code);

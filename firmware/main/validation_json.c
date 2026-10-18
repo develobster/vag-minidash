@@ -38,6 +38,12 @@ cJSON *md_validation_json(const md_vehicle_validation_t *v, const char *version,
     cJSON_AddNumberToObject(root,"malformed",v->status.malformed);
     cJSON_AddNumberToObject(root,"rejected",v->status.rejected);
     cJSON_AddNumberToObject(root,"tx_failed",v->status.tx_failed);
+    cJSON_AddNumberToObject(root,"arbitration_lost",v->status.arbitration_lost);
+    cJSON_AddNumberToObject(root,"bus_errors",v->status.bus_errors);
+    cJSON_AddNumberToObject(root,"tx_error_counter",v->status.tx_error_counter);
+    cJSON_AddNumberToObject(root,"rx_error_counter",v->status.rx_error_counter);
+    cJSON_AddNumberToObject(root,"peak_tx_error_counter",v->status.peak_tx_error_counter);
+    cJSON_AddNumberToObject(root,"peak_rx_error_counter",v->status.peak_rx_error_counter);
     cJSON_AddNumberToObject(root,"bus_offs",v->status.bus_offs);
     cJSON_AddNumberToObject(root,"rx_dropped",v->status.rx_dropped);
     cJSON_AddNumberToObject(root,"trace_overwritten",v->status.trace_overwritten);
