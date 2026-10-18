@@ -57,6 +57,7 @@ static const translation_t s_translations[] = {
     {"STALE", "УСТАРЕЛО"},
     {"ERRORS", "ОШИБКИ"},
     {"CAN RX", "CAN ПРИЁМ"}, {"CAN TX", "CAN ПЕРЕДАЧА"},
+    {"TX / ERRORS", "ПЕР / СБОИ"},
     {"TIMEOUTS", "ТАЙМАУТЫ"}, {"RX DROPS", "ПОТЕРИ ПРИЁМА"},
     {"STORED DTC", "КОДЫ ОШИБОК"},
     {"HOLD: READ DTC / RETRY CAN", "УДЕРЖ.: КОДЫ / ПОВТОР CAN"},

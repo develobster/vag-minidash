@@ -112,6 +112,19 @@ static void quiet(md_acquisition_t *a, uint32_t now)
 {
     a->active=false; md_tp_reset(&a->tp); a->state=MD_ACQ_QUIET;
     a->quiet_ms=now; a->dtc_requested=false;
+    a->startup_retry_pending=false;
+}
+static void discovery_quiet(md_acquisition_t *a, uint32_t now)
+{
+    /* Power can precede ECU readiness. Retry only failed discovery, with a
+     * finite budget and recent independent bus traffic, never a sleeping bus
+     * or the deliberate quiet state after a successful engine-idle session. */
+    static const uint32_t delays[]={5000,15000,30000};
+    quiet(a,now);
+    if(a->config.allow_standard_obd && a->startup_retry_round<sizeof(delays)/sizeof(delays[0])) {
+        a->startup_retry_at=now+delays[a->startup_retry_round++];
+        a->startup_retry_pending=true;
+    }
 }
 static void invalidate(md_acquisition_t *a)
 {
@@ -124,6 +137,7 @@ void md_acq_restart(md_acquisition_t *a, uint32_t now)
     a->attempts=a->ecu_count=a->consecutive_failures=a->cap_block=0;
     a->request_id=a->response_id=0; a->vin_attempted=false; a->dtc_requested=false;
     a->engine_idle=false;
+    a->startup_retry_round=0; a->startup_retry_pending=false;
     memset(a->responders,0,sizeof(a->responders)); memset(a->supported,0,sizeof(a->supported));
     memset(a->failures,0,sizeof(a->failures)); memset(a->uds_failures,0,sizeof(a->uds_failures));
     for (unsigned i=0;i<MD_ACQ_MAX_BINDINGS;i++) a->due[i]=a->uds_due[i]=now;
@@ -342,6 +356,7 @@ void md_acq_receive(md_acquisition_t *a,const md_can_frame_t *f,uint32_t now)
     if (f->id<0x700 && !f->remote && !f->extended) {
         if (a->state==MD_ACQ_QUIET && elapsed(now,a->quiet_ms,5000)) md_acq_restart(a,now);
         a->quiet_ms=now;
+        a->last_bus_ms=now; a->seen_bus_activity=true;
     }
     if (a->profile_matched && !f->remote && !f->extended) {
         const md_vehicle_profile_t *p=a->config.profile;
@@ -394,7 +409,13 @@ void md_acq_format_dtc(uint16_t code,char text[6])
 { (void)snprintf(text,6,"%c%04X","PCBU"[code>>14],code&0x3fff); }
 void md_acq_tick(md_acquisition_t *a,uint32_t now)
 {
-    if(!a->bus_available || a->state==MD_ACQ_FAULT || a->state==MD_ACQ_QUIET || !a->config.allow_standard_obd) return;
+    if(!a->bus_available || a->state==MD_ACQ_FAULT || !a->config.allow_standard_obd) return;
+    if(a->state==MD_ACQ_QUIET) {
+        if(!a->startup_retry_pending || !due(now,a->startup_retry_at) ||
+           !a->seen_bus_activity || elapsed(now,a->last_bus_ms,1000)) return;
+        uint8_t round=a->startup_retry_round;
+        md_acq_restart(a,now); a->startup_retry_round=round;
+    }
     if(a->state==MD_ACQ_RUNNING) {
         md_ui_signal_snapshot_t rpm=md_acq_snapshot(a,MD_SIGNAL_ENGINE_RPM,now,NULL);
         md_ui_signal_snapshot_t speed=md_acq_snapshot(a,MD_SIGNAL_VEHICLE_SPEED,now,NULL);
@@ -407,13 +428,14 @@ void md_acq_tick(md_acquisition_t *a,uint32_t now)
         if(a->state==MD_ACQ_DISCOVERY && elapsed(now,a->request_ms,RESPONSE_MS)) {
             /* Discovery has multiple responders; raw frames carry their addresses. */
             exchange(a,now,a->ecu_count?MD_EXCHANGE_OK:MD_EXCHANGE_TIMEOUT);
+            if(!a->ecu_count) a->timeout_count++;
             a->active=false;
             for(unsigned i=0;i<8;i++) if(a->responders[i] & (UINT32_C(1)<<(32-0x0c))) {
                 a->response_id=0x7e8+i; a->request_id=0x7e0+i;
                 a->supported[0]=a->responders[i];a->cap_block=1;
                 a->state=(a->supported[0]&1)?MD_ACQ_CAPABILITIES:MD_ACQ_VIN;return;
             }
-            if(a->attempts>=RETRY_LIMIT) quiet(a,now);
+            if(a->attempts>=RETRY_LIMIT) discovery_quiet(a,now);
         } else if(a->state!=MD_ACQ_DISCOVERY &&
                   (md_tp_expired(&a->tp,now) || elapsed(now,a->progress_ms,RESPONSE_MS) || elapsed(now,a->request_ms,2000))) {
             exchange(a,now,MD_EXCHANGE_TIMEOUT);a->timeout_count++;fail(a,now,false);
@@ -427,7 +449,7 @@ void md_acq_tick(md_acquisition_t *a,uint32_t now)
         a->state=MD_ACQ_DISCOVERY;
     }
     if(a->state==MD_ACQ_DISCOVERY) {
-        if(a->attempts>=RETRY_LIMIT) {quiet(a,now);return;}
+        if(a->attempts>=RETRY_LIMIT) {discovery_quiet(a,now);return;}
         a->attempts++;(void)begin(a,1,0,0x7df,0,now);return;
     }
     if(a->state==MD_ACQ_CAPABILITIES) {

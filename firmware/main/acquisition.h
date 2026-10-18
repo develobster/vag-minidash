@@ -70,6 +70,9 @@ typedef struct {
     uint32_t due[MD_ACQ_MAX_BINDINGS], uds_due[MD_ACQ_MAX_BINDINGS];
     uint8_t failures[MD_ACQ_MAX_BINDINGS], uds_failures[MD_ACQ_MAX_BINDINGS];
     uint32_t started_ms, last_tx_ms, request_ms, progress_ms, quiet_ms, idle_since_ms;
+    uint32_t startup_retry_at, last_bus_ms;
+    uint8_t startup_retry_round;
+    bool startup_retry_pending, seen_bus_activity;
     uint32_t rx_count, tx_count, timeout_count, malformed_count, rejected_count;
     uint32_t tx_failed, trace_overwritten;
     uint16_t request_id, response_id, active_rx, active_tx;

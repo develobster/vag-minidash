@@ -763,7 +763,7 @@ static void create_diagnostics_screen(screen_view_t *view)
         diagnostic_key_t key;
     } rows[] = {
         {"FIRMWARE", DIAG_FIRMWARE}, {"UPTIME", DIAG_UPTIME},
-        {"CAN RX", DIAG_CAN_RX}, {"CAN TX", DIAG_CAN_TX},
+        {"CAN RX", DIAG_CAN_RX}, {"TX / ERRORS", DIAG_CAN_TX},
         {"TIMEOUTS", DIAG_CAN_TIMEOUTS}, {"RX DROPS", DIAG_CAN_DROPS},
         {"DISPLAY", DIAG_DISPLAY}, {"TOUCH", DIAG_TOUCH},
         {"STORED DTC", DIAG_DTC}, {"TRANSPORT", DIAG_TRANSPORT},
@@ -1674,7 +1674,7 @@ static void update_diagnostic_field(field_view_t *field,
         if (diag->ecu_count_available) (void)snprintf(text, sizeof(text), "%u / %03X", diag->ecu_count, diag->selected_ecu);
         break;
     case DIAG_CAN_RX: snprintf(text,sizeof(text),"%lu",(unsigned long)diag->can_rx);break;
-    case DIAG_CAN_TX: snprintf(text,sizeof(text),"%lu",(unsigned long)diag->can_tx);break;
+    case DIAG_CAN_TX: snprintf(text,sizeof(text),"%lu/%lu",(unsigned long)diag->can_tx,(unsigned long)diag->can_tx_failed);break;
     case DIAG_CAN_TIMEOUTS: snprintf(text,sizeof(text),"%lu",(unsigned long)diag->can_timeouts);break;
     case DIAG_CAN_DROPS: snprintf(text,sizeof(text),"%lu",(unsigned long)diag->can_dropped);break;
     case DIAG_DTC: snprintf(text,sizeof(text),"%s",diag->dtc_text);break;
@@ -1955,6 +1955,12 @@ void md_ui_screens_configuration(const md_device_configuration_t *config)
 void md_ui_screens_config_credentials(const char *ssid, const char *password)
 {
     if (!s_config_credentials) return;
+    if(!password || !password[0]) {
+        lv_label_set_text(s_config_credentials,s_language==MD_UI_LANGUAGE_RUSSIAN
+            ? "Wi-Fi запускается...\n\nДождитесь сети и пароля на экране."
+            : "Wi-Fi is starting...\n\nWait for the network name and password.");
+        return;
+    }
     char text[192];
     const char *format = s_language == MD_UI_LANGUAGE_RUSSIAN
         ? "Сеть: %s\nПароль: %s\n\nhttp://192.168.4.1\nОткл.: Настройки > Wi-Fi"

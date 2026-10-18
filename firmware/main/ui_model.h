@@ -47,7 +47,7 @@ typedef struct {
     bool ecu_count_available;
     uint16_t ecu_count;
     uint16_t selected_ecu;
-    uint32_t can_rx, can_tx, can_timeouts, can_dropped;
+    uint32_t can_rx, can_tx, can_tx_failed, can_timeouts, can_dropped;
     char dtc_text[24];
     md_ui_signal_summary_t signal_summary;
 } md_ui_diagnostics_t;

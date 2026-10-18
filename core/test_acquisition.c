@@ -106,6 +106,47 @@ static void test_fault_reconnect_and_idle(void)
     md_acq_bus_available(&a,true,8000);run(8000,4000);CHECK(a.state==MD_ACQ_RUNNING);
     rpm=0;run(12000,125000);CHECK(a.state==MD_ACQ_QUIET);
 }
+static void test_late_ecu_startup(void)
+{
+    md_can_frame_t traffic={.id=0x123,.dlc=8};
+    init(true,NULL,0);
+    /* Other ECUs keep the bus busy before the engine ECU can answer. */
+    for(uint32_t t=0;t<6000;t+=100) {
+        md_acq_receive(&a,&traffic,t);md_acq_tick(&a,t);
+    }
+    CHECK(count==3 && a.timeout_count==3 && a.state==MD_ACQ_QUIET);
+    unsigned consumed=count;
+    for(uint32_t t=6000;t<16000;t+=50) {
+        md_acq_receive(&a,&traffic,t);md_acq_tick(&a,t);
+        while(consumed<count){unsigned i=consumed++;emulate(i,t+1);}
+    }
+    CHECK(a.state==MD_ACQ_RUNNING && a.ecu_count==1);
+    CHECK(md_acq_snapshot(&a,MD_SIGNAL_ENGINE_RPM,16000,NULL).value==3200);
+
+    /* An unanswered busy bus gets at most four rounds, not endless probes. */
+    init(true,NULL,0);
+    for(uint32_t t=0;t<180000;t+=100) {
+        md_acq_receive(&a,&traffic,t);md_acq_tick(&a,t);
+    }
+    CHECK(count==12 && a.timeout_count==12 && a.state==MD_ACQ_QUIET);
+    CHECK(!a.startup_retry_pending);
+    for(unsigned i=0;i<count;i++)CHECK(sent[i].id==0x7df && sent[i].data[1]==1 && sent[i].data[2]==0);
+
+    /* No retry without new traffic; listen-only never gains a TX path. */
+    init(true,NULL,0);
+    for(uint32_t t=0;t<3000;t+=100){md_acq_receive(&a,&traffic,t);md_acq_tick(&a,t);}
+    for(uint32_t t=3000;t<60000;t+=100)md_acq_tick(&a,t);
+    CHECK(count==3);
+    init(false,NULL,0);
+    for(uint32_t t=0;t<60000;t+=100){md_acq_receive(&a,&traffic,t);md_acq_tick(&a,t);}
+    CHECK(count==0);
+
+    /* A successful session's deliberate idle stop must remain stopped. */
+    init(true,NULL,0);run(0,4000);rpm=0;run(4000,125000);
+    unsigned stopped=count;
+    for(uint32_t t=129000;t<180000;t+=100){md_acq_receive(&a,&traffic,t);md_acq_tick(&a,t);}
+    CHECK(count==stopped && a.state==MD_ACQ_QUIET && !a.startup_retry_pending);
+}
 static const md_passive_binding_t passive={.id=0x123,.start_bit=0,.bit_count=16,.dlc=8,.scale=1,.signal=MD_SIGNAL_ENGINE_RPM,.ttl_ms=300};
 static const md_uds_binding_t uds={.did=0x1234,.bytes=2,.scale=1,.signal=MD_SIGNAL_ENGINE_RPM,.period_ms=200,.ttl_ms=500};
 static md_vehicle_profile_t profile={.vin="TESTVAN1234567890",.provenance="synthetic fixture, NOT vehicle knowledge",.source_license="project test fixture",
@@ -205,6 +246,6 @@ static void test_analytics_codecs(void)
 int main(void)
 {
     test_end_to_end();test_dtc();test_closed_and_timeout();test_fault_reconnect_and_idle();
-    test_profiles_arbitration();test_isotp();test_pending_and_validation();test_fuzz_and_wrap();test_analytics_codecs();
-    printf("PASS: 9 acquisition scenarios + 50,000 malformed frames; core=%zu bytes, trace=%zu bytes\n",sizeof(a),sizeof(a.trace));return 0;
+    test_profiles_arbitration();test_isotp();test_pending_and_validation();test_fuzz_and_wrap();test_analytics_codecs();test_late_ecu_startup();
+    printf("PASS: 10 acquisition scenarios + 50,000 malformed frames; core=%zu bytes, trace=%zu bytes\n",sizeof(a),sizeof(a.trace));return 0;
 }

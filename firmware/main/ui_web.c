@@ -192,44 +192,58 @@ static void web_task(void *argument)
     (void)argument;
     bool wifi_initialized=false, wifi_started=false;
     ESP_LOGI(TAG,"AP start internal_free=%u largest=%u",(unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT),(unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT));
+    ESP_LOGI(TAG,"AP step: initialize network stack");
     esp_err_t error=esp_netif_init();
     if (error!=ESP_OK && error!=ESP_ERR_INVALID_STATE) goto cleanup;
+    ESP_LOGI(TAG,"AP step: initialize event loop");
     error=esp_event_loop_create_default();
     if (error!=ESP_OK && error!=ESP_ERR_INVALID_STATE) goto cleanup;
+    ESP_LOGI(TAG,"AP step: create access point interface");
     s_netif=esp_netif_create_default_wifi_ap(); if (!s_netif) goto cleanup;
+    ESP_LOGI(TAG,"AP step: initialize Wi-Fi driver");
     wifi_init_config_t init=WIFI_INIT_CONFIG_DEFAULT();
     error=esp_wifi_init(&init); if (error!=ESP_OK) { ESP_LOGE(TAG,"Wi-Fi init: %s",esp_err_to_name(error)); goto cleanup; }
     wifi_initialized=true;
     uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP,mac);
     snprintf(s_ssid,sizeof(s_ssid),"MiniDash-%02X%02X%02X",mac[3],mac[4],mac[5]);
-    snprintf(s_password,sizeof(s_password),"%08lx%08lx",(unsigned long)esp_random(),(unsigned long)esp_random());
+    snprintf(s_password,sizeof(s_password),"%s","12345678");
     for (unsigned i=0;i<4;++i) snprintf(s_token+i*8,9,"%08lx",(unsigned long)esp_random());
     wifi_config_t wifi={0}; snprintf((char *)wifi.ap.ssid,sizeof(wifi.ap.ssid),"%s",s_ssid);
     snprintf((char *)wifi.ap.password,sizeof(wifi.ap.password),"%s",s_password);
     wifi.ap.ssid_len=strlen(s_ssid); wifi.ap.channel=1; wifi.ap.max_connection=2;
     wifi.ap.authmode=WIFI_AUTH_WPA2_PSK; wifi.ap.pmf_cfg.capable=true;
-    if (esp_wifi_set_storage(WIFI_STORAGE_RAM)!=ESP_OK || esp_wifi_set_mode(WIFI_MODE_AP)!=ESP_OK ||
-        esp_wifi_set_config(WIFI_IF_AP,&wifi)!=ESP_OK || esp_wifi_start()!=ESP_OK) goto cleanup;
+    ESP_LOGI(TAG,"AP step: configure Wi-Fi");
+    error=esp_wifi_set_storage(WIFI_STORAGE_RAM); if(error!=ESP_OK)goto cleanup;
+    error=esp_wifi_set_mode(WIFI_MODE_AP); if(error!=ESP_OK)goto cleanup;
+    error=esp_wifi_set_config(WIFI_IF_AP,&wifi); if(error!=ESP_OK)goto cleanup;
+    ESP_LOGI(TAG,"AP step: start Wi-Fi");
+    error=esp_wifi_start(); if(error!=ESP_OK)goto cleanup;
     wifi_started=true;
+    esp_netif_ip_info_t ip;
+    error=esp_netif_get_ip_info(s_netif,&ip); if(error!=ESP_OK)goto cleanup;
+    ESP_LOGI(TAG,"AP address: " IPSTR,IP2STR(&ip.ip));
     httpd_config_t server=HTTPD_DEFAULT_CONFIG(); server.task_priority=2;
     server.stack_size=12288; server.max_open_sockets=3; server.max_uri_handlers=16; server.lru_purge_enable=true;
     server.recv_wait_timeout=3; server.send_wait_timeout=3;
-    if (httpd_start(&s_server,&server)!=ESP_OK) goto cleanup;
+    ESP_LOGI(TAG,"AP step: start HTTP server");
+    error=httpd_start(&s_server,&server); if(error!=ESP_OK)goto cleanup;
     static const char *const gets[]={"/","/api/session","/api/config","/api/signals","/api/device","/api/layouts","/api/themes","/api/defaults","/api/presets","/api/analytics","/api/validation"};
     for (unsigned i=0;i<sizeof(gets)/sizeof(gets[0]);++i) {
         httpd_uri_t uri={.uri=gets[i],.method=HTTP_GET,.handler=get_handler};
-        if (httpd_register_uri_handler(s_server,&uri)!=ESP_OK) goto cleanup;
+        error=httpd_register_uri_handler(s_server,&uri); if(error!=ESP_OK)goto cleanup;
     }
     static const char *const writes[]={"/api/config","/api/preview","/api/cancel","/api/reset-trip","/api/reset-session"};
     for (unsigned i=0;i<5;++i) {
         httpd_uri_t uri={.uri=writes[i],.method=i==0 ? HTTP_PUT : HTTP_POST,.handler=mutation_handler};
-        if (httpd_register_uri_handler(s_server,&uri)!=ESP_OK) goto cleanup;
+        error=httpd_register_uri_handler(s_server,&uri); if(error!=ESP_OK)goto cleanup;
     }
     atomic_store(&s_active,true); atomic_store(&s_starting,false);
     ESP_LOGI(TAG,"Configuration AP ready (credentials on device), expires in 600 seconds");
     const int64_t started=esp_timer_get_time();
     while (!atomic_load(&s_stop) && esp_timer_get_time()-started<600000000LL) vTaskDelay(pdMS_TO_TICKS(200));
 cleanup:
+    if(error!=ESP_OK && error!=ESP_ERR_INVALID_STATE)
+        ESP_LOGE(TAG,"AP start/operation failed: %s",esp_err_to_name(error));
     if (s_server) { httpd_stop(s_server); s_server=NULL; }
     /* Roll back a preview before another local editor can run. */
     md_device_configuration_t *config=malloc(sizeof(*config)); uint32_t revision;
