@@ -1,4 +1,5 @@
 #include "vehicle_app.h"
+#include "simulation.h"
 #include "display_app.h"
 #include "derived_engine.h"
 #include "esp_attr.h"
@@ -15,8 +16,10 @@
 #include <string.h>
 
 static SemaphoreHandle_t lock;
+#if !CONFIG_MINIDASH_CYD
 static md_acquisition_t engine;
 static EXT_RAM_BSS_ATTR md_derived_engine_t analytics;
+#endif
 #if CONFIG_MINIDASH_CAN_ENABLE
 static md_ui_signal_store_t canonical;
 #endif
@@ -45,14 +48,23 @@ void md_vehicle_app_analytics_reset(bool session){atomic_store(&analytics_reset,
 size_t md_vehicle_app_events(md_analytics_event_t *out,size_t capacity)
 {
     if(!out || !lock || xSemaphoreTake(lock,pdMS_TO_TICKS(10))!=pdTRUE)return 0;
-    size_t n=md_derived_events(&analytics,out,capacity);xSemaphoreGive(lock);return n;
+#if CONFIG_MINIDASH_CYD
+    size_t n=0; /* Full 60 s analytics requires the S3 memory profile. */
+#else
+    size_t n=md_derived_events(&analytics,out,capacity);
+#endif
+    xSemaphoreGive(lock);return n;
 }
 size_t md_vehicle_app_trace(md_acq_trace_t *out,size_t capacity)
 {
     if(!out || !lock || xSemaphoreTake(lock,pdMS_TO_TICKS(10))!=pdTRUE) return 0;
+#if CONFIG_MINIDASH_CYD
+    size_t n=0;
+#else
     size_t n=engine.trace_count;if(n>capacity)n=capacity;
     size_t first=(engine.trace_head+MD_ACQ_TRACE_SIZE-n)%MD_ACQ_TRACE_SIZE;
     for(size_t i=0;i<n;i++) out[i]=engine.trace[(first+i)%MD_ACQ_TRACE_SIZE];
+#endif
     xSemaphoreGive(lock);return n;
 }
 
@@ -61,6 +73,7 @@ bool md_vehicle_app_validation(md_vehicle_validation_t *out)
     if(!out || !lock || xSemaphoreTake(lock,pdMS_TO_TICKS(10))!=pdTRUE)return false;
     memset(out,0,sizeof(*out));out->status=status;
     out->timestamp_ms=(uint32_t)(esp_timer_get_time()/1000);
+#if !CONFIG_MINIDASH_CYD
     out->validation_mode=engine.config.car_validation_mode;
     out->standard_obd=engine.config.allow_standard_obd;
     out->trace_sequence=engine.trace_sequence;out->exchange_sequence=engine.exchange_sequence;
@@ -71,6 +84,7 @@ bool md_vehicle_app_validation(md_vehicle_validation_t *out)
     for(size_t i=0;i<out->trace_count;i++)out->trace[i]=engine.trace[(first+i)%MD_ACQ_TRACE_SIZE];
     first=(engine.exchange_head+MD_ACQ_EXCHANGE_SIZE-engine.exchange_count)%MD_ACQ_EXCHANGE_SIZE;
     for(size_t i=0;i<out->exchange_count;i++)out->exchanges[i]=engine.exchanges[(first+i)%MD_ACQ_EXCHANGE_SIZE];
+#endif
     xSemaphoreGive(lock);return true;
 }
 
@@ -278,6 +292,11 @@ void md_vehicle_app_prepare(void)
 }
 void md_vehicle_app_start(void)
 {
+#if CONFIG_MINIDASH_SIMULATION
+    extern void md_simulation_task(void *);
+    static bool sim_started;
+    if (lock && !sim_started) sim_started=xTaskCreate(md_simulation_task,"simulation",3072,NULL,2,NULL)==pdPASS;
+#endif
 #if CONFIG_MINIDASH_CAN_ENABLE
     static bool started;
     if(!lock || started) return;
@@ -290,3 +309,25 @@ void md_vehicle_app_start(void)
     xSemaphoreGive(lock);
 #endif
 }
+
+#if CONFIG_MINIDASH_SIMULATION
+void md_simulation_task(void *unused)
+{
+    (void)unused;
+    ESP_LOGI(TAG,"SIMULATION active; CAN driver not installed; all samples tagged DEMO");
+    for (;;) {
+        const uint32_t now=(uint32_t)(esp_timer_get_time()/1000);
+        for(unsigned id=0;id<MD_SIGNAL_COUNT;id++) {
+            double value;
+            if(md_simulation_value(id,now,&value)) {
+                md_display_app_publish_signal(md_ui_signal_definitions[id].canonical_name,value,MD_UI_SIGNAL_VALID,500,true);
+                if(xSemaphoreTake(lock,pdMS_TO_TICKS(10))==pdTRUE) {
+                    status.signals[id]=(md_ui_signal_snapshot_t){.value=value,.state=MD_UI_SIGNAL_VALID,.value_available=true,.demo=true};
+                    xSemaphoreGive(lock);
+                }
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+#endif

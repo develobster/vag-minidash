@@ -6,7 +6,19 @@
 #include <stdlib.h>
 
 static const char *const color_names[] = {"background", "surface", "surface_alt", "border", "text", "muted", "accent", "normal", "warning", "critical", "unavailable"};
-static void number(cJSON *o, const char *name, double value) { cJSON_AddNumberToObject(o, name, value); }
+/* Writer keys all have static storage (literals or the tables below). Keeping
+ * their references avoids hundreds of small allocations on the CYD heap. */
+static void static_item(cJSON *o,const char *name,cJSON *item) {
+    if(!cJSON_AddItemToObjectCS(o,name,item))cJSON_Delete(item);
+}
+static void number(cJSON *o, const char *name, double value) { static_item(o, name, cJSON_CreateNumber(value)); }
+static void flag(cJSON *o, const char *name, bool value) { static_item(o, name, cJSON_CreateBool(value)); }
+static void string_value(cJSON *o, const char *name, const char *value) { static_item(o, name, cJSON_CreateString(value)); }
+static cJSON *container(cJSON *o, const char *name, bool array) {
+    cJSON *child=array ? cJSON_CreateArray() : cJSON_CreateObject();
+    if (!child || !cJSON_AddItemToObjectCS(o,name,child)) { cJSON_Delete(child); return NULL; }
+    return child;
+}
 static bool integer(const cJSON *o, const char *name, unsigned maximum, unsigned *out)
 {
     const cJSON *n = cJSON_GetObjectItemCaseSensitive(o, name);
@@ -40,12 +52,12 @@ static cJSON *analytics_json(const md_analytics_config_t *a)
     cJSON *o=cJSON_CreateObject();if(!o)return NULL;
     const bool flags[]={a->idle_enabled,a->load_enabled,a->warmup_enabled,a->heat_soak_enabled,a->xy_enabled};
     const double values[]={a->idle_rpm_min,a->idle_rpm_max,a->load_minimum,a->warmup_target,a->heat_soak_delta,a->xy_from,a->xy_to};
-    for(unsigned i=0;i<5;i++)cJSON_AddBoolToObject(o,analytics_flags[i],flags[i]);
+    for(unsigned i=0;i<5;i++)flag(o,analytics_flags[i],flags[i]);
     for(unsigned i=0;i<7;i++)number(o,analytics_values[i],values[i]);
-    cJSON *rules=cJSON_AddArrayToObject(o,"rules");
+    cJSON *rules=container(o, "rules", true);
     for(unsigned i=0;i<MD_ANALYTICS_RULES;i++) {
         const md_analytics_rule_t *r=&a->rules[i];cJSON *v=cJSON_CreateObject();
-        cJSON_AddBoolToObject(v,"enabled",r->enabled);cJSON_AddBoolToObject(v,"low",r->low);
+        flag(v,"enabled",r->enabled);flag(v,"low",r->low);
         number(v,"threshold",r->threshold);number(v,"hysteresis",r->hysteresis);number(v,"debounce_ms",r->debounce_ms);number(v,"cooldown_ms",r->cooldown_ms);cJSON_AddItemToArray(rules,v);
     }
     return o;
@@ -72,52 +84,52 @@ cJSON *md_configuration_json(const md_device_configuration_t *c, uint32_t revisi
     cJSON *root = cJSON_CreateObject(); if (!root) return NULL;
     number(root, "schema", c->schema_version); number(root, "revision", revision);
     const md_common_configuration_t *s = &c->common;
-    cJSON *common = cJSON_AddObjectToObject(root, "common");
+    cJSON *common = container(root, "common", false);
     if (!common) { cJSON_Delete(root); return NULL; }
-    cJSON_AddItemToObject(common,"analytics",analytics_json(&s->analytics));
+    cJSON_AddItemToObjectCS(common,"analytics",analytics_json(&s->analytics));
     number(common, "dashboard", s->dashboard); number(common, "theme", s->theme);
     number(common, "day_night", s->day_night); number(common, "units", s->units);
     number(common, "temperature_unit", s->temperature_unit); number(common, "language", s->language);
     number(common, "last_screen", s->last_screen); number(common, "active_page", s->active_page);
-    cJSON_AddBoolToObject(common, "warnings_enabled", s->warnings_enabled);
-    cJSON_AddBoolToObject(common, "custom_theme", s->custom_theme);
+    flag(common, "warnings_enabled", s->warnings_enabled);
+    flag(common, "custom_theme", s->custom_theme);
     uint32_t colors[11]; memcpy(colors, &s->palette, sizeof(colors));
-    cJSON *palette = cJSON_AddObjectToObject(common, "palette");
+    cJSON *palette = container(common, "palette", false);
     for (unsigned i = 0; i < 11; ++i) number(palette, color_names[i], colors[i]);
-    cJSON *warnings = cJSON_AddArrayToObject(common, "warnings");
+    cJSON *warnings = container(common, "warnings", true);
     for (unsigned i = 0; i < MD_UI_MAX_WARNING_THRESHOLDS; ++i) {
         const md_ui_warning_threshold_t *t = &s->warnings[i]; cJSON *o = cJSON_CreateObject();
-        number(o, "signal", t->signal_id); cJSON_AddBoolToObject(o, "enabled", t->enabled);
+        number(o, "signal", t->signal_id); flag(o, "enabled", t->enabled);
         number(o, "direction", t->direction); number(o, "warning_milli", t->warning_milli);
         number(o, "critical_milli", t->critical_milli); cJSON_AddItemToArray(warnings, o);
     }
-    cJSON *fixed = cJSON_AddArrayToObject(common, "fixed_card_overrides");
+    cJSON *fixed = container(common, "fixed_card_overrides", true);
     for (unsigned i = 0; i < MD_UI_FIXED_CARD_OVERRIDES_COUNT; ++i)
         cJSON_AddItemToArray(fixed, cJSON_CreateNumber(s->fixed_card_overrides[i]));
-    cJSON_AddBoolToObject(common,"gauge_auto",s->gauge_auto);
-    cJSON *ranges=cJSON_AddArrayToObject(common,"gauge_ranges");
+    flag(common,"gauge_auto",s->gauge_auto);
+    cJSON *ranges=container(common, "gauge_ranges", true);
     for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) {
         cJSON *o=cJSON_CreateObject(); number(o,"minimum",s->gauge_ranges[i].minimum);
         number(o,"maximum",s->gauge_ranges[i].maximum); cJSON_AddItemToArray(ranges,o);
     }
-    cJSON *pages = cJSON_AddArrayToObject(common, "pages");
+    cJSON *pages = container(common, "pages", true);
     for (unsigned p = 0; p < s->page_count; ++p) {
         const md_ui_dashboard_page_t *page = &s->pages[p]; cJSON *o = cJSON_CreateObject();
-        cJSON_AddStringToObject(o, "title", page->title); number(o, "layout", page->layout);
-        cJSON *widgets = cJSON_AddArrayToObject(o, "widgets");
+        string_value(o, "title", page->title); number(o, "layout", page->layout);
+        cJSON *widgets = container(o, "widgets", true);
         for (unsigned i = 0; i < page->widget_count; ++i) {
             const md_ui_page_widget_t *w = &page->widgets[i]; cJSON *v = cJSON_CreateObject();
-            cJSON_AddStringToObject(v, "signal", md_ui_signal_definitions[w->signal].canonical_name);
+            string_value(v, "signal", md_ui_signal_definitions[w->signal].canonical_name);
             number(v, "type", w->type); number(v, "precision", w->precision);
             number(v, "column", w->column); number(v, "row", w->row);
             number(v, "columns", w->columns); number(v, "rows", w->rows);
             number(v, "minimum", w->minimum); number(v, "maximum", w->maximum);
-            cJSON_AddStringToObject(v, "label", w->label); cJSON_AddItemToArray(widgets, v);
+            string_value(v, "label", w->label); cJSON_AddItemToArray(widgets, v);
         }
         cJSON_AddItemToArray(pages, o);
     }
     if (c->platform.present) {
-        cJSON *platform = cJSON_AddObjectToObject(root, "platform");
+        cJSON *platform = container(root, "platform", false);
         number(platform, "present", c->platform.present); number(platform, "brightness", c->platform.brightness);
         number(platform, "brightness_mode", c->platform.brightness_mode); number(platform, "rotation", c->platform.rotation);
     }
@@ -273,7 +285,7 @@ static bool test_json_inner(md_device_configuration_t *first, md_device_configur
             b.common.gauge_ranges[MD_SIGNAL_ENGINE_COOLANT_TEMPERATURE].minimum==50;
         cJSON_Delete(root); if(!ok) return false;
     }
-    root=md_configuration_json(&a,17); cJSON_AddStringToObject(root,"uds","22f190");
+    root=md_configuration_json(&a,17); string_value(root,"uds","22f190");
     ok=!md_configuration_parse_json(root,&b,&revision); cJSON_Delete(root);
     if (!ok) return false;
     root=md_configuration_json(&a,17);
@@ -298,14 +310,14 @@ void md_ui_theme_json_metadata(cJSON *preset, md_ui_theme_id_t theme)
     cJSON *common=cJSON_GetObjectItemCaseSensitive(preset,"common");
     cJSON *palette=common ? cJSON_DetachItemFromObjectCaseSensitive(common,"palette") : NULL;
     cJSON_DeleteItemFromObjectCaseSensitive(preset,"common");
-    common=cJSON_AddObjectToObject(preset,"common");
-    if(palette && common) cJSON_AddItemToObject(common,"palette",palette);
+    common=container(preset, "common", false);
+    if(palette && common) cJSON_AddItemToObjectCS(common,"palette",palette);
     else cJSON_Delete(palette);
     cJSON_DeleteItemFromObjectCaseSensitive(preset,"platform");
     cJSON_DeleteItemFromObjectCaseSensitive(preset,"schema");
     cJSON_DeleteItemFromObjectCaseSensitive(preset,"revision");
-    cJSON_AddStringToObject(preset,"name",md_ui_theme_name(theme));
-    cJSON *style=cJSON_AddObjectToObject(preset,"style");
+    string_value(preset,"name",md_ui_theme_name(theme));
+    cJSON *style=container(preset, "style", false);
     if(!style) return;
     const md_ui_theme_style_t traits=md_ui_theme_style(theme);
     number(style,"radius",traits.radius); number(style,"border_width",traits.border_width);
@@ -313,4 +325,54 @@ void md_ui_theme_json_metadata(cJSON *preset, md_ui_theme_id_t theme)
     number(style,"scanline_opacity",traits.scanline_opacity);
     number(style,"font_family",traits.font_family); number(style,"frame_kind",traits.frame_kind);
     number(style,"gauge_style",traits.gauge_style);
+}
+
+/* Stream the existing JSON tree with a bounded scratch buffer. In particular,
+ * a four-page response must not coexist with another full printed copy. */
+typedef struct { md_json_chunk_fn write; void *context; char bytes[512]; size_t used; } json_stream_t;
+static bool json_bytes(json_stream_t *out,const char *text)
+{
+    while(*text) {
+        size_t count=strlen(text),space=sizeof(out->bytes)-out->used;
+        if(count>space)count=space;
+        memcpy(out->bytes+out->used,text,count);out->used+=count;text+=count;
+        if(out->used==sizeof(out->bytes)) {
+            bool result=out->write(out->context,out->bytes,out->used);
+            if(result!=true)return result;
+            out->used=0;
+        }
+    }
+    return true;
+}
+static bool json_scalar(json_stream_t *out,const cJSON *item)
+{
+    char scratch[256];
+    if(cJSON_PrintPreallocated((cJSON *)item,scratch,sizeof(scratch),false))return json_bytes(out,scratch);
+    char *large=cJSON_PrintUnformatted(item);
+    if(!large)return false;
+    bool result=json_bytes(out,large);free(large);return result;
+}
+static bool json_tree(json_stream_t *out,const cJSON *item)
+{
+    bool object=cJSON_IsObject(item),array=cJSON_IsArray(item);
+    if(!object && !array)return json_scalar(out,item);
+    bool result=json_bytes(out,object?"{":"[");
+    for(const cJSON *child=item->child;child && result==true;child=child->next) {
+        if(child!=item->child)result=json_bytes(out,",");
+        if(object && result==true) {
+            cJSON key={.type=cJSON_String,.valuestring=child->string};
+            result=json_scalar(out,&key);
+            if(result==true)result=json_bytes(out,":");
+        }
+        if(result==true)result=json_tree(out,child);
+    }
+    return result==true ? json_bytes(out,object?"}":"]") : result;
+}
+bool md_json_stream(const cJSON *object,md_json_chunk_fn write,void *context)
+{
+    if(!object || !write)return false;
+    json_stream_t stream={.write=write,.context=context};
+    bool result=json_tree(&stream,object);
+    if(result && stream.used)result=write(context,stream.bytes,stream.used);
+    return result;
 }

@@ -49,7 +49,11 @@ bool md_backlight_init(void)
     const ledc_timer_config_t timer = {
         .speed_mode = LEDC_LOW_SPEED_MODE, .timer_num = LEDC_TIMER_0,
         .duty_resolution = LEDC_TIMER_12_BIT, .freq_hz = MD_BACKLIGHT_FREQUENCY_HZ,
+#if CONFIG_IDF_TARGET_ESP32
+        .clk_cfg = LEDC_AUTO_CLK,
+#else
         .clk_cfg = LEDC_USE_XTAL_CLK,
+#endif
     };
     if (ledc_timer_config(&timer) != ESP_OK) return false;
     const ledc_channel_config_t channel = {

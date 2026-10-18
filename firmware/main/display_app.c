@@ -34,7 +34,11 @@
 #include "freertos/queue.h"
 #include "freertos/task.h"
 
-#define UI_UPDATE_PERIOD_MS 100U
+#if CONFIG_MINIDASH_CYD
+#define UI_UPDATE_PERIOD_MS 200
+#else
+#define UI_UPDATE_PERIOD_MS 100
+#endif
 #define UI_SETTINGS_DEBOUNCE_MS 1500U
 #define UI_EVENT_QUEUE_LENGTH 16U
 #define UI_TOUCH_SAMPLE_PERIOD_MS 25U
@@ -263,6 +267,9 @@ static void enqueue_touch_gesture(md_ui_touch_gesture_t gesture)
 
 static void enqueue_touch_raw(ui_event_type_t type, uint16_t x, uint16_t y)
 {
+#if CONFIG_MINIDASH_CYD
+    if(type==UI_EVENT_TOUCH_RELEASE) ESP_LOGI("md_cyd","TOUCH raw=%u,%u",x,y);
+#endif
     if (!s_ui_event_queue) return;
     const ui_event_t event = {.type = type, .source = MD_UI_INPUT_TOUCH,
                               .raw_x = x, .raw_y = y};
@@ -438,6 +445,9 @@ static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms,
     if (md_vehicle_app_status(&vehicle)) {
         diagnostics.transport_available=true;
         snprintf(diagnostics.transport_state,sizeof(diagnostics.transport_state),"%s",md_acq_state_name(vehicle.state));
+#if CONFIG_MINIDASH_SIMULATION
+        snprintf(diagnostics.transport_state,sizeof(diagnostics.transport_state),"SIMULATION");
+#endif
         diagnostics.ecu_count_available=vehicle.configured;
         diagnostics.ecu_count=vehicle.ecu_count;diagnostics.selected_ecu=vehicle.ecu_id;
         diagnostics.can_rx=vehicle.rx;diagnostics.can_tx=vehicle.tx;
@@ -939,6 +949,13 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
             (1U<<MD_FEATURE_FOCUS)|(1U<<MD_FEATURE_CONFIG_IO)|(1U<<MD_FEATURE_WEB_CONFIG),
         .display_width=profile.width,.display_height=profile.height,.flash_bytes=16777216,.ram_bytes=524288,
         .visible_widgets=MD_UI_MAX_WIDGETS,.verified=true};
+#if CONFIG_MINIDASH_CYD
+    s_target.name="minidash_cyd";
+    s_target.hardware=MD_CAP_COLOR|MD_CAP_WIFI;
+    s_target.flash_bytes=4194304;
+    s_target.ram_bytes=327680; /* Data SRAM; instruction SRAM is not a heap budget. */
+    s_target.verified=false; /* Physical touch/orientation acceptance is separate. */
+#endif
 #if CONFIG_MINIDASH_TOUCH_ENABLE
     s_target.hardware |= MD_CAP_TOUCH;
 #endif
@@ -991,7 +1008,11 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
         .io_handle = md_display_io(&display),
         .panel_handle = md_display_panel(&display),
         .buffer_size = (uint32_t)profile.width * 16U,
+#if CONFIG_MINIDASH_CYD
+        .double_buffer = false,
+#else
         .double_buffer = true,
+#endif
         .hres = profile.width,
         .vres = profile.height,
         .monochrome = false,
@@ -1130,6 +1151,23 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
                              now_ms, &diagnostics);
         lvgl_port_unlock();
     }
+}
+
+void md_display_app_status_dump(void)
+{
+    md_ui_signal_snapshot_t rpm,speed;
+    const uint32_t now=(uint32_t)(esp_timer_get_time()/1000);
+    portENTER_CRITICAL(&s_signal_mux);
+    rpm=md_ui_signal_snapshot(&s_signal_store,MD_SIGNAL_ENGINE_RPM,now);
+    speed=md_ui_signal_snapshot(&s_signal_store,MD_SIGNAL_VEHICLE_SPEED,now);
+    portEXIT_CRITICAL(&s_signal_mux);
+    printf("MINIDASH_UI_STATUS display=%u touch=%u calibrated=%u screen=%d wifi=%u heap=%u minimum=%u largest=%u rpm=%.1f rpm_demo=%u speed=%.1f speed_demo=%u\n",
+        s_display_ready,s_touch_ready,s_touch_calibrated,(int)atomic_load(&s_visible_screen),md_ui_web_active(),
+        (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT),
+        (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT),
+        (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT),
+        rpm.value,rpm.demo,speed.value,speed.demo);
+    fflush(stdout);
 }
 
 void md_display_app_start(void)

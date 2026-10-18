@@ -32,3 +32,4 @@ bool md_display_app_set_brightness(uint8_t percent);
 
 bool md_display_app_view_selftest(void);
 bool md_display_app_gauge_dump(void);
+void md_display_app_status_dump(void);

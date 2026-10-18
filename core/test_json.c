@@ -31,8 +31,31 @@ static bool analytics_json_contract(void) {
     cJSON_free(text);cJSON_free(pretty);cJSON_Delete(root);
     return ok;
 }
+typedef struct {char bytes[32768];size_t used;bool fail;} capture_t;
+static bool collect_json(void *context,const char *bytes,size_t length) {
+    capture_t *out=context;
+    if(out->fail || length>512 || out->used+length>=sizeof(out->bytes))return false;
+    memcpy(out->bytes+out->used,bytes,length);out->used+=length;out->bytes[out->used]=0;return true;
+}
+static bool streamed_json_contract(void) {
+    static capture_t capture;
+    md_ui_settings_t settings;md_ui_settings_defaults(&settings);
+    static md_device_configuration_t config;
+    if(!md_configuration_from_legacy(&config,&settings,NULL))return false;
+    config.common.page_count=4;
+    for(unsigned p=1;p<4;p++)config.common.pages[p]=config.common.pages[0];
+    cJSON *root=md_configuration_json(&config,123);
+    cJSON_AddStringToObject(root,"escaped\"key","UTF-8: Привет\n\t\"\\");
+    char long_value[600];memset(long_value,'x',sizeof(long_value)-1);long_value[599]=0;
+    cJSON_AddStringToObject(root,"long",long_value);
+    cJSON_AddNullToObject(root,"null");cJSON_AddBoolToObject(root,"bool",true);
+    char *expected=cJSON_PrintUnformatted(root);
+    bool ok=expected && md_json_stream(root,collect_json,&capture) && !strcmp(expected,capture.bytes);
+    capture.fail=true;ok=ok && !md_json_stream(root,collect_json,&capture);
+    cJSON_free(expected);cJSON_Delete(root);return ok;
+}
 int main(int argc,char **argv) {
-    if (argc<2) { bool ok=md_ui_test_configuration_json() && analytics_json_contract(); printf("MINIDASH_JSON_TEST status=%s\n",ok?"PASS":"FAIL"); return ok?0:1; }
+    if (argc<2) { bool ok=md_ui_test_configuration_json() && analytics_json_contract() && streamed_json_contract(); printf("MINIDASH_JSON_TEST status=%s\n",ok?"PASS":"FAIL"); return ok?0:1; }
     md_ui_settings_t settings; md_ui_settings_defaults(&settings);
     md_target_profile_t target={.hardware=MD_CAP_COLOR|MD_CAP_WIFI};
     md_device_configuration_t config; md_configuration_from_legacy(&config,&settings,&target);

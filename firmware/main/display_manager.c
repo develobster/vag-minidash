@@ -1,6 +1,9 @@
 #include "display_manager.h"
 #include <stdio.h>
 #include <string.h>
+#ifdef ESP_PLATFORM
+#include "sdkconfig.h"
+#endif
 
 bool md_display_profile_select(md_driver_t driver, uint8_t rotation,
                                md_display_profile_t *profile)
@@ -44,6 +47,12 @@ bool md_display_orientation_select(const md_display_profile_t *profile,
         selected.swap_xy = profile->rotation % 2 != 0;
         selected.mirror_x = profile->rotation >= 2;
         selected.mirror_y = profile->rotation == 1 || profile->rotation == 2;
+#if CONFIG_MINIDASH_CYD
+        /* CYD panel mounting: landscape MADCTL MV+BGR, without MY.
+         * Keep the original S3 module's orientation table unchanged. */
+        selected.mirror_x = profile->rotation == 0 || profile->rotation == 3;
+        selected.mirror_y = profile->rotation >= 2;
+#endif
         break;
     default:
         return false;

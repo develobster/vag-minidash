@@ -83,7 +83,12 @@ typedef struct {
     lv_obj_t *title;
     lv_obj_t *mode;
     lv_obj_t *footer;
+#if CONFIG_MINIDASH_CYD
+    field_view_t *fields;
+    uint8_t field_capacity;
+#else
     field_view_t fields[UI_FIELDS_PER_VIEW];
+#endif
     uint8_t field_count;
     char mode_text[32];
     char title_key[48];
@@ -146,6 +151,12 @@ static md_ui_history_t s_history[MD_SIGNAL_COUNT];
 static lv_obj_t *s_focus_stats;
 static char s_focus_stats_text[96];
 static lv_obj_t *s_config_credentials;
+#if CONFIG_MINIDASH_CYD
+static lv_obj_t *s_config_qr;
+static char s_qr_payload[128];
+static screen_view_t *s_cyd_current;
+static bool s_cyd_calibrated;
+#endif
 
 extern const lv_font_t md_ui_font_mono_10;
 extern const lv_font_t md_ui_font_mono_12;
@@ -385,6 +396,18 @@ static void set_ui_text(lv_obj_t *label, char *buffer, size_t capacity,
 static void style_root(screen_view_t *view, const char *title,
                        const char *footer)
 {
+#if CONFIG_MINIDASH_CYD
+    unsigned capacity=0;
+    if(view==&s_screens[MD_UI_SCREEN_DIAGNOSTICS]) capacity=14;
+    else if(view==&s_screens[MD_UI_SCREEN_FOCUS]) capacity=1;
+    else if(view==&s_screens[MD_UI_SCREEN_PERFORMANCE] || view==&s_screens[MD_UI_SCREEN_TEMPERATURES] || view==&s_screens[MD_UI_SCREEN_DRIVETRAIN]) capacity=4;
+    else for(unsigned i=0;i<MD_UI_DASHBOARD_COUNT;i++) if(view==&s_dashboards[i]) capacity=MD_UI_MAX_WIDGETS;
+    if(capacity) {
+        view->fields=calloc(capacity,sizeof(*view->fields));
+        if(!view->fields) return;
+        view->field_capacity=capacity;
+    }
+#endif
     view->root = lv_obj_create(NULL);
     if (!view->root) return;
     lv_obj_remove_style_all(view->root);
@@ -469,6 +492,9 @@ static field_view_t *create_field(screen_view_t *view, int x, int y,
                                   const char *canonical_signal, bool primary)
 {
     if (!view || !view->root || view->field_count >= UI_FIELDS_PER_VIEW) return NULL;
+#if CONFIG_MINIDASH_CYD
+    if(!view->fields || view->field_count>=view->field_capacity) return NULL;
+#endif
     field_view_t *field = &view->fields[view->field_count++];
     memset(field, 0, sizeof(*field));
     field->kind = FIELD_SIGNAL;
@@ -585,6 +611,9 @@ static field_view_t *create_diagnostic_field(screen_view_t *view, int x, int y,
                                              diagnostic_key_t key)
 {
     if (!view || !view->root || view->field_count >= UI_FIELDS_PER_VIEW) return NULL;
+#if CONFIG_MINIDASH_CYD
+    if(!view->fields || view->field_count>=view->field_capacity) return NULL;
+#endif
     field_view_t *field = &view->fields[view->field_count++];
     memset(field, 0, sizeof(*field));
     field->kind = FIELD_DIAGNOSTIC;
@@ -978,6 +1007,31 @@ static screen_view_t *view_for(md_ui_screen_t screen,
     return NULL;
 }
 
+static void create_config_screen(void)
+{
+    screen_view_t *config_view = &s_screens[MD_UI_SCREEN_CONFIG_MODE];
+    style_root(config_view, "Wi-Fi configuration", "BACK TO RETURN | AP TIMEOUT 10 MIN");
+    s_config_credentials = lv_label_create(config_view->root);
+    lv_obj_set_pos(s_config_credentials, xpx(16), ypx(52));
+    lv_obj_set_size(s_config_credentials, xpx(288), ypx(146));
+    set_ui_font(s_config_credentials, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(s_config_credentials, color(s_palette.text), 0);
+#if CONFIG_MINIDASH_CYD
+    s_config_qr=lv_qrcode_create(config_view->root);
+    lv_qrcode_set_size(s_config_qr,s_width<300 ? 112 : 132);
+    lv_qrcode_set_dark_color(s_config_qr,lv_color_black());
+    lv_qrcode_set_light_color(s_config_qr,lv_color_white());
+    lv_qrcode_set_quiet_zone(s_config_qr,true);
+    lv_obj_set_style_border_width(s_config_qr,6,0);
+    lv_obj_set_style_border_color(s_config_qr,lv_color_white(),0);
+    lv_obj_set_pos(s_config_qr,s_width<300 ? (s_width-112)/2 : 10,42);
+    lv_obj_set_pos(s_config_credentials,s_width<300 ? 8 : 158,s_width<300 ? 172 : 48);
+    lv_obj_set_size(s_config_credentials,s_width<300 ? s_width-16 : s_width-164,s_height-105);
+    lv_obj_add_flag(s_config_qr,LV_OBJ_FLAG_HIDDEN);
+    s_qr_payload[0]=0;
+#endif
+}
+
 bool md_ui_screens_create(uint16_t width, uint16_t height,
                           const md_ui_settings_t *settings,
                           const md_ui_palette_t *palette)
@@ -993,6 +1047,7 @@ bool md_ui_screens_create(uint16_t width, uint16_t height,
     s_theme_style = md_ui_theme_style(settings->theme);
     s_language = settings->language;
 
+#if !CONFIG_MINIDASH_CYD
     for (int i = 0; i < MD_UI_DASHBOARD_COUNT; ++i) {
         create_dashboard(&s_dashboards[i], (md_ui_dashboard_t)i, settings);
         if (!s_dashboards[i].root) return false;
@@ -1005,13 +1060,7 @@ bool md_ui_screens_create(uint16_t width, uint16_t height,
     create_focus_screen();
     create_widget_picker_screen();
     create_calibration_screen();
-    screen_view_t *config_view = &s_screens[MD_UI_SCREEN_CONFIG_MODE];
-    style_root(config_view, "Wi-Fi configuration", "BACK TO RETURN | AP TIMEOUT 10 MIN");
-    s_config_credentials = lv_label_create(config_view->root);
-    lv_obj_set_pos(s_config_credentials, xpx(16), ypx(52));
-    lv_obj_set_size(s_config_credentials, xpx(288), ypx(146));
-    set_ui_font(s_config_credentials, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_color(s_config_credentials, color(s_palette.text), 0);
+    create_config_screen();
 #if CONFIG_MINIDASH_TOUCH_DEBUG_OVERLAY
     lv_obj_t *top = lv_layer_top();
     for (int side = 0; side < 2; ++side) {
@@ -1036,6 +1085,13 @@ bool md_ui_screens_create(uint16_t width, uint16_t height,
         if (i == MD_UI_SCREEN_CUSTOM) continue;
         if (!s_screens[i].root) return false;
     }
+
+#else
+    s_cyd_current=NULL;
+    s_settings_action=s_settings_action_label=s_settings_page=s_settings_page_label=NULL;
+    s_settings_previous=s_settings_previous_label=s_wifi_switch=NULL;
+    s_calibration_target=s_calibration_instruction=s_focus_stats=s_config_credentials=s_config_qr=NULL;
+#endif
     s_created = true;
     md_ui_screens_retheme(palette, settings->theme);
     return true;
@@ -1055,6 +1111,11 @@ bool md_ui_screens_resize(uint16_t width, uint16_t height,
 #if CONFIG_MINIDASH_TOUCH_DEBUG_OVERLAY
     lv_obj_clean(lv_layer_top()); s_debug_label=NULL;
 #endif
+#if CONFIG_MINIDASH_CYD
+    for(unsigned i=0;i<MD_UI_DASHBOARD_COUNT;i++) free(s_dashboards[i].fields);
+    for(unsigned i=0;i<MD_UI_SCREEN_COUNT;i++) free(s_screens[i].fields);
+    s_config_qr=NULL;
+#endif
     s_created=false;
     s_calibration_target=s_calibration_instruction=s_focus_stats=s_config_credentials=NULL;
     s_settings_action=s_settings_action_label=s_settings_page=s_settings_page_label=NULL;
@@ -1069,6 +1130,18 @@ void md_ui_screens_rebuild_custom(const md_ui_settings_t *settings)
 {
     if (!s_created || !settings) return;
     screen_view_t *view=&s_dashboards[MD_UI_DASHBOARD_CUSTOM];
+#if CONFIG_MINIDASH_CYD
+    if(!view->root) return;
+#endif
+#if CONFIG_MINIDASH_CYD
+    /* CYD cannot keep the old and replacement widget trees simultaneously. */
+    lv_obj_t *placeholder=lv_obj_create(NULL);
+    if(!placeholder)return;
+    lv_screen_load(placeholder);
+    lv_obj_delete(view->root);free(view->fields);memset(view,0,sizeof(*view));
+    create_dashboard(view,MD_UI_DASHBOARD_CUSTOM,settings);
+    if(view->root) {create_nav_hints(view);lv_screen_load(view->root);lv_obj_delete(placeholder);}
+#else
     screen_view_t *backup=malloc(sizeof(*backup));
     if (!backup) return;
     *backup=*view;
@@ -1082,7 +1155,11 @@ void md_ui_screens_rebuild_custom(const md_ui_settings_t *settings)
     create_nav_hints(view);
     if (active) lv_screen_load(view->root);
     if (old) lv_obj_delete(old);
+#if CONFIG_MINIDASH_CYD
+    free(backup->fields);
+#endif
     free(backup);
+#endif
 }
 
 void md_ui_screens_focus_signal(md_ui_signal_id_t signal)
@@ -1102,15 +1179,18 @@ void md_ui_screens_focus_signal(md_ui_signal_id_t signal)
 
 void md_ui_screens_set_calibrated(bool calibrated)
 {
+#if CONFIG_MINIDASH_CYD
+    s_cyd_calibrated=calibrated;
+#endif
     if (!s_created) return;
     screen_view_t *settings = &s_screens[MD_UI_SCREEN_SETTINGS];
     (void)snprintf(settings->footer_key, sizeof(settings->footer_key), "%s",
                    "TAP NEXT | DOUBLE CHANGE | HOLD BACK");
     set_ui_text(settings->footer, settings->footer_text,
                 sizeof(settings->footer_text), settings->footer_key);
-    if (calibrated)
+    if (settings->footer && calibrated)
         lv_obj_add_flag(s_screens[MD_UI_SCREEN_SETTINGS].footer, LV_OBJ_FLAG_HIDDEN);
-    else
+    else if (settings->footer)
         lv_obj_remove_flag(s_screens[MD_UI_SCREEN_SETTINGS].footer, LV_OBJ_FLAG_HIDDEN);
     if (s_settings_action) {
         if (calibrated) lv_obj_remove_flag(s_settings_action, LV_OBJ_FLAG_HIDDEN);
@@ -1334,11 +1414,63 @@ void md_ui_screens_debug_touch(int16_t x, int16_t y)
 #endif
 }
 
+#if CONFIG_MINIDASH_CYD
+/* Keep only the visible LVGL scene in internal SRAM. The shared builders,
+ * bindings and renderer remain identical to S3; scene lifetime is target-specific. */
+static bool cyd_load_view(md_ui_screen_t screen,const md_ui_settings_t *settings,screen_view_t *view)
+{
+    if(!view) return false;
+    if(view->root) return true;
+    lv_obj_t *placeholder=lv_obj_create(NULL);
+    if(!placeholder) return false;
+    lv_screen_load(placeholder);
+    if(s_cyd_current) {
+        if(s_cyd_current->root) lv_obj_delete(s_cyd_current->root);
+        free(s_cyd_current->fields);
+        memset(s_cyd_current,0,sizeof(*s_cyd_current));
+    }
+    memset(s_setting_rows,0,sizeof(s_setting_rows));
+    memset(s_widget_picker_options,0,sizeof(s_widget_picker_options));
+    s_settings_action=s_settings_action_label=s_settings_page=s_settings_page_label=NULL;
+    s_settings_previous=s_settings_previous_label=s_wifi_switch=NULL;
+    s_calibration_target=s_calibration_instruction=s_focus_stats=s_config_credentials=s_config_qr=NULL;
+    s_font_language=MD_UI_LANGUAGE_COUNT;
+    s_cyd_current=view;
+    switch(screen) {
+    case MD_UI_SCREEN_DASHBOARD: create_dashboard(view,settings->dashboard,settings);break;
+    case MD_UI_SCREEN_CUSTOM: create_dashboard(view,MD_UI_DASHBOARD_CUSTOM,settings);break;
+    case MD_UI_SCREEN_PERFORMANCE:create_performance_screen(view);break;
+    case MD_UI_SCREEN_TEMPERATURES:create_temperature_screen(view);break;
+    case MD_UI_SCREEN_DRIVETRAIN:create_drivetrain_screen(view);break;
+    case MD_UI_SCREEN_DIAGNOSTICS:create_diagnostics_screen(view);break;
+    case MD_UI_SCREEN_SETTINGS:create_settings_screen();break;
+    case MD_UI_SCREEN_FOCUS:create_focus_screen();break;
+    case MD_UI_SCREEN_WIDGET_PICKER:create_widget_picker_screen();break;
+    case MD_UI_SCREEN_CALIBRATION:create_calibration_screen();break;
+    case MD_UI_SCREEN_CONFIG_MODE:create_config_screen();break;
+    default:break;
+    }
+    if(!view->root) {
+        printf("MINIDASH_CYD_VIEW allocation_failed screen=%d\n",(int)screen);
+        return false; /* Keep the placeholder as a valid active scene. */
+    }
+    if(screen<=MD_UI_SCREEN_CUSTOM) create_nav_hints(view);
+    md_ui_screens_retheme(&s_palette,settings->theme);
+    md_ui_screens_set_calibrated(s_cyd_calibrated);
+    lv_screen_load(view->root);
+    lv_obj_delete(placeholder);
+    return true;
+}
+#endif
+
 void md_ui_screens_show(md_ui_screen_t screen,
                         const md_ui_settings_t *settings)
 {
     if (!s_created) return;
     screen_view_t *view = view_for(screen, settings);
+#if CONFIG_MINIDASH_CYD
+    if(!cyd_load_view(screen,settings,view)) return;
+#endif
     if (screen==MD_UI_SCREEN_SETTINGS) {
         for(unsigned i=0;i<MD_UI_SETTINGS_ROWS;++i)
             if(s_setting_rows[i].row) settings_row_reset(&s_setting_rows[i]);
@@ -1875,6 +2007,10 @@ void md_ui_screens_update(md_ui_screen_t screen,
         }
         if (s_settings_action_label) {
             const char *action_label = state->selected_setting == 7 ? "START" : "CHANGE";
+#if CONFIG_MINIDASH_CYD
+            if(state->selected_setting==22)
+                action_label=diagnostics && diagnostics->wifi_active ? "DISABLE" : "ENABLE";
+#endif
             if (state->selected_setting == 5 &&
                 !(diagnostics && diagnostics->brightness_control)) action_label = "FIXED";
             if (state->selected_setting >= 14U && state->selected_setting < 22U &&
@@ -1966,8 +2102,27 @@ void md_ui_screens_config_credentials(const char *ssid, const char *password)
     const char *format = s_language == MD_UI_LANGUAGE_RUSSIAN
         ? "Сеть: %s\nПароль: %s\n\nhttp://192.168.4.1\nОткл.: Настройки > Wi-Fi"
         : "SSID: %s\nPassword: %s\n\nhttp://192.168.4.1\nSettings > Wi-Fi to stop";
+#if CONFIG_MINIDASH_CYD
+    (void)format;
+    snprintf(text,sizeof(text),"%s\n%s\n\n192.168.4.1",ssid,password);
+#else
     snprintf(text, sizeof(text), format, ssid, password);
-    lv_label_set_text(s_config_credentials, text);
+#endif
+#if CONFIG_MINIDASH_CYD
+    if(strcmp(lv_label_get_text(s_config_credentials),text))
+#endif
+        lv_label_set_text(s_config_credentials, text);
+#if CONFIG_MINIDASH_CYD
+    char payload[128];
+    snprintf(payload,sizeof(payload),"WIFI:T:WPA;S:%s;P:%s;;",ssid,password);
+    if(s_config_qr && strcmp(payload,s_qr_payload)) {
+        if(lv_qrcode_update(s_config_qr,payload,strlen(payload))==LV_RESULT_OK) {
+            snprintf(s_qr_payload,sizeof(s_qr_payload),"%s",payload);
+            lv_obj_remove_flag(s_config_qr,LV_OBJ_FLAG_HIDDEN);
+            printf("MINIDASH_CYD_QR status=READY wifi_payload_bytes=%u\n",(unsigned)strlen(payload));
+        }
+    }
+#endif
 }
 static void renderer_show(void *context, md_ui_screen_t screen, const md_ui_settings_t *settings)
 { (void)context; md_ui_screens_show(screen, settings); }

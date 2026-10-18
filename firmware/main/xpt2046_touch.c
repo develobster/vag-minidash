@@ -3,7 +3,11 @@
 #include "driver/gpio.h"
 #include "sdkconfig.h"
 
+#if CONFIG_MINIDASH_TOUCH_SEPARATE_SPI
+#define TOUCH_HOST SPI3_HOST
+#else
 #define TOUCH_HOST SPI2_HOST
+#endif
 #define XPT2046_CLOCK_HZ 1000000
 #define XPT2046_PRESSURE_THRESHOLD 180
 
@@ -28,7 +32,20 @@ bool md_xpt2046_open(md_xpt2046_t *touch)
 #if CONFIG_MINIDASH_TOUCH_ENABLE
     const int cs = CONFIG_MINIDASH_TOUCH_PIN_CS;
     if (cs < 0 || !GPIO_IS_VALID_OUTPUT_GPIO(cs) ||
+#if CONFIG_MINIDASH_TOUCH_SEPARATE_SPI
+        !GPIO_IS_VALID_GPIO(CONFIG_MINIDASH_TOUCH_PIN_MISO)) return false;
+    const spi_bus_config_t bus = {
+        .sclk_io_num=CONFIG_MINIDASH_TOUCH_PIN_SCLK,
+        .mosi_io_num=CONFIG_MINIDASH_TOUCH_PIN_MOSI,
+        .miso_io_num=CONFIG_MINIDASH_TOUCH_PIN_MISO,
+        .quadwp_io_num=-1, .quadhd_io_num=-1, .max_transfer_sz=8,
+    };
+    if (!GPIO_IS_VALID_OUTPUT_GPIO(bus.sclk_io_num) ||
+        !GPIO_IS_VALID_OUTPUT_GPIO(bus.mosi_io_num) ||
+        spi_bus_initialize(TOUCH_HOST,&bus,SPI_DMA_DISABLED)!=ESP_OK) return false;
+#else
         !GPIO_IS_VALID_GPIO(CONFIG_MINIDASH_LCD_PIN_MISO)) return false;
+#endif
 
     const spi_device_interface_config_t config = {
         .clock_speed_hz = XPT2046_CLOCK_HZ,

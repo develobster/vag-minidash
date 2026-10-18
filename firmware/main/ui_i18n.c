@@ -8,6 +8,8 @@ typedef struct {
 } translation_t;
 
 static const translation_t s_translations[] = {
+    {"ENABLE", "ВКЛЮЧИТЬ"},
+    {"DISABLE", "ОТКЛЮЧИТЬ"},
     {"DRIVE", "ДОРОГА"},
     {"SPORT", "СПОРТ"},
     {"MINIMAL", "МИНИМУМ"},

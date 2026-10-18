@@ -22,3 +22,7 @@ bool md_display_configuration_begin(void);
 
 /* Display-only metadata, outside the persisted configuration schema. */
 void md_ui_theme_json_metadata(cJSON *preset, md_ui_theme_id_t theme);
+
+/* Bounded JSON output, preserving the shared schema and cJSON escaping. */
+typedef bool (*md_json_chunk_fn)(void *context,const char *bytes,size_t length);
+bool md_json_stream(const cJSON *object,md_json_chunk_fn write,void *context);

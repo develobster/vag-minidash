@@ -30,6 +30,7 @@ function render(){const c=cfg.common,p=c.pages[c.active_page];$('gaugemode').rep
 for(const[key,title,opts]of [['dashboard','Главный экран',['Заводской','Спорт','Минимум','Свой']],['language','Язык',['Английский','Русский']],['units','Скорость',['km/h','mph']],['temperature_unit','Температура',['°C','°F']],['day_night','Режим',['Авто (без сигнала → ночь)','День','Ночь']]])select($('general'),title,c[key],opts.map((v,i)=>[i,v]),v=>c[key]=Number(v));
 select($('general'),'Предупреждения',c.warnings_enabled?1:0,[[0,'Выключены'],[1,'Включены']],v=>c.warnings_enabled=v==='1');
 $('hardware').textContent=device.target+' · '+device.width+'×'+device.height+' · Подсветка: '+(device.dimming?'ШИМ':'фиксированная (BL питание)');
+if(device.simulation)$('hardware').textContent+=' · DEMO: без автомобиля. Минутная аналитика и события недоступны.';
 if(cfg.platform)select($('general'),'Поворот экрана',cfg.platform.rotation,[[0,'0°'],[1,'90°'],[2,'180°'],[3,'270°']],v=>{cfg.platform.rotation=Number(v);drawPreview()});
 if(device.dimming&&cfg.platform)input($('general'),'Яркость 10–100%',cfg.platform.brightness,v=>cfg.platform.brightness=v,'number');
 $('pages').replaceChildren();select($('pages'),'Активная страница',c.active_page,c.pages.map((p,i)=>[i,(i+1)+'. '+p.title]),v=>{c.active_page=Number(v);render()});
