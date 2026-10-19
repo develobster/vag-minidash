@@ -80,11 +80,14 @@ typedef struct {
     uint8_t minimum, maximum, target, current;
     bool dimming, ambient, screen_on;
     uint32_t last_step_ms;
+    int32_t ambient_filtered;
+    bool ambient_sampled;
 } md_brightness_t;
 void md_brightness_init(md_brightness_t *brightness, const md_target_profile_t *target,
                         uint8_t level);
 bool md_brightness_set(md_brightness_t *brightness, uint8_t level);
 bool md_brightness_mode(md_brightness_t *brightness, md_brightness_mode_t mode);
+bool md_brightness_ambient_sample(md_brightness_t *brightness, uint16_t raw);
 bool md_brightness_tick(md_brightness_t *brightness, uint32_t now_ms, uint8_t *output);
 
 /* Logical 320x240 scene coordinates, scaled only after portrait reflow. */

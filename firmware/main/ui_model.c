@@ -1,6 +1,7 @@
 #include "ui_model.h"
 #include "ui_instrument_profiles.h"
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 void md_ui_history_observe(md_ui_history_t *h, const md_ui_signal_record_t *r, uint32_t now_ms)
@@ -116,6 +117,21 @@ bool md_brightness_mode(md_brightness_t *b, md_brightness_mode_t mode)
         (mode != MD_BRIGHTNESS_FIXED && !b->dimming) ||
         (mode == MD_BRIGHTNESS_AUTO && !b->ambient)) return false;
     b->mode = mode; return true;
+}
+/* CYD divider: LDR to ground, so higher ADC means darker. Relative light,
+ * not calibrated lux. ADC1 remains usable while Wi-Fi is active. */
+bool md_brightness_ambient_sample(md_brightness_t *b, uint16_t raw)
+{
+    if (!b || !b->ambient || b->mode!=MD_BRIGHTNESS_AUTO || raw>4095) return false;
+    const int32_t sample=(int32_t)raw*16;
+    b->ambient_filtered=b->ambient_sampled ? (7*b->ambient_filtered+sample)/8 : sample;
+    b->ambient_sampled=true;
+    int32_t light=3300-b->ambient_filtered/16;
+    if(light<0) light=0;
+    if(light>3000) light=3000;
+    const uint8_t goal=15+light*85/3000;
+    if(abs((int)goal-(int)b->target)>=3) b->target=goal;
+    return true;
 }
 bool md_brightness_tick(md_brightness_t *b, uint32_t now, uint8_t *output)
 {

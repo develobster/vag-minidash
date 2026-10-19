@@ -46,7 +46,8 @@ CYD: 4 МБ flash, internal SRAM, нет PSRAM и BLE. CPU 240 МГц, SPI TFT 2
 Поэтому производные минутные/trip/session показатели и event rules на CYD
 не вычисляются; их редактор/каталог сохранены для совместимости, но такие
 виджеты остаются unavailable. Это ограничение, а не нулевые измерения.
-Нет OTA, microSD, аудио и автоматической яркости. Ручная подсветка — GPIO21.
+Нет OTA, microSD и аудио. Подсветка — GPIO21; с cyd-0.3.0-light есть ручной
+режим и AUTO от R21/GPIO34. [Реализация и проверка](minidash-cyd-light-2026-10-19.md).
 
 ## GPIO: профиль классического single micro-USB CYD
 
@@ -66,7 +67,8 @@ CYD: 4 МБ flash, internal SRAM, нет PSRAM и BLE. CPU 240 МГц, SPI TFT 2
 | Touch CS / IRQ | 33 / 36 | IRQ не используется; чтение polling |
 | microSD CS/SCLK/MISO/MOSI | 5/18/19/23 | Зарезервированы, microSD не инициализируется |
 | RGB LED | 4/16/17 | Active low, не задействованы |
-| LDR / audio | 34 / 26 | Не задействованы |
+| LDR R21 | 34 | ADC1_CH6, автояркость (0 dB, 12 bit) |
+| Audio | 26 | Не задействован |
 | USB UART TX/RX | 1/3 | CH340, консоль 115200 |
 | Boot | 0 | Не использовать для CAN |
 | Кандидат CAN TX | 22 | CN1/P3, не конфликтует с TFT/touch |

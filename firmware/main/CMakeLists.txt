@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "main.c" "simulation.c" "captive_dns.c" "backlight_controller.c" "display_manager.c" "st7789_backend.c"
+    SRCS "cyd_ambient.c" "main.c" "simulation.c" "captive_dns.c" "backlight_controller.c" "display_manager.c" "st7789_backend.c"
          "ili9341_backend.c" "xpt2046_touch.c" "display_app.c"
          "display_serial_protocol.c" "diagnostic_transport.c" "acquisition.c" "vehicle_app.c" "ui_instrument_profiles.c"
          "window_statistics.c" "performance_timer.c" "derived_engine.c" "validation_json.c"
@@ -11,7 +11,7 @@ idf_component_register(
          "ui_touch_map.c" "ui_touch_nvs.c"
     EMBED_FILES "webui.html"
     INCLUDE_DIRS "."
-    PRIV_REQUIRES driver bt esp_app_format esp_driver_gpio esp_driver_ledc
+    PRIV_REQUIRES esp_adc driver bt esp_app_format esp_driver_gpio esp_driver_ledc
                    esp_driver_spi esp_lcd esp_lcd_ili9341 esp_lvgl_port
                    esp_http_client esp_http_server json esp_netif esp_timer lvgl nvs_flash esp_wifi spi_flash
 )

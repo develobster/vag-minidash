@@ -33,6 +33,7 @@ $('hardware').textContent=device.target+' · '+device.width+'×'+device.height+'
 if(device.simulation)$('hardware').textContent+=' · DEMO: без автомобиля. Минутная аналитика и события недоступны.';
 if(cfg.platform)select($('general'),'Поворот экрана',cfg.platform.rotation,[[0,'0°'],[1,'90°'],[2,'180°'],[3,'270°']],v=>{cfg.platform.rotation=Number(v);drawPreview()});
 if(device.dimming&&cfg.platform)input($('general'),'Яркость 10–100%',cfg.platform.brightness,v=>cfg.platform.brightness=v,'number');
+if(device.auto_brightness&&cfg.platform)select($('general'),'Режим яркости',cfg.platform.brightness_mode,[[1,'Ручная'],[2,'Авто · датчик света']],v=>cfg.platform.brightness_mode=Number(v));
 $('pages').replaceChildren();select($('pages'),'Активная страница',c.active_page,c.pages.map((p,i)=>[i,(i+1)+'. '+p.title]),v=>{c.active_page=Number(v);render()});
 $('add').disabled=c.pages.length>=device.maximum_pages;$('delete').disabled=c.pages.length===1;
 $('pageform').replaceChildren();input($('pageform'),'Название',p.title,v=>p.title=v);select($('pageform'),'Сетка',p.layout,[[0,'Своя (импорт)'],...layouts.map(l=>[l.id,layoutNames[l.id]])],v=>setLayout(p,v));

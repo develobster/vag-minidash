@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 set(MINIDASH_BOARD "esp32_s3" CACHE STRING "Hardware target: esp32_s3 or minidash_cyd")
 if(MINIDASH_BOARD STREQUAL "minidash_cyd")
-    set(PROJECT_VER "cyd-0.2.0-pixel")
+    set(PROJECT_VER "cyd-0.3.0-light")
     set(IDF_TARGET esp32)
     set(SDKCONFIG "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.cyd.generated")
     set(SDKCONFIG_DEFAULTS "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.cyd")

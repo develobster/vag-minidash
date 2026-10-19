@@ -419,8 +419,8 @@ static esp_err_t capture_event(esp_http_client_event_t *event)
     }
     return ESP_OK;
 }
-static int request(const char *path, esp_http_client_method_t method, const char *body,
-                   const char *token, http_capture_t *capture)
+static int request_impl(const char *path, esp_http_client_method_t method, const char *body,
+                   const char *token, http_capture_t *capture, char **owned_body)
 {
     char url[96]; snprintf(url,sizeof(url),"http://192.168.4.1%s",path);
     esp_http_client_config_t config={.url=url,.timeout_ms=5000,.event_handler=capture_event,.user_data=capture,
@@ -444,9 +444,47 @@ static int request(const char *path, esp_http_client_method_t method, const char
         if (token) esp_http_client_set_header(client,"X-MiniDash-Session",token);
         esp_http_client_set_post_field(client,body,strlen(body));
     }
-    esp_err_t error=esp_http_client_perform(client);
+    esp_err_t error;
+#if CONFIG_MINIDASH_CYD
+    if(owned_body) {
+        /* The self-hosted client must release its printed request before the
+         * server builds the parse tree. A phone does not occupy ESP32 RAM. */
+        const int length=body ? strlen(body) : 0;
+        error=esp_http_client_open(client,length);
+        int sent=0;
+        while(error==ESP_OK && sent<length) {
+            int n=esp_http_client_write(client,body+sent,length-sent);
+            if(n<=0) error=ESP_FAIL; else sent+=n;
+        }
+        free(*owned_body); *owned_body=NULL;
+        if(error==ESP_OK && esp_http_client_fetch_headers(client)<0) error=ESP_FAIL;
+        char sink[256]; int received;
+        if(error==ESP_OK) {
+            do { received=esp_http_client_read(client,sink,sizeof(sink)); } while(received>0);
+            if(received<0) error=ESP_FAIL;
+        }
+        esp_http_client_close(client);
+    } else error=esp_http_client_perform(client);
+#else
+    (void)owned_body;
+    error=esp_http_client_perform(client);
+#endif
     int status=error==ESP_OK && !capture->overflow ? esp_http_client_get_status_code(client) : -1;
     esp_http_client_cleanup(client); return status;
+}
+static int request(const char *path, esp_http_client_method_t method,const char *body,
+                   const char *token,http_capture_t *capture)
+{
+    return request_impl(path,method,body,token,capture,NULL);
+}
+static int request_owned(const char *path,esp_http_client_method_t method,char **body,
+                         const char *token,http_capture_t *capture)
+{
+#if CONFIG_MINIDASH_CYD
+    return request_impl(path,method,*body,token,capture,body);
+#else
+    return request(path,method,*body,token,capture);
+#endif
 }
 static cJSON *bench_configuration_json(const md_device_configuration_t *config,uint32_t revision)
 {
@@ -542,20 +580,24 @@ static bool web_selftest_run(void)
     root=bench_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); bench_json_delete(root);
     if (!json) { ++failed; goto done; }
     CHECK("http_session_gate",request("/api/preview",HTTP_METHOD_POST,json,"wrong",&capture)==403);
-    CHECK("http_four_page_preview",request("/api/preview",HTTP_METHOD_POST,json,s_token,&capture)==200);
-    CHECK("http_revision_conflict",request("/api/preview",HTTP_METHOD_POST,json,s_token,&capture)==409);
+    CHECK("http_four_page_preview",request_owned("/api/preview",HTTP_METHOD_POST,&json,s_token,&capture)==200);
+#if CONFIG_MINIDASH_CYD
+    /* Recreate the same old revision after transferring the first buffer. */
+    root=bench_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); bench_json_delete(root);
+#endif
+    CHECK("http_revision_conflict",request_owned("/api/preview",HTTP_METHOD_POST,&json,s_token,&capture)==409);
     free(json); json=NULL;
     for (unsigned page=1;page<4;++page) {
         if (!bench_configuration_read(candidate,&revision,NULL)) { ++failed; break; }
         candidate->common.active_page=page;
         root=bench_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); bench_json_delete(root);
-        CHECK("http_widget_page_preview",json && request("/api/preview",HTTP_METHOD_POST,json,s_token,&capture)==200);
+        CHECK("http_widget_page_preview",json && request_owned("/api/preview",HTTP_METHOD_POST,&json,s_token,&capture)==200);
         free(json); json=NULL; vTaskDelay(pdMS_TO_TICKS(200));
         CHECK("preview_visible_on_display",md_display_app_current_screen()==MD_UI_SCREEN_CUSTOM);
     }
     if (!bench_configuration_read(candidate,&revision,NULL)) { ++failed; goto done; }
     root=bench_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); bench_json_delete(root);
-    CHECK("http_cancel",json && request("/api/cancel",HTTP_METHOD_POST,json,s_token,&capture)==200);
+    CHECK("http_cancel",json && request_owned("/api/cancel",HTTP_METHOD_POST,&json,s_token,&capture)==200);
     if (bench_configuration_read(candidate,&revision,NULL)) {
         CHECK("cancel_restores_pages",candidate->common.page_count==original->common.page_count);
     } else ++failed;
@@ -567,15 +609,15 @@ static bool web_selftest_run(void)
     vTaskDelay(pdMS_TO_TICKS(350));
     CHECK("local_brightness_applied_with_wifi",bench_configuration_read(candidate,&revision,NULL) &&
         candidate->platform.brightness==local_brightness && md_ui_web_active());
-    CHECK("local_edit_invalidates_web_revision",json && request("/api/preview",HTTP_METHOD_POST,json,s_token,&capture)==409);
+    CHECK("local_edit_invalidates_web_revision",json && request_owned("/api/preview",HTTP_METHOD_POST,&json,s_token,&capture)==409);
     free(json); json=NULL;
     root=bench_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); bench_json_delete(root);
-    CHECK("cancel_keeps_local_edit",json && request("/api/cancel",HTTP_METHOD_POST,json,s_token,&capture)==200 &&
+    CHECK("cancel_keeps_local_edit",json && request_owned("/api/cancel",HTTP_METHOD_POST,&json,s_token,&capture)==200 &&
         bench_configuration_read(candidate,&revision,NULL) && candidate->platform.brightness==local_brightness);
     free(json); json=NULL;
     candidate->platform.brightness=50;
     root=bench_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); bench_json_delete(root);
-    CHECK("http_preview_before_local_takeover",json && request("/api/preview",HTTP_METHOD_POST,json,s_token,&capture)==200);
+    CHECK("http_preview_before_local_takeover",json && request_owned("/api/preview",HTTP_METHOD_POST,&json,s_token,&capture)==200);
     free(json); json=NULL;
     vTaskDelay(pdMS_TO_TICKS(250));
     CHECK("local_takeover_queue",md_display_app_set_brightness(local_brightness));
@@ -599,12 +641,12 @@ static bool web_selftest_run(void)
     cJSON *range=cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(root,"common"),"gauge_ranges"),0);
     cJSON_ReplaceItemInObjectCaseSensitive(range,"maximum",cJSON_CreateNumber(0));
     json=cJSON_PrintUnformatted(root); bench_json_delete(root);
-    CHECK("http_invalid_gauge_range",json && request("/api/preview",HTTP_METHOD_POST,json,s_token,&capture)==400);
+    CHECK("http_invalid_gauge_range",json && request_owned("/api/preview",HTTP_METHOD_POST,&json,s_token,&capture)==400);
     free(json); json=NULL;
     candidate->common.gauge_auto=false;
     candidate->common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum=10000;
     root=bench_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); bench_json_delete(root);
-    CHECK("http_save_manual_gauge",json && request("/api/config",HTTP_METHOD_PUT,json,s_token,&capture)==200);
+    CHECK("http_save_manual_gauge",json && request_owned("/api/config",HTTP_METHOD_PUT,&json,s_token,&capture)==200);
     free(json); json=NULL;
     md_target_profile_t gauge_target={0};
     CHECK("nvs_manual_gauge_roundtrip",bench_configuration_read(candidate,&revision,&gauge_target) &&
@@ -625,7 +667,7 @@ static bool web_selftest_run(void)
         candidate->common.theme=theme;
         root=bench_configuration_json(candidate,revision);json=cJSON_PrintUnformatted(root);bench_json_delete(root);
         printf("MINIDASH_CYD_RENDER theme=%u\n",theme);
-        CHECK("cyd_theme_preview",json && request("/api/preview",HTTP_METHOD_POST,json,s_token,&capture)==200);
+        CHECK("cyd_theme_preview",json && request_owned("/api/preview",HTTP_METHOD_POST,&json,s_token,&capture)==200);
         free(json);json=NULL;vTaskDelay(pdMS_TO_TICKS(400));
     }
     for(unsigned layout=MD_UI_LAYOUT_SINGLE;layout<MD_UI_LAYOUT_COUNT;layout++) {
@@ -634,7 +676,7 @@ static bool web_selftest_run(void)
         bool layout_ok=md_configuration_set_layout(&candidate->common.pages[0],layout);
         root=bench_configuration_json(candidate,revision);json=cJSON_PrintUnformatted(root);bench_json_delete(root);
         printf("MINIDASH_CYD_RENDER layout=%u\n",layout);
-        CHECK("cyd_layout_preview",layout_ok && json && request("/api/preview",HTTP_METHOD_POST,json,s_token,&capture)==200);
+        CHECK("cyd_layout_preview",layout_ok && json && request_owned("/api/preview",HTTP_METHOD_POST,&json,s_token,&capture)==200);
         free(json);json=NULL;vTaskDelay(pdMS_TO_TICKS(400));
     }
     for(unsigned rotation=0;rotation<4;rotation++) {
@@ -642,7 +684,7 @@ static bool web_selftest_run(void)
         candidate->platform.rotation=rotation;
         root=bench_configuration_json(candidate,revision);json=cJSON_PrintUnformatted(root);bench_json_delete(root);
         printf("MINIDASH_CYD_RENDER rotation=%u\n",rotation);
-        CHECK("cyd_rotation_preview",json && request("/api/preview",HTTP_METHOD_POST,json,s_token,&capture)==200);
+        CHECK("cyd_rotation_preview",json && request_owned("/api/preview",HTTP_METHOD_POST,&json,s_token,&capture)==200);
         free(json);json=NULL;vTaskDelay(pdMS_TO_TICKS(500));
     }
 #endif
@@ -650,7 +692,7 @@ static bool web_selftest_run(void)
        or a config read failed. Tests must not persist synthetic pages. */
     if (!bench_configuration_read(candidate,&revision,NULL)) { ++failed; goto done; }
     root=bench_configuration_json(original,revision); json=cJSON_PrintUnformatted(root); bench_json_delete(root);
-    CHECK("http_save_original",json && request("/api/config",HTTP_METHOD_PUT,json,s_token,&capture)==200);
+    CHECK("http_save_original",json && request_owned("/api/config",HTTP_METHOD_PUT,&json,s_token,&capture)==200);
     md_target_profile_t target;
     CHECK("nvs_roundtrip",bench_configuration_read(candidate,&revision,&target) &&
         md_configuration_storage_load(candidate,&target) &&

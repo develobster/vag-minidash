@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "display_manager.h"
+#include "cyd_ambient.h"
 #include "backlight_controller.h"
 #include "display_serial_protocol.h"
 #include "ui_instrument_profiles.h"
@@ -140,6 +141,14 @@ static portMUX_TYPE s_signal_mux = portMUX_INITIALIZER_UNLOCKED;
 static volatile bool s_display_ready;
 static volatile bool s_touch_ready;
 static volatile bool s_touch_calibrated;
+#if CONFIG_MINIDASH_CYD
+static md_brightness_t s_auto_light;
+static bool s_light_ready;
+static atomic_int s_light_raw=-1;
+static atomic_uint s_light_output;
+static atomic_uint s_light_mode;
+static atomic_uint s_light_target;
+#endif
 static volatile bool s_touch_calibrating;
 static md_touch_map_t s_touch_map;
 static md_touch_cal_point_t s_calibration_points[MD_TOUCH_CAL_POINTS];
@@ -548,6 +557,12 @@ static void apply_event(const ui_event_t *event,
     }
     if (event->type == UI_EVENT_SET_BRIGHTNESS) {
         if (!md_target_has(&s_target, MD_CAP_DIMMING)) return;
+#if CONFIG_MINIDASH_CYD
+        if(xSemaphoreTake(s_config_mutex,portMAX_DELAY)==pdTRUE) {
+            s_configuration.platform.brightness_mode=MD_BRIGHTNESS_MANUAL;
+            xSemaphoreGive(s_config_mutex);
+        }
+#endif
         settings->brightness_pct = event->brightness_pct;
         enqueue_settings_save(settings);
         ESP_LOGI(TAG, "Manual brightness=%u source=console", settings->brightness_pct);
@@ -803,6 +818,25 @@ static void apply_event(const ui_event_t *event,
         else if (md_ui_web_start()) { state->screen=MD_UI_SCREEN_CONFIG_MODE; }
         return;
     }
+#if CONFIG_MINIDASH_CYD
+    if(state->screen==MD_UI_SCREEN_SETTINGS && state->selected_setting==5 &&
+       !state->sleeping && state->context!=MD_UI_CONTEXT_DRIVING &&
+       (action==MD_UI_ACTION_SELECT || action==MD_UI_ACTION_INCREMENT || action==MD_UI_ACTION_DECREMENT)) {
+        if(xSemaphoreTake(s_config_mutex,portMAX_DELAY)==pdTRUE) {
+            const int step=action==MD_UI_ACTION_DECREMENT ? -10 : 10;
+            if(s_configuration.platform.brightness_mode==MD_BRIGHTNESS_AUTO) {
+                s_configuration.platform.brightness_mode=MD_BRIGHTNESS_MANUAL;
+                settings->brightness_pct=step>0 ? 10 : 100;
+            } else if((step>0 && settings->brightness_pct>=100) || (step<0 && settings->brightness_pct<=10)) {
+                s_configuration.platform.brightness_mode=MD_BRIGHTNESS_AUTO;
+            } else settings->brightness_pct+=step;
+            md_configuration_update_legacy(&s_configuration,settings);
+            ++s_config_revision; xQueueOverwrite(s_settings_save_queue,&s_config_revision);
+            xSemaphoreGive(s_config_mutex);
+        }
+        return;
+    }
+#endif
     if ((state->screen==MD_UI_SCREEN_CUSTOM || (state->screen==MD_UI_SCREEN_DASHBOARD && settings->dashboard==MD_UI_DASHBOARD_CUSTOM)) && !state->sleeping &&
         (action==MD_UI_ACTION_NEXT_SCREEN || action==MD_UI_ACTION_PREVIOUS_SCREEN)) {
         if (xSemaphoreTake(s_config_mutex,portMAX_DELAY)==pdTRUE) {
@@ -962,6 +996,11 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
 #if CONFIG_MINIDASH_LCD_PIN_BL >= 0
     s_target.hardware |= MD_CAP_DIMMING;
 #endif
+#if CONFIG_MINIDASH_CYD
+    s_target.hardware |= MD_CAP_AMBIENT_SOURCE;
+    s_light_ready=md_cyd_ambient_init();
+    ESP_LOGI(TAG,"CYD LDR GPIO34 ADC1_CH6 ready=%u",s_light_ready);
+#endif
     (void)md_configuration_storage_load(&s_configuration,&s_target);
     /* platform.rotation is now relative to the verified board orientation. */
     s_saved_configuration=s_configuration; s_config_revision=1; s_config_ready=true;
@@ -1057,7 +1096,16 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
         return;
     }
 
+#if CONFIG_MINIDASH_CYD
+    /* Start an AUTO boot dim, then ramp to the first real sensor sample. */
+    applied_brightness=visible_config->platform.brightness_mode==MD_BRIGHTNESS_AUTO ? 15 : settings.brightness_pct;
+    startup_effect(&display,lv_display,applied_brightness);
+    md_brightness_init(&s_auto_light,&s_target,applied_brightness);
+    uint32_t light_sample_ms=0,light_success_ms=0;
+    atomic_store(&s_light_output,applied_brightness);
+#else
     startup_effect(&display,lv_display,settings.brightness_pct);
+#endif
     s_display_ready = true;
     ESP_LOGI(TAG, "UI ready with %u x %u partial buffers and %u ms model refresh",
              profile.width, profile.height, UI_UPDATE_PERIOD_MS);
@@ -1124,11 +1172,39 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
         }
         md_vehicle_app_demand(demand,warning_demand);
         (void)apply_rotation(&settings,state.screen,&palette);
+#if CONFIG_MINIDASH_CYD
+        const uint32_t light_now=(uint32_t)(esp_timer_get_time()/1000);
+        const md_brightness_mode_t light_mode=visible_config->platform.brightness_mode;
+        if(s_auto_light.mode!=light_mode) {
+            md_brightness_mode(&s_auto_light,light_mode);
+            s_auto_light.ambient_sampled=false;
+        }
+        if(light_now-light_sample_ms>=250) {
+            uint16_t raw;
+            light_sample_ms=light_now;
+            if(s_light_ready && md_cyd_ambient_read(&raw)) {
+                light_success_ms=light_now;
+                atomic_store(&s_light_raw,raw);
+                md_brightness_ambient_sample(&s_auto_light,raw);
+            } else atomic_store(&s_light_raw,-1);
+        }
+        if(light_mode!=MD_BRIGHTNESS_AUTO || !s_light_ready || light_now-light_success_ms>2000)
+            md_brightness_set(&s_auto_light,settings.brightness_pct);
+        s_auto_light.screen_on=!state.sleeping;
+        uint8_t output;
+        if(state.sleeping) s_auto_light.current=0;
+        else if(md_brightness_tick(&s_auto_light,light_now,&output) && md_display_set_brightness(&display,output))
+            applied_brightness=output;
+        atomic_store(&s_light_output,state.sleeping ? 0 : applied_brightness);
+        atomic_store(&s_light_mode,light_mode);
+        atomic_store(&s_light_target,s_auto_light.target);
+#else
         if (applied_brightness != settings.brightness_pct) {
             if (md_display_set_brightness(&display, settings.brightness_pct))
                 applied_brightness = settings.brightness_pct;
             else ESP_LOGE(TAG, "Backlight update failed");
         }
+#endif
         ui_event_t event;
         if (xQueueReceive(s_ui_event_queue, &event, pdMS_TO_TICKS(20)) == pdTRUE) {
             apply_event(&event, &state, &settings, &display, &profile, &palette);
@@ -1167,6 +1243,11 @@ void md_display_app_status_dump(void)
         (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT),
         (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT),
         rpm.value,rpm.demo,speed.value,speed.demo);
+#if CONFIG_MINIDASH_CYD
+    printf("MINIDASH_LIGHT gpio=34 adc=%d mode=%u output=%u target=%u ready=%u\n",
+        atomic_load(&s_light_raw),atomic_load(&s_light_mode),atomic_load(&s_light_output),
+        atomic_load(&s_light_target),s_light_ready);
+#endif
     fflush(stdout);
 }
 
