@@ -378,6 +378,12 @@ static void pixel_timer_tick(lv_timer_t *timer)
 static void pixel_begin(void)
 {
     s_pixel_active=false;
+#if CONFIG_MINIDASH_CYD
+    /* At 20 MHz a full 320x240 RGB565 transfer alone takes >=61 ms.
+     * Repeated full-screen masks stutter on this no-PSRAM target. */
+    if(s_pixel_timer) lv_timer_pause(s_pixel_timer);
+    return;
+#endif
     if(!md_ui_theme_is_pixel(s_render_theme) || s_pixel_screen==MD_UI_SCREEN_CALIBRATION ||
        s_pixel_screen==MD_UI_SCREEN_CONFIG_MODE || s_startup_masks[0])return;
     if(!s_pixel_timer)s_pixel_timer=lv_timer_create(pixel_timer_tick,32,NULL);
@@ -2529,6 +2535,10 @@ bool md_ui_screens_selftest(void)
     }
     lv_obj_delete(credentials);
     s_language=saved_language; s_theme_style=fit_style;
+    pixel_begin();
+    const bool cut_ok=!s_pixel_active && !s_pixel_timer;
+    printf("MINIDASH_CYD_NAV animation=off timer_absent=%s\n",cut_ok?"PASS":"FAIL");
+    service_ok=service_ok && cut_ok;
     printf("MINIDASH_CYD_TEXT_FIT diagnostics/credentials/all_themes/en_ru=%s\n",service_ok?"PASS":"FAIL");
     ok=ok && service_ok;
 #endif

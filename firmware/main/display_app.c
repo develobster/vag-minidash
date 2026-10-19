@@ -192,6 +192,9 @@ static const char *configured_driver_name(void)
 #endif
 }
 
+#if CONFIG_MINIDASH_CYD
+static int64_t s_scene_pending_us;
+#endif
 static void render_event_cb(lv_event_t *event)
 {
     const lv_event_code_t code = lv_event_get_code(event);
@@ -208,7 +211,14 @@ static void render_event_cb(lv_event_t *event)
     ++s_render_window_count;
     s_render_window_total_us += elapsed_us;
     s_render_seen = true;
+#if CONFIG_MINIDASH_CYD
+    const int64_t scene_started=s_scene_pending_us;
+    s_scene_pending_us=0;
+#endif
     portEXIT_CRITICAL(&s_perf_mux);
+#if CONFIG_MINIDASH_CYD
+    if(scene_started) printf("MINIDASH_CYD_FIRST_RENDER elapsed_ms=%lu\n",(unsigned long)((now_us-scene_started)/1000));
+#endif
 }
 
 static void render_metrics_read(uint32_t *renders_per_second,
@@ -478,6 +488,31 @@ static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms,
     return diagnostics;
 }
 
+/* Caller holds LVGL lock. Populate the new scene before LVGL can draw its
+ * default labels; reuse the UI task's existing heap signal snapshot. */
+static void show_populated(md_ui_state_t *state,const md_ui_settings_t *settings,
+                           md_ui_signal_store_t *signals)
+{
+#if CONFIG_MINIDASH_CYD
+    const bool changed=atomic_load(&s_visible_screen)!=(int)state->screen;
+    const int64_t started=esp_timer_get_time();
+    if(changed) {portENTER_CRITICAL(&s_perf_mux);s_scene_pending_us=started;portEXIT_CRITICAL(&s_perf_mux);}
+#endif
+    md_ui_screens_show(state->screen,settings);
+#if CONFIG_MINIDASH_CYD
+    portENTER_CRITICAL(&s_signal_mux); *signals=s_signal_store; portEXIT_CRITICAL(&s_signal_mux);
+    const uint32_t now_ms=(uint32_t)(esp_timer_get_time()/1000);
+    static md_ui_diagnostics_t diagnostics;
+    diagnostics=diagnostics_snapshot(now_ms,signals);
+    md_ui_screens_update(state->screen,settings,state,signals,now_ms,&diagnostics);
+    atomic_store(&s_visible_screen,state->screen);
+    if(changed) printf("MINIDASH_CYD_SCENE screen=%u populated=1 build_ms=%lu animation=off\n",
+        (unsigned)state->screen,(unsigned long)((esp_timer_get_time()-started)/1000));
+#else
+    (void)signals;
+#endif
+}
+
 static void enqueue_settings_save(const md_ui_settings_t *settings)
 {
     if (!s_settings_save_queue || !settings) return;
@@ -538,7 +573,8 @@ static void apply_event(const ui_event_t *event,
                         md_ui_settings_t *settings,
                         md_display_manager_t *display,
                         const md_display_profile_t *profile,
-                        md_ui_palette_t *palette)
+                        md_ui_palette_t *palette,
+                        md_ui_signal_store_t *signals)
 {
     /* Local interaction takes over an unsaved Web preview; stale Web writes
        then fail revision checking rather than replacing the local change. */
@@ -582,7 +618,7 @@ static void apply_event(const ui_event_t *event,
         if (old_screen != state->screen) {
             s_touch_calibrating = false;
             if (lvgl_port_lock(20)) {
-                md_ui_screens_show(state->screen, settings);
+                show_populated(state,settings,signals);
                 lvgl_port_unlock();
             }
         }
@@ -649,7 +685,7 @@ static void apply_event(const ui_event_t *event,
                 s_touch_calibrating = false;
                 if (lvgl_port_lock(20)) {
                     md_ui_screens_set_calibrated(true);
-                    md_ui_screens_show(state->screen, settings);
+                    show_populated(state,settings,signals);
                     lvgl_port_unlock();
                 }
             } else {
@@ -779,7 +815,7 @@ static void apply_event(const ui_event_t *event,
             if (slot >= 0 && md_ui_state_open_widget_picker(state, settings,
                     (uint8_t)slot)) {
                 if (lvgl_port_lock(20)) {
-                    md_ui_screens_show(state->screen, settings);
+                    show_populated(state,settings,signals);
                     lvgl_port_unlock();
                 }
                 return;
@@ -916,7 +952,7 @@ static void apply_event(const ui_event_t *event,
         if (!state->sleeping && lvgl_port_lock(100)) {
             if (state->screen == MD_UI_SCREEN_FOCUS)
                 md_ui_screens_focus_signal(state->focused_signal);
-            md_ui_screens_show(state->screen, settings);
+            show_populated(state,settings,signals);
             lvgl_port_unlock();
         }
     }
@@ -1125,6 +1161,17 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
         if (xSemaphoreTake(s_config_mutex,0)==pdTRUE) {
             s_config_driving=state.context==MD_UI_CONTEXT_DRIVING;
             if (seen_revision!=s_config_revision) {
+#if CONFIG_MINIDASH_CYD
+                const bool page_changed=visible_config->common.dashboard!=s_configuration.common.dashboard ||
+                    visible_config->common.active_page!=s_configuration.common.active_page ||
+                    memcmp(&visible_config->common.pages[visible_config->common.active_page],
+                           &s_configuration.common.pages[s_configuration.common.active_page],sizeof(md_ui_dashboard_page_t));
+                const bool theme_changed=visible_config->common.theme!=s_configuration.common.theme ||
+                    visible_config->common.day_night!=s_configuration.common.day_night ||
+                    visible_config->common.language!=s_configuration.common.language ||
+                    visible_config->common.custom_theme!=s_configuration.common.custom_theme ||
+                    memcmp(&visible_config->common.palette,&s_configuration.common.palette,sizeof(md_ui_palette_t));
+#endif
                 *visible_config=s_configuration;
                 if (s_config_preview && !was_preview) preview_return_screen=state.screen;
                 if (s_config_preview) state.screen=MD_UI_SCREEN_CUSTOM;
@@ -1136,8 +1183,20 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
                     md_ui_screens_configuration(visible_config);
                     palette=visible_config->common.custom_theme ? visible_config->common.palette :
                         md_ui_theme_palette(settings.theme,effective_day_mode(&settings));
-                    md_ui_screens_retheme(&palette, settings.theme); md_ui_screens_rebuild_custom(&settings);
-                    md_ui_lvgl_renderer()->show(NULL,state.screen,&settings); seen_revision=s_config_revision; lvgl_port_unlock();
+#if CONFIG_MINIDASH_CYD
+                    if(theme_changed) md_ui_screens_retheme(&palette,settings.theme);
+                    if(page_changed) md_ui_screens_rebuild_custom(&settings);
+#else
+                    md_ui_screens_retheme(&palette,settings.theme); md_ui_screens_rebuild_custom(&settings);
+#endif
+#if CONFIG_MINIDASH_CYD
+                    /* A saved last_screen/revision is not a visual change. */
+                    if(page_changed || theme_changed || atomic_load(&s_visible_screen)!=(int)state.screen)
+                        show_populated(&state,&settings,signals);
+#else
+                    show_populated(&state,&settings,signals);
+#endif
+                    seen_revision=s_config_revision; lvgl_port_unlock();
                 }
             }
             xSemaphoreGive(s_config_mutex);
@@ -1207,9 +1266,9 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
 #endif
         ui_event_t event;
         if (xQueueReceive(s_ui_event_queue, &event, pdMS_TO_TICKS(20)) == pdTRUE) {
-            apply_event(&event, &state, &settings, &display, &profile, &palette);
+            apply_event(&event, &state, &settings, &display, &profile, &palette,signals);
             while (xQueueReceive(s_ui_event_queue, &event, 0) == pdTRUE) {
-                apply_event(&event, &state, &settings, &display, &profile, &palette);
+                apply_event(&event, &state, &settings, &display, &profile, &palette,signals);
             }
         }
 
