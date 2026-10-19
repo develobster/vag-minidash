@@ -444,6 +444,8 @@ static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms,
         diagnostics.can_tx_failed=vehicle.tx_failed;
         diagnostics.can_arbitration_lost=vehicle.arbitration_lost;
         diagnostics.can_bus_errors=vehicle.bus_errors;
+        diagnostics.can_ack_errors=vehicle.can_errors.ack;
+        diagnostics.can_bit_errors=vehicle.can_errors.bit;
         diagnostics.can_timeouts=vehicle.timeouts;diagnostics.can_dropped=vehicle.rx_dropped;
         if(vehicle.dtc_valid && vehicle.dtc_count) {
             char code[6];md_acq_format_dtc(vehicle.dtc[(now_ms/2000)%vehicle.dtc_count],code);

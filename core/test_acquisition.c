@@ -106,6 +106,26 @@ static void test_fault_reconnect_and_idle(void)
     md_acq_bus_available(&a,true,8000);run(8000,4000);CHECK(a.state==MD_ACQ_RUNNING);
     rpm=0;run(12000,125000);CHECK(a.state==MD_ACQ_QUIET);
 }
+static void test_production_bus_gate(void)
+{
+    init(true,NULL,0);a.config.require_bus_activity=true;md_acq_set_tx_ready(&a,false);
+    /* USB-only/no bus must not consume discovery attempts or create faults. */
+    for(uint32_t t=0;t<30000;t+=10)md_acq_tick(&a,t);
+    CHECK(count==0 && a.attempts==0 && a.state==MD_ACQ_LISTEN && !md_acq_wants_tx(&a,30000));
+    /* A 29-bit non-diagnostic bus is valid wake evidence, even while the
+     * adapter has not switched out of listen-only. */
+    md_can_frame_t traffic={.id=0x18fef100,.extended=true,.dlc=8};
+    md_acq_receive(&a,&traffic,30000);CHECK(md_acq_wants_tx(&a,30000));
+    md_acq_tick(&a,30000);CHECK(count==0 && a.attempts==0);
+    md_acq_set_tx_ready(&a,true);md_acq_tick(&a,30001);CHECK(count==1 && a.attempts==1);
+    /* Late reply after an arbitrarily long USB delay still starts telemetry. */
+    emulate(0,30002);run(30002,6000);CHECK(a.state==MD_ACQ_RUNNING && a.ecu_count==1);
+    init(true,NULL,0);a.config.require_bus_activity=true;
+    traffic.id=0x18daf110;md_acq_receive(&a,&traffic,1001);
+    md_acq_tick(&a,1001);CHECK(count==0);
+    traffic.extended=false;traffic.id=0x7e8;md_acq_receive(&a,&traffic,1002);
+    md_acq_tick(&a,1002);CHECK(count==0);
+}
 static void test_late_ecu_startup(void)
 {
     md_can_frame_t traffic={.id=0x123,.dlc=8};
@@ -246,6 +266,6 @@ static void test_analytics_codecs(void)
 int main(void)
 {
     test_end_to_end();test_dtc();test_closed_and_timeout();test_fault_reconnect_and_idle();
-    test_profiles_arbitration();test_isotp();test_pending_and_validation();test_fuzz_and_wrap();test_analytics_codecs();test_late_ecu_startup();
-    printf("PASS: 10 acquisition scenarios + 50,000 malformed frames; core=%zu bytes, trace=%zu bytes\n",sizeof(a),sizeof(a.trace));return 0;
+    test_profiles_arbitration();test_isotp();test_pending_and_validation();test_fuzz_and_wrap();test_analytics_codecs();test_late_ecu_startup();test_production_bus_gate();
+    printf("PASS: 11 acquisition scenarios + 50,000 malformed frames; core=%zu bytes, trace=%zu bytes\n",sizeof(a),sizeof(a.trace));return 0;
 }

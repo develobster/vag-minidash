@@ -22,6 +22,11 @@ idf_component_register(
 set_source_files_properties("display_app.c" PROPERTIES
     COMPILE_OPTIONS "-fstack-usage;-Werror=stack-usage=3072")
 
+if(CONFIG_MINIDASH_CAN_ENABLE)
+    target_sources(${COMPONENT_LIB} PRIVATE "can_error_probe.c" "can_incident.c" "can_link_tx.c")
+    target_link_options(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=twai_hal_get_events")
+endif()
+
 # Explicit bench-only image; normal builds contain no automatic loopback test.
 option(MINIDASH_USB_CAN_BENCH "USB-only external-transceiver loopback image; disconnect OBD" OFF)
 if(MINIDASH_USB_CAN_BENCH)

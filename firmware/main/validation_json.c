@@ -44,6 +44,12 @@ cJSON *md_validation_json(const md_vehicle_validation_t *v, const char *version,
     cJSON_AddNumberToObject(root,"rx_error_counter",v->status.rx_error_counter);
     cJSON_AddNumberToObject(root,"peak_tx_error_counter",v->status.peak_tx_error_counter);
     cJSON_AddNumberToObject(root,"peak_rx_error_counter",v->status.peak_rx_error_counter);
+    cJSON *errors=cJSON_AddObjectToObject(root,"can_error_types");
+    cJSON_AddNumberToObject(errors,"ack",v->status.can_errors.ack);
+    cJSON_AddNumberToObject(errors,"bit",v->status.can_errors.bit);
+    cJSON_AddNumberToObject(errors,"form",v->status.can_errors.form);
+    cJSON_AddNumberToObject(errors,"stuff",v->status.can_errors.stuff);
+    cJSON_AddNumberToObject(errors,"other",v->status.can_errors.other);
     cJSON_AddNumberToObject(root,"bus_offs",v->status.bus_offs);
     cJSON_AddNumberToObject(root,"rx_dropped",v->status.rx_dropped);
     cJSON_AddNumberToObject(root,"trace_overwritten",v->status.trace_overwritten);

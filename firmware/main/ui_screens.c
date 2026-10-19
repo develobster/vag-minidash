@@ -768,7 +768,7 @@ static void create_diagnostics_screen(screen_view_t *view)
         {"DISPLAY", DIAG_DISPLAY}, {"TOUCH", DIAG_TOUCH},
         {"STORED DTC", DIAG_DTC}, {"TRANSPORT", DIAG_TRANSPORT},
         {"ECUS", DIAG_ECUS}, {"VALID SIGNALS", DIAG_SIGNALS},
-        {"STALE", DIAG_STALE}, {"ARB / BUS", DIAG_ERRORS},
+        {"ACK / BIT", DIAG_STALE}, {"ARB / BUS", DIAG_ERRORS},
     };
     style_root(view, "SERVICE STATUS", "HOLD: READ DTC / RETRY CAN");
     for (unsigned i = 0; i < sizeof(rows) / sizeof(rows[0]); ++i) {
@@ -1683,7 +1683,7 @@ static void update_diagnostic_field(field_view_t *field,
                        MD_SIGNAL_COUNT);
         break;
     case DIAG_STALE:
-        (void)snprintf(text, sizeof(text), "%u", diag->signal_summary.stale_count);
+        (void)snprintf(text, sizeof(text), "%lu/%lu",(unsigned long)diag->can_ack_errors,(unsigned long)diag->can_bit_errors);
         break;
     case DIAG_ERRORS:
         (void)snprintf(text, sizeof(text), "%lu/%lu",

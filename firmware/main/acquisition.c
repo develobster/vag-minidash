@@ -147,7 +147,7 @@ void md_acq_init(md_acquisition_t *a, const md_acq_config_t *c,
                  md_acq_send_t send, void *ctx, uint32_t now)
 {
     memset(a,0,sizeof(*a)); a->config=*c; a->send=send; a->send_context=ctx;
-    a->bus_available=true; md_acq_restart(a,now);
+    a->bus_available=true; a->tx_ready=true; md_acq_restart(a,now);
     a->background=BIT(MD_SIGNAL_ENGINE_RPM)|BIT(MD_SIGNAL_VEHICLE_SPEED);
 }
 void md_acq_bus_available(md_acquisition_t *a, bool available, uint32_t now)
@@ -170,6 +170,14 @@ void md_acq_set_demand(md_acquisition_t *a, uint32_t visible, uint32_t backgroun
         if (visible&BIT(MD_SIGNAL_ENGINE_BOOST)) a->visible|=BIT(MD_SIGNAL_ENGINE_MANIFOLD_PRESSURE)|BIT(MD_SIGNAL_ENGINE_AMBIENT_PRESSURE);
         a->background|=BIT(MD_SIGNAL_ENGINE_MANIFOLD_PRESSURE)|BIT(MD_SIGNAL_ENGINE_AMBIENT_PRESSURE);
     }
+}
+void md_acq_set_tx_ready(md_acquisition_t *a, bool ready) { a->tx_ready=ready; }
+bool md_acq_wants_tx(const md_acquisition_t *a,uint32_t now)
+{
+    if(!a->bus_available || !a->config.allow_standard_obd || a->state==MD_ACQ_FAULT || a->state==MD_ACQ_QUIET)return false;
+    if(a->state!=MD_ACQ_LISTEN)return true;
+    return elapsed(now,a->started_ms,a->config.startup_ms) &&
+        (!a->config.require_bus_activity || (a->seen_bus_activity && !elapsed(now,a->last_bus_ms,1000)));
 }
 void md_acq_publish_canonical(const md_acquisition_t *a, md_ui_signal_store_t *store,
                               md_source_t *sources, uint32_t now)
@@ -353,7 +361,11 @@ void md_acq_receive(md_acquisition_t *a,const md_can_frame_t *f,uint32_t now)
     if (!f || f->dlc>8 || f->id>(f->extended?0x1fffffff:0x7ff)) { a->malformed_count++;return; }
     a->rx_count++;trace(a,f,now,false);
     /* Bus availability after a genuine quiet gap is NOT ignition evidence. */
-    if (f->id<0x700 && !f->remote && !f->extended) {
+    /* Independent traffic may use 29-bit IDs. Never treat diagnostic response
+     * addresses or our own request ID as proof that another bus is awake. */
+    bool diagnostic=f->extended?(f->id&0x1fff0000U)==0x18da0000U:
+        f->id==0x7df || (f->id>=0x7e0 && f->id<=0x7ef);
+    if (!f->remote && !diagnostic) {
         if (a->state==MD_ACQ_QUIET && elapsed(now,a->quiet_ms,5000)) md_acq_restart(a,now);
         a->quiet_ms=now;
         a->last_bus_ms=now; a->seen_bus_activity=true;
@@ -445,9 +457,10 @@ void md_acq_tick(md_acquisition_t *a,uint32_t now)
     uint32_t gap=a->config.car_validation_mode?MD_ACQ_VALIDATION_GAP_MS:REQUEST_GAP_MS;
     if(a->sent_any && !elapsed(now,a->last_tx_ms,gap)) return;
     if(a->state==MD_ACQ_LISTEN) {
-        if(!elapsed(now,a->started_ms,a->config.startup_ms)) return;
+        if(!md_acq_wants_tx(a,now) || !a->tx_ready) return;
         a->state=MD_ACQ_DISCOVERY;
     }
+    if(!a->tx_ready)return;
     if(a->state==MD_ACQ_DISCOVERY) {
         if(a->attempts>=RETRY_LIMIT) {discovery_quiet(a,now);return;}
         a->attempts++;(void)begin(a,1,0,0x7df,0,now);return;

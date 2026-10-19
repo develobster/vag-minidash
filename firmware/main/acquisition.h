@@ -42,6 +42,7 @@ typedef struct {
     bool allow_standard_obd; /* ISO 15765-4 11-bit/500 kbit preset ONLY. */
     bool car_validation_mode; /* Bounded evidence recording; never relaxes TX gates. */
     uint32_t startup_ms;
+    bool require_bus_activity;
     const md_vehicle_profile_t *profile;
 } md_acq_config_t;
 typedef struct { double value; uint32_t updated_ms, ttl_ms; bool valid; } md_acq_sample_t;
@@ -79,7 +80,7 @@ typedef struct {
     uint8_t ecu_count, attempts, consecutive_failures, cursor, pending_count;
     uint8_t service, pid, job, cap_block;
     bool active, did_request, vehicle_matched, profile_matched, dtc_requested, dtc_valid, dtc_truncated;
-    bool bus_available, vin_attempted, sent_any, engine_idle;
+    bool bus_available, vin_attempted, sent_any, engine_idle, tx_ready;
     char vin[18];
     uint16_t dtc[MD_ACQ_DTC_MAX];
     uint8_t dtc_count;
@@ -99,6 +100,10 @@ void md_acq_tick(md_acquisition_t *a, uint32_t now_ms);
 void md_acq_receive(md_acquisition_t *a, const md_can_frame_t *f, uint32_t now_ms);
 void md_acq_bus_available(md_acquisition_t *a, bool available, uint32_t now_ms);
 void md_acq_restart(md_acquisition_t *a, uint32_t now_ms);
+/* Mode changes belong to the adapter. Do not consume a probe while it is
+ * listen-only or stopped. Default true preserves offline send-callback users. */
+void md_acq_set_tx_ready(md_acquisition_t *a, bool ready);
+bool md_acq_wants_tx(const md_acquisition_t *a, uint32_t now_ms);
 void md_acq_set_demand(md_acquisition_t *a, uint32_t visible, uint32_t background);
 bool md_acq_request_dtc(md_acquisition_t *a, uint32_t now_ms);
 md_ui_signal_snapshot_t md_acq_snapshot(const md_acquisition_t *a,

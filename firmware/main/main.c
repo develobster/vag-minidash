@@ -396,6 +396,10 @@ static void print_ready(void)
 void app_main(void)
 {
 #ifdef MINIDASH_USB_CAN_BENCH
+    if(!md_backlight_init())return;
+    md_vehicle_app_prepare();
+    md_display_app_start();
+    vTaskDelay(pdMS_TO_TICKS(6000));
     md_can_usb_bench();
     return;
 #endif

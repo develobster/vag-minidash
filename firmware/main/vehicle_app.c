@@ -10,6 +10,11 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "sdkconfig.h"
+#include "can_timing.h"
+#include "can_error_probe.h"
+#include "can_incident.h"
+#include "can_link_tx.h"
+#include "esp_app_desc.h"
 #include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
@@ -79,6 +84,9 @@ static twai_handle_t can;
 static bool normal_mode;
 static uint32_t dropped_base;
 static uint32_t arbitration_base, bus_error_base;
+static uint32_t deferred_alerts;
+static uint32_t rx_standard,rx_extended,last_rx_id;
+static bool last_rx_extended;
 static void read_can_status(const twai_status_info_t *info)
 {
     status.rx_dropped=dropped_base+info->rx_missed_count+info->rx_overrun_count;
@@ -88,6 +96,7 @@ static void read_can_status(const twai_status_info_t *info)
     status.rx_error_counter=info->rx_error_counter;
     if(status.tx_error_counter>status.peak_tx_error_counter)status.peak_tx_error_counter=status.tx_error_counter;
     if(status.rx_error_counter>status.peak_rx_error_counter)status.peak_rx_error_counter=status.rx_error_counter;
+    md_can_error_counts(&status.can_errors);
 }
 static uint32_t now_ms(void) { return (uint32_t)(esp_timer_get_time()/1000); }
 static bool send_can(void *unused,const md_can_frame_t *f)
@@ -96,8 +105,11 @@ static bool send_can(void *unused,const md_can_frame_t *f)
     if(!can || !normal_mode || f->extended || f->remote || f->dlc!=8) return false;
     twai_message_t m={.identifier=f->id,.data_length_code=8,.ss=1};
     memcpy(m.data,f->data,8);
-    /* Single shot: no unlimited hardware retries on an unacknowledged bus. */
-    return twai_transmit_v2(can,&m,0)==ESP_OK;
+    /* One in-flight frame, single shot, bounded wait. Queue acceptance is not
+     * a successful physical transmission. Preserve unrelated driver alerts. */
+    esp_err_t error=md_can_transmit_confirmed(can,&m,&deferred_alerts);
+    if(error==ESP_ERR_TIMEOUT)normal_mode=false;
+    return error==ESP_OK;
 }
 static bool pins_valid(void)
 {
@@ -130,9 +142,9 @@ static bool install_can(bool normal)
     normal_mode=false;
     twai_general_config_t g=TWAI_GENERAL_CONFIG_DEFAULT(CONFIG_MINIDASH_CAN_TX_GPIO,
         CONFIG_MINIDASH_CAN_RX_GPIO,normal?TWAI_MODE_NORMAL:TWAI_MODE_LISTEN_ONLY);
-    g.tx_queue_len=0;g.rx_queue_len=64;
-    g.alerts_enabled=TWAI_ALERT_BUS_OFF|TWAI_ALERT_RX_QUEUE_FULL|TWAI_ALERT_TX_FAILED;
-    twai_timing_config_t timing=TWAI_TIMING_CONFIG_500KBITS();
+    g.tx_queue_len=0;g.rx_queue_len=128;
+    g.alerts_enabled=TWAI_ALERT_BUS_OFF|TWAI_ALERT_RX_QUEUE_FULL|TWAI_ALERT_TX_FAILED|TWAI_ALERT_TX_SUCCESS;
+    twai_timing_config_t timing=md_can_timing_500k();
     twai_filter_config_t filter=TWAI_FILTER_CONFIG_ACCEPT_ALL();
     if(twai_driver_install_v2(&g,&timing,&filter,&can)!=ESP_OK) return false;
     if(twai_start_v2(can)==ESP_OK){normal_mode=normal;return true;}
@@ -170,15 +182,16 @@ static void vehicle_task(void *unused)
 #if CONFIG_MINIDASH_CAR_VALIDATION_MODE
         .car_validation_mode=true,
 #endif
-        .startup_ms=1500,.profile=NULL};
-    ESP_LOGI(TAG,"CAN 500 kbit/s TX=%d RX=%d standard_obd=%s VAG_profile=none UDS=off",
+        .startup_ms=1500,.require_bus_activity=true,.profile=NULL};
+    ESP_LOGI(TAG,"CAN 500 kbit/s sample=87.5%% TX=%d RX=%d standard_obd=%s VAG_profile=none UDS=off",
         CONFIG_MINIDASH_CAN_TX_GPIO,CONFIG_MINIDASH_CAN_RX_GPIO,allow_obd?"on":"off");
     xSemaphoreTake(lock,portMAX_DELAY);
     md_acq_init(&engine,&config,send_can,NULL,now_ms());
+    md_acq_set_tx_ready(&engine,false);
     md_ui_signal_store_init(&canonical);(void)md_derived_init(&analytics,&pending_analytics,now_ms());
     xSemaphoreGive(lock);
-    uint32_t recovery_at=0,last_publish=0,can_started=now_ms(),recovery_attempts=0;
-    bool fault=false,first=true,was_quiet=false,motion_latched=false;
+    uint32_t recovery_at=0,last_publish=0,recovery_attempts=0;
+    bool fault=false,first=true,was_quiet=false,motion_latched=false,incident_attempted=false;
     for(;;) {
         uint32_t now=now_ms();
         if(xSemaphoreTake(lock,pdMS_TO_TICKS(10))!=pdTRUE) {vTaskDelay(pdMS_TO_TICKS(10));continue;}
@@ -192,10 +205,10 @@ static void vehicle_task(void *unused)
                 md_acq_bus_available(&engine,false,now);fault=true;recovery_attempts=3;}
         }
         uint32_t alerts=0;
-        if(can && twai_read_alerts_v2(can,&alerts,0)==ESP_OK) {
+        if(can) {
+            (void)twai_read_alerts_v2(can,&alerts,0);alerts|=deferred_alerts;deferred_alerts=0;
             if(alerts&TWAI_ALERT_BUS_OFF) {status.bus_offs++;fault=true;recovery_at=now+1000;
                 status.ready=false;md_acq_bus_available(&engine,false,now);md_derived_can_error(&analytics,&canonical,now,alerts);}
-            if(alerts&TWAI_ALERT_TX_FAILED) engine.tx_failed++;
         }
         twai_status_info_t info;
         if(can && twai_get_status_info_v2(can,&info)==ESP_OK) {
@@ -209,7 +222,7 @@ static void vehicle_task(void *unused)
         if(requested && fault && pins_valid()) {recovery_attempts=0;recovery_at=now;}
         if(fault && recovery_attempts<3 && (int32_t)(now-recovery_at)>=0) {
             recovery_attempts++;status.ready=install_can(false);recovery_at=now+5000;
-            if(status.ready) {fault=false;status.fault[0]=0;can_started=now;md_acq_bus_available(&engine,true,now);}
+            if(status.ready) {fault=false;status.fault[0]=0;md_acq_bus_available(&engine,true,now);}
         }
         if(!fault) {
             bool quiet=engine.state==MD_ACQ_QUIET;
@@ -219,16 +232,18 @@ static void vehicle_task(void *unused)
             }
             was_quiet=quiet;
             if(requested) {
-                if(quiet) {md_acq_restart(&engine,now);can_started=now;}
+                if(quiet) {md_acq_restart(&engine,now);}
                 else (void)md_acq_request_dtc(&engine,now);
             }
-            if(!fault && allow_obd && !normal_mode && engine.state!=MD_ACQ_QUIET && (uint32_t)(now-can_started)>=1500) {
+            if(!fault && !normal_mode && md_acq_wants_tx(&engine,now)) {
                 status.ready=install_can(true);
                 if(!status.ready) {fault=true;recovery_at=now+1000;md_acq_bus_available(&engine,false,now);}
             }
             /* Bounded work and queues: a saturated bus cannot monopolise this task. */
-            for(unsigned i=0;can && !fault && i<32;i++) {
+            for(unsigned i=0;can && !fault && i<64;i++) {
                 twai_message_t m;if(twai_receive_v2(can,&m,0)!=ESP_OK)break;
+                if(m.extd)rx_extended++;else rx_standard++;
+                last_rx_id=m.identifier;last_rx_extended=m.extd;
                 md_can_frame_t f={.id=m.identifier,.dlc=m.data_length_code,.extended=m.extd,.remote=m.rtr};
                 memcpy(f.data,m.data,8);md_acq_receive(&engine,&f,now);
             }
@@ -239,9 +254,19 @@ static void vehicle_task(void *unused)
             for(unsigned id=0;id<MD_SIGNAL_RAW_COUNT;id++) stats_demand|=md_derived_raw_demand(id);
             /* The acquisition core limits validation demand to four sources. */
             md_acq_set_demand(&engine,atomic_load(&visible)|(UINT32_C(1)<<MD_SIGNAL_VEHICLE_SPEED),atomic_load(&background)|stats_demand);
+            md_acq_set_tx_ready(&engine,normal_mode);
             if(!fault)md_acq_tick(&engine,now);
         }
         update_status(now);
+        if(!incident_attempted && engine.state==MD_ACQ_QUIET && status.rx && status.tx_failed) {
+            md_can_incident_t record={.schema=1,.uptime_ms=now,.rx=status.rx,.tx=status.tx,
+                .tx_failed=status.tx_failed,.timeouts=status.timeouts,.arbitration=status.arbitration_lost,
+                .bus_errors=status.bus_errors,.peak_tec=status.peak_tx_error_counter,.peak_rec=status.peak_rx_error_counter,
+                .rx_standard=rx_standard,.rx_extended=rx_extended,.last_id=last_rx_id,.last_extended=last_rx_extended,
+                .errors=status.can_errors};
+            snprintf(record.firmware,sizeof(record.firmware),"%s",esp_app_get_description()->version);
+            incident_attempted=true;(void)md_can_incident_save(&record);
+        }
         md_vehicle_status_t copy=status;
         xSemaphoreGive(lock);
         /* Never call UI under CAN mutex: fixed lock ordering. */
@@ -270,6 +295,7 @@ void md_vehicle_app_prepare(void)
     }
     md_analytics_config_defaults(&pending_analytics);
 #if CONFIG_MINIDASH_CAN_ENABLE
+    md_can_incident_dump();
     status.configured=true;status.state=MD_ACQ_LISTEN;
 #else
     status.state=MD_ACQ_FAULT;snprintf(status.fault,sizeof(status.fault),"CAN NOT CONFIGURED");

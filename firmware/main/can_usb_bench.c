@@ -4,6 +4,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "sdkconfig.h"
+#include "can_timing.h"
+#include "can_link_tx.h"
+#include "can_error_probe.h"
+#include "can_incident.h"
 #include <string.h>
 
 void md_can_usb_bench(void)
@@ -13,7 +17,7 @@ void md_can_usb_bench(void)
     twai_general_config_t general=TWAI_GENERAL_CONFIG_DEFAULT(
         CONFIG_MINIDASH_CAN_TX_GPIO,CONFIG_MINIDASH_CAN_RX_GPIO,TWAI_MODE_LISTEN_ONLY);
     general.tx_queue_len=0;general.rx_queue_len=8;
-    twai_timing_config_t timing=TWAI_TIMING_CONFIG_500KBITS();
+    twai_timing_config_t timing=md_can_timing_500k();
     twai_filter_config_t filter=TWAI_FILTER_CONFIG_ACCEPT_ALL();
     ESP_LOGW(tag,"USB-ONLY BENCH IMAGE. OBD MUST BE DISCONNECTED. Production acquisition disabled.");
     esp_err_t error=twai_driver_install_v2(&general,&timing,&filter,&handle);
@@ -48,6 +52,24 @@ void md_can_usb_bench(void)
         vTaskDelay(pdMS_TO_TICKS(100));
     }
     ESP_LOGI(tag,"RESULT loopback=%u/20 (external transceiver feedback, no ACK required)",passed);
+    if(passed==20) {
+        /* One normal-mode frame on the isolated bench must fail for missing
+         * ACK. Verify the production confirmation path and error observer. */
+        twai_stop_v2(handle);twai_driver_uninstall_v2(handle);handle=NULL;
+        general.mode=TWAI_MODE_NORMAL;
+        general.alerts_enabled=TWAI_ALERT_TX_SUCCESS|TWAI_ALERT_TX_FAILED|TWAI_ALERT_BUS_OFF;
+        error=twai_driver_install_v2(&general,&timing,&filter,&handle);if(error!=ESP_OK)goto done;
+        error=twai_start_v2(handle);if(error!=ESP_OK)goto done;
+        twai_message_t frame={.identifier=0x7df,.data_length_code=8,.ss=1,.data={2,1,0}};
+        uint32_t deferred=0;
+        esp_err_t sent=md_can_transmit_confirmed(handle,&frame,&deferred);
+        md_can_error_counts_t errors;md_can_error_counts(&errors);
+        ESP_LOGI(tag,"CONFIRMATION result=%s ACK=%lu BIT=%lu FORM=%lu STUFF=%lu",
+            esp_err_to_name(sent),(unsigned long)errors.ack,(unsigned long)errors.bit,
+            (unsigned long)errors.form,(unsigned long)errors.stuff);
+        md_can_incident_t record={.schema=1,.tx_failed=1,.errors=errors,.firmware="usbcan19-selftest"};
+        ESP_LOGI(tag,"INCIDENT_NVS roundtrip_and_restore=%s",md_can_incident_selftest(&record)?"PASS":"FAIL");
+    }
 done:
     if(handle){twai_stop_v2(handle);twai_driver_uninstall_v2(handle);}
     ESP_LOGW(tag,"STOPPED status=%s. Restore production image before attaching OBD.",esp_err_to_name(error));
