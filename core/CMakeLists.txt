@@ -4,7 +4,7 @@ set(CMAKE_C_STANDARD 11)
 # Same physical sources used by ESP-IDF; no duplicated target source trees.
 set(MD_CORE_DIR ${CMAKE_CURRENT_LIST_DIR}/../firmware/main)
 add_library(minidash-core STATIC
-    ${MD_CORE_DIR}/ui_core.c ${MD_CORE_DIR}/ui_theme.c
+    ${MD_CORE_DIR}/ui_core.c ${MD_CORE_DIR}/ui_theme.c ${MD_CORE_DIR}/ui_pixel_art.c
     ${MD_CORE_DIR}/ui_startup.c ${MD_CORE_DIR}/ui_i18n.c ${MD_CORE_DIR}/ui_model.c
     ${MD_CORE_DIR}/ui_platform.c ${MD_CORE_DIR}/ui_configuration.c
     ${MD_CORE_DIR}/ui_touch_map.c ${MD_CORE_DIR}/display_serial_protocol.c
@@ -18,6 +18,9 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(minidash-pixel-tests test_pixel_art.c)
+    target_link_libraries(minidash-pixel-tests PRIVATE minidash-core)
+    add_test(NAME pixel-art-and-transitions COMMAND minidash-pixel-tests)
     foreach(BOARD cyd s3)
         add_executable(minidash-orientation-${BOARD} test_orientation.c ${MD_CORE_DIR}/display_manager.c)
         target_include_directories(minidash-orientation-${BOARD} PRIVATE display_stubs ${MD_CORE_DIR})

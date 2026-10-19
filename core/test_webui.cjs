@@ -47,7 +47,7 @@ const change=(select,value)=>{select.value=String(value);select.onchange()};
     const gaugeMax=elements.gauges.children[0].children[2].children[0];gaugeMax.value='10000';gaugeMax.onchange();
     await elements.try.click();assert.equal(current.common.gauge_ranges[0].maximum,10000);assert.equal(current.common.gauge_auto,false);
     await elements.cancel.click();assert.equal(current.common.gauge_ranges[0].maximum,8000);
-    assert.equal(selectOf('themes').children.length,11);
+    assert.equal(selectOf('themes').children.length,14);
     assert.equal(selectOf('themes').children[4].textContent,'Matrix');
     change(selectOf('themes'),4);
     assert.equal(elements.preview.children[0].style.borderRadius,'0px');
@@ -56,6 +56,17 @@ const change=(select,value)=>{select.value=String(value);select.onchange()};
     assert.equal(elements.preview.children[0].style.borderRadius,'18px');
     assert.equal(selectOf('themes').children[9].textContent,'Volkswagen');
     assert.equal(selectOf('themes').children[10].textContent,'Porsche');
+    for(const [id,name] of [[11,'Пиксели: Аркада'],[12,'Пиксели: Подземелье'],[13,'Пиксели: Портативная']]) {
+        assert.equal(selectOf('themes').children[id].textContent,name);
+        change(selectOf('themes'),id);
+        const tile=elements.preview.children[0];
+        assert.equal(tile.style.borderRadius,'0px');
+        assert.equal(tile.style.fontFamily,'monospace');
+        assert.equal(tile.style.imageRendering,'pixelated');
+        assert.match(tile.style.boxShadow,/inset/);
+        await elements.try.click();assert.equal(current.common.theme,id);
+        await elements.cancel.click();
+    }
     change(selectOf('themes'),0);
     assert.equal(elements.widgets.children.length,4);assert.equal(elements.delete.disabled,true);
     elements.add.click();elements.add.click();elements.add.click();assert.equal(elements.add.disabled,true);

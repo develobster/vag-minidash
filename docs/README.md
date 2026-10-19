@@ -55,3 +55,5 @@ architecture, test totals, session defaults or planned functionality:
 No research/evidence was removed. One duplicated navigation purpose is resolved
 by this index; historical text is retained, rather than merging contradictory
 versions into an apparent current specification.
+
+- [Pixel Pack: оформление, переходы, проверки и ограничения](ui/pixel-pack-2026-10-19.md)

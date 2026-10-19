@@ -1,6 +1,7 @@
 #include "ui_screens.h"
 #include "ui_instrument_profiles.h"
 #include "ui_startup.h"
+#include "ui_pixel_art.h"
 #include "derived_engine.h"
 
 #include <stdio.h>
@@ -71,7 +72,8 @@ typedef struct {
     lv_obj_t *visual;
     lv_chart_series_t *series;
     bool focus, gauge_available, gauge_layout, focus_inline_unit;
-    uint16_t gauge_level;
+    uint16_t gauge_level, pixel_level;
+    bool pixel_available;
     float gauge_minimum, gauge_maximum;
     lv_obj_t *gauge_scale;
     lv_obj_t *gauge_ticks[5];
@@ -125,6 +127,14 @@ static widget_picker_option_view_t s_widget_picker_options[MD_PICKER_SLOTS];
 static unsigned s_picker_first;
 static md_ui_palette_t s_palette;
 static md_ui_theme_style_t s_theme_style;
+static md_ui_theme_id_t s_render_theme;
+static lv_timer_t *s_pixel_timer;
+static uint32_t s_pixel_started;
+static unsigned s_pixel_frames;
+static bool s_pixel_active;
+static md_ui_screen_t s_pixel_screen=MD_UI_SCREEN_COUNT;
+static md_ui_dashboard_t s_pixel_dashboard=MD_UI_DASHBOARD_COUNT;
+
 static uint16_t s_width = 320;
 static uint16_t s_height = 240;
 static bool s_created;
@@ -158,6 +168,13 @@ static screen_view_t *s_cyd_current;
 static bool s_cyd_calibrated;
 #endif
 
+extern const lv_font_t md_ui_font_pixel_10;
+extern const lv_font_t md_ui_font_pixel_12;
+extern const lv_font_t md_ui_font_pixel_14;
+extern const lv_font_t md_ui_font_pixel_16;
+extern const lv_font_t md_ui_font_pixel_20;
+extern const lv_font_t md_ui_font_pixel_28;
+extern const lv_font_t md_ui_font_pixel_48;
 extern const lv_font_t md_ui_font_mono_10;
 extern const lv_font_t md_ui_font_mono_12;
 extern const lv_font_t md_ui_font_mono_14;
@@ -189,6 +206,15 @@ static lv_coord_t ypx(int value)
 
 static const lv_font_t *ui_font_for_language(const lv_font_t *font)
 {
+    if(s_theme_style.font_family==3) {
+        if(font==&lv_font_montserrat_10) return &md_ui_font_pixel_10;
+        if(font==&lv_font_montserrat_12) return &md_ui_font_pixel_12;
+        if(font==&lv_font_montserrat_14) return &md_ui_font_pixel_14;
+        if(font==&lv_font_montserrat_16) return &md_ui_font_pixel_16;
+        if(font==&lv_font_montserrat_20) return &md_ui_font_pixel_20;
+        if(font==&lv_font_montserrat_28) return &md_ui_font_pixel_28;
+        if(font==&lv_font_montserrat_48) return &md_ui_font_pixel_48;
+    }
     if(s_theme_style.font_family==1) {
         if(font==&lv_font_montserrat_10) return &md_ui_font_mono_10;
         if(font==&lv_font_montserrat_12) return &md_ui_font_mono_12;
@@ -224,6 +250,22 @@ static const lv_font_t *metric_font(const lv_font_t *font)
     return font;
 }
 
+static int32_t pixel_text_width(const lv_font_t *font,const char *text)
+{
+    lv_point_t size;
+    lv_text_get_size(&size,text,font,0,0,LV_COORD_MAX,LV_TEXT_FLAG_NONE);
+    return size.x;
+}
+static const lv_font_t *pixel_fit_font(const lv_font_t *preferred,const char *text,int32_t width)
+{
+    if(width<=0 || pixel_text_width(preferred,text)<=width)return preferred;
+    const lv_font_t *choices[]={&md_ui_font_pixel_28,&md_ui_font_pixel_20,&md_ui_font_pixel_16,
+        &md_ui_font_pixel_14,&md_ui_font_pixel_12,&md_ui_font_pixel_10};
+    for(unsigned i=0;i<sizeof(choices)/sizeof(choices[0]);i++)
+        if(choices[i]->line_height<=preferred->line_height && pixel_text_width(choices[i],text)<=width)return choices[i];
+    return &md_ui_font_pixel_10;
+}
+
 static void apply_view_fonts(screen_view_t *view)
 {
     if (!view || !view->root) return;
@@ -250,9 +292,11 @@ static void apply_language_fonts(void)
         apply_view_fonts(&s_dashboards[i]);
     for (unsigned i = 0; i < MD_UI_SCREEN_COUNT; ++i)
         apply_view_fonts(&s_screens[i]);
+    const lv_font_t *row_font=(s_height>s_width || s_theme_style.font_family==3)
+        ? &lv_font_montserrat_12 : &lv_font_montserrat_14;
     for (unsigned i = 0; i < MD_UI_SETTINGS_ROWS; ++i) {
-        set_ui_font(s_setting_rows[i].title, s_height > s_width ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
-        set_ui_font(s_setting_rows[i].value, s_height > s_width ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
+        set_ui_font(s_setting_rows[i].title,row_font,0);
+        set_ui_font(s_setting_rows[i].value,row_font,0);
     }
     set_ui_font(s_settings_action_label, &lv_font_montserrat_14, 0);
     set_ui_font(s_settings_previous_label, &lv_font_montserrat_14, 0);
@@ -283,6 +327,57 @@ static void themed_frame(lv_obj_t *object)
     lv_obj_set_style_shadow_color(object, color(s_palette.accent), 0);
     lv_obj_set_style_shadow_opa(object, s_theme_style.glow_opacity, 0);
 }
+/* These callbacks run under LVGL, allocate no canvas and retain no scene pointer. */
+typedef struct {lv_layer_t *layer;int x,y;} pixel_layer_t;
+static void pixel_lv_rect(void *context,int x,int y,int width,int height,uint32_t rgb)
+{
+    pixel_layer_t *out=context;
+    lv_draw_rect_dsc_t ink;lv_draw_rect_dsc_init(&ink);
+    ink.bg_color=color(rgb);ink.bg_opa=LV_OPA_COVER;
+    lv_area_t area={out->x+x,out->y+y,out->x+x+width-1,out->y+y+height-1};
+    lv_draw_rect(out->layer,&ink,&area);
+}
+static uint32_t pixel_duration(void)
+{ return s_render_theme==MD_UI_THEME_PIXEL_DUNGEON?420:320; }
+static void pixel_timer_tick(lv_timer_t *timer)
+{
+    if(!s_pixel_active || !md_ui_theme_is_pixel(s_render_theme)) {lv_timer_pause(timer);return;}
+    if(lv_tick_elaps(s_pixel_started)>=pixel_duration()) {
+        printf("MINIDASH_PIXEL_COMPLETE theme=%u draw_passes=%u elapsed_ms=%lu\n",(unsigned)s_render_theme,s_pixel_frames,(unsigned long)lv_tick_elaps(s_pixel_started));
+        s_pixel_active=false;lv_timer_pause(timer);
+    }
+    lv_obj_invalidate(lv_screen_active());
+}
+static void pixel_begin(void)
+{
+    s_pixel_active=false;
+    if(!md_ui_theme_is_pixel(s_render_theme) || s_pixel_screen==MD_UI_SCREEN_CALIBRATION ||
+       s_pixel_screen==MD_UI_SCREEN_CONFIG_MODE || s_startup_masks[0])return;
+    if(!s_pixel_timer)s_pixel_timer=lv_timer_create(pixel_timer_tick,32,NULL);
+    if(!s_pixel_timer)return;
+    s_pixel_started=lv_tick_get();s_pixel_frames=0;s_pixel_active=true;lv_timer_resume(s_pixel_timer);
+    lv_obj_invalidate(lv_screen_active());
+    printf("MINIDASH_PIXEL_TRANSITION theme=%u screen=%u duration_ms=%lu\n",
+        (unsigned)s_render_theme,(unsigned)s_pixel_screen,(unsigned long)pixel_duration());
+}
+static void pixel_background_draw(lv_event_t *event)
+{
+    if(!md_ui_theme_is_pixel(s_render_theme))return;
+    lv_obj_t *root=lv_event_get_target(event);lv_area_t area;lv_obj_get_coords(root,&area);
+    pixel_layer_t layer={lv_event_get_layer(event),area.x1,area.y1};
+    md_pixel_background(s_render_theme,&s_palette,lv_area_get_width(&area),lv_area_get_height(&area),pixel_lv_rect,&layer);
+}
+static void pixel_wipe_draw(lv_event_t *event)
+{
+    if(!s_pixel_active || lv_event_get_target(event)!=lv_screen_active())return;
+    uint32_t elapsed=lv_tick_elaps(s_pixel_started);
+    if(elapsed>=pixel_duration())return;
+    ++s_pixel_frames;
+    lv_area_t area;lv_obj_get_coords(lv_event_get_target(event),&area);
+    pixel_layer_t layer={lv_event_get_layer(event),area.x1,area.y1};
+    md_pixel_transition(s_render_theme,&s_palette,lv_area_get_width(&area),lv_area_get_height(&area),
+        elapsed*1000/pixel_duration(),pixel_lv_rect,&layer);
+}
 /* Draw before children: labels stay legible above the instrument artwork. */
 static void metric_frame_draw(lv_event_t *event)
 {
@@ -291,6 +386,12 @@ static void metric_frame_draw(lv_event_t *event)
     lv_layer_t *layer=lv_event_get_layer(event);
     lv_area_t a; lv_obj_get_coords(obj,&a);
     const int w=lv_area_get_width(&a), h=lv_area_get_height(&a);
+    if(md_ui_theme_is_pixel(s_render_theme)) {
+        pixel_layer_t out={layer,a.x1,a.y1};
+        md_pixel_card(s_render_theme,&s_palette,w,h,field?field->pixel_level:0,
+            field && field->pixel_available,pixel_lv_rect,&out);
+        return;
+    }
     lv_draw_line_dsc_t line; lv_draw_line_dsc_init(&line);
     line.color=color(s_palette.accent); line.width=1; line.opa=100;
     if(s_theme_style.frame_kind) {
@@ -361,6 +462,7 @@ static void settings_row_select(setting_row_view_t *row, bool selected)
 }
 static void phosphor_scanlines(lv_event_t *event)
 {
+    pixel_wipe_draw(event);
     if (!s_theme_style.scanline_opacity) return;
     lv_obj_t *root = lv_event_get_target(event);
     lv_area_t area; lv_obj_get_coords(root, &area);
@@ -416,6 +518,7 @@ static void style_root(screen_view_t *view, const char *title,
     lv_obj_set_style_bg_color(view->root, color(s_palette.background), 0);
     lv_obj_set_style_bg_opa(view->root, LV_OPA_COVER, 0);
     lv_obj_add_event_cb(view->root, phosphor_scanlines, LV_EVENT_DRAW_POST, NULL);
+    lv_obj_add_event_cb(view->root, pixel_background_draw, LV_EVENT_DRAW_MAIN, NULL);
 
     view->title = lv_label_create(view->root);
     view->mode = lv_label_create(view->root);
@@ -1045,6 +1148,7 @@ bool md_ui_screens_create(uint16_t width, uint16_t height,
     s_height = height;
     s_palette = *palette;
     s_theme_style = md_ui_theme_style(settings->theme);
+    s_render_theme=settings->theme;
     s_language = settings->language;
 
 #if !CONFIG_MINIDASH_CYD
@@ -1476,6 +1580,10 @@ void md_ui_screens_show(md_ui_screen_t screen,
             if(s_setting_rows[i].row) settings_row_reset(&s_setting_rows[i]);
     }
     if (view && view->root) lv_screen_load(view->root);
+    bool changed=s_pixel_screen!=screen || s_pixel_dashboard!=settings->dashboard;
+    bool first=s_pixel_screen==MD_UI_SCREEN_COUNT;
+    s_pixel_screen=screen;s_pixel_dashboard=settings->dashboard;
+    if(changed && !first)pixel_begin();
 }
 
 static void retheme_view(screen_view_t *view)
@@ -1510,7 +1618,10 @@ void md_ui_screens_retheme(const md_ui_palette_t *palette, md_ui_theme_id_t them
 {
     if (!palette || !s_created) return;
     s_palette = *palette;
+    bool pixel_theme_changed=s_render_theme!=theme;
+    s_render_theme=theme;
     s_theme_style = md_ui_theme_style(theme);
+    if(!md_ui_theme_is_pixel(theme))s_pixel_active=false;
     apply_language_fonts();
     for (unsigned i = 0; i < MD_UI_DASHBOARD_COUNT; ++i) retheme_view(&s_dashboards[i]);
     for (unsigned i = 1; i < MD_UI_SCREEN_COUNT; ++i) {
@@ -1556,6 +1667,7 @@ void md_ui_screens_retheme(const md_ui_palette_t *palette, md_ui_theme_id_t them
         lv_obj_set_style_border_color(s_settings_previous, color(s_palette.accent), 0);
         lv_obj_set_style_text_color(s_settings_previous_label, color(s_palette.text), 0);
     }
+    if(pixel_theme_changed && s_pixel_screen!=MD_UI_SCREEN_COUNT)pixel_begin();
 }
 
 static void update_focus_gauge(field_view_t *field, const md_ui_settings_t *settings,
@@ -1686,11 +1798,23 @@ static void update_metric_field(field_view_t *field,
             }
         }
     }
+    if(md_ui_theme_is_pixel(s_render_theme)) {
+        float low=0,high=1;
+        if(id>=0)md_ui_focus_gauge_range((md_ui_signal_id_t)id,&low,&high);
+        if(spec && field->visual && spec->maximum>spec->minimum) {low=spec->minimum;high=spec->maximum;}
+        uint16_t level=snapshot.value_available && high>low ?
+            (uint16_t)(fmax(0,fmin(1,(snapshot.value-low)/(high-low)))*1000):0;
+        if(level!=field->pixel_level || field->pixel_available!=snapshot.value_available)lv_obj_invalidate(field->card);
+        field->pixel_level=level;field->pixel_available=snapshot.value_available;
+    }
     update_focus_gauge(field,settings,signals,now_ms);
+    const bool pixel_separate_units=md_ui_theme_is_pixel(s_render_theme) &&
+        field->widget_type==MD_UI_WIDGET_VALUE && !field->visual && !field->focus &&
+        field->inline_unit && lv_obj_get_width(field->card)>=110 && lv_obj_get_height(field->card)>=70;
     if (!snapshot.value_available && field->widget_type != MD_UI_WIDGET_STATUS) {
         (void)snprintf(formatted_value, sizeof(formatted_value), "--");
         formatted_unit[0] = '\0';
-    } else if (field->inline_unit && formatted_unit[0]) {
+    } else if (field->inline_unit && !pixel_separate_units && formatted_unit[0]) {
         char combined[sizeof(formatted_value)];
         (void)snprintf(combined, sizeof(combined), "%.20s %.10s",
                        formatted_value, formatted_unit);
@@ -1700,6 +1824,10 @@ static void update_metric_field(field_view_t *field,
     const char *state_label = snapshot.demo && snapshot.value_available
         ? "DEMO" : md_ui_signal_state_label(snapshot.state);
     set_static_text(field->value, field->value_text, sizeof(field->value_text), formatted_value);
+    if(md_ui_theme_is_pixel(s_render_theme)) {
+        const lv_font_t *preferred=ui_font_for_language(metric_font(pixel_separate_units ? &lv_font_montserrat_28 : field->value_font));
+        lv_obj_set_style_text_font(field->value,pixel_fit_font(preferred,formatted_value,lv_obj_get_width(field->value)),0);
+    }
     set_static_text(field->unit, field->unit_text, sizeof(field->unit_text), formatted_unit);
     set_ui_text(field->status, field->status_text,
                 sizeof(field->status_text), state_label);
@@ -1743,7 +1871,7 @@ static void refresh_metric_binding(field_view_t *field,
         s_page_model.widgets[field->widget_slot].signal == signal && s_page_model.widgets[field->widget_slot].label[0])
         label = s_page_model.widgets[field->widget_slot].label;
     if (field->card_group==MD_UI_CARD_GROUP_CUSTOM)
-        lv_obj_set_style_text_font(field->title,s_theme_style.font_family==1 ? ui_font_for_language(field->title_font) : (field->title_font==&lv_font_montserrat_10 ? &md_ui_font_ru_10 : &md_ui_font_ru_12),0);
+        lv_obj_set_style_text_font(field->title,(s_theme_style.font_family==1 || s_theme_style.font_family==3) ? ui_font_for_language(field->title_font) : (field->title_font==&lv_font_montserrat_10 ? &md_ui_font_ru_10 : &md_ui_font_ru_12),0);
     set_static_text(field->title, field->title_text,
                     sizeof(field->title_text), label);
 }
@@ -1997,7 +2125,7 @@ void md_ui_screens_update(md_ui_screen_t screen,
     }
     if ((screen == MD_UI_SCREEN_CUSTOM || (screen == MD_UI_SCREEN_DASHBOARD && settings->dashboard == MD_UI_DASHBOARD_CUSTOM)) && s_page_model.title[0])
     {
-        lv_obj_set_style_text_font(view->title,s_theme_style.font_family==1 ? &md_ui_font_mono_16 : &md_ui_font_ru_16,0);
+        lv_obj_set_style_text_font(view->title,s_theme_style.font_family==3 ? &md_ui_font_pixel_16 : s_theme_style.font_family==1 ? &md_ui_font_mono_16 : &md_ui_font_ru_16,0);
         set_ui_text(view->title, view->title_text, sizeof(view->title_text), s_page_model.title);
     }
     if (screen == MD_UI_SCREEN_SETTINGS) {
@@ -2268,5 +2396,22 @@ bool md_ui_screens_selftest(void)
     s_theme_style=md_ui_theme_style(MD_UI_THEME_OEM); update_focus_gauge(&field,&settings,&store,100);
     ok=ok && !field.gauge_layout && lv_obj_has_flag(field.gauge_scale,LV_OBJ_FLAG_HIDDEN);
     s_gauge_auto=saved_auto; s_theme_style=saved_style; memcpy(s_gauge_ranges,saved_ranges,sizeof(saved_ranges));
+    const lv_font_t *pixel_fonts[]={&md_ui_font_pixel_10,&md_ui_font_pixel_12,&md_ui_font_pixel_14,
+        &md_ui_font_pixel_16,&md_ui_font_pixel_20,&md_ui_font_pixel_28,&md_ui_font_pixel_48};
+    bool font_ok=true;
+    for(unsigned n=0;n<7;n++)for(uint32_t cp=32;cp<127;cp++) {
+        lv_font_glyph_dsc_t glyph={0};
+        font_ok=lv_font_get_glyph_dsc(pixel_fonts[n],&glyph,cp,0) && !glyph.is_placeholder && font_ok;
+    }
+    lv_font_glyph_dsc_t fallback={0};
+    font_ok=lv_font_get_glyph_dsc(&md_ui_font_pixel_16,&fallback,0x0416,0) && !fallback.is_placeholder && font_ok;
+    printf("MINIDASH_PIXEL_FONT ascii=95 sizes=7 cyrillic_fallback=%s\n",font_ok?"PASS":"FAIL");
+    font_ok=font_ok && pixel_fit_font(&md_ui_font_pixel_48,"3850",160)==&md_ui_font_pixel_48 &&
+        pixel_fit_font(&md_ui_font_pixel_16,"5123 rpm",74)==&md_ui_font_pixel_12 &&
+        pixel_fit_font(&md_ui_font_pixel_20,"12.4 V",90)==&md_ui_font_pixel_20 &&
+        pixel_text_width(&md_ui_font_pixel_12,"Wi-Fi configuration")<=145 &&
+        pixel_text_width(&md_ui_font_pixel_12,"Pixel Handheld")<=135;
+    printf("MINIDASH_PIXEL_FONT_FIT wide/compact/units=%s\n",font_ok?"PASS":"FAIL");
+    ok=ok && font_ok;
     lv_obj_delete(root); return ok;
 }

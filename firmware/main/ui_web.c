@@ -469,6 +469,21 @@ static void bench_json_delete(cJSON *root)
     lvgl_port_unlock();
 #endif
 }
+/* A direct bench read can race an asynchronous scene/NVS update. Wait for
+ * the observable configuration, bounded; HTTP status and persistence checks
+ * still fail normally. This is not a retry of a rejected write. */
+static bool bench_configuration_read(md_device_configuration_t *config,uint32_t *revision,md_target_profile_t *target)
+{
+#if CONFIG_MINIDASH_CYD
+    for(unsigned attempt=0;attempt<10;attempt++) {
+        if(md_display_configuration_read(config,revision,target))return true;
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+    return false;
+#else
+    return md_display_configuration_read(config,revision,target);
+#endif
+}
 static bool web_selftest_run(void)
 {
 #if CONFIG_MINIDASH_CYD
@@ -531,32 +546,32 @@ static bool web_selftest_run(void)
     CHECK("http_revision_conflict",request("/api/preview",HTTP_METHOD_POST,json,s_token,&capture)==409);
     free(json); json=NULL;
     for (unsigned page=1;page<4;++page) {
-        if (!md_display_configuration_read(candidate,&revision,NULL)) { ++failed; break; }
+        if (!bench_configuration_read(candidate,&revision,NULL)) { ++failed; break; }
         candidate->common.active_page=page;
         root=bench_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); bench_json_delete(root);
         CHECK("http_widget_page_preview",json && request("/api/preview",HTTP_METHOD_POST,json,s_token,&capture)==200);
         free(json); json=NULL; vTaskDelay(pdMS_TO_TICKS(200));
         CHECK("preview_visible_on_display",md_display_app_current_screen()==MD_UI_SCREEN_CUSTOM);
     }
-    if (!md_display_configuration_read(candidate,&revision,NULL)) { ++failed; goto done; }
+    if (!bench_configuration_read(candidate,&revision,NULL)) { ++failed; goto done; }
     root=bench_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); bench_json_delete(root);
     CHECK("http_cancel",json && request("/api/cancel",HTTP_METHOD_POST,json,s_token,&capture)==200);
-    if (md_display_configuration_read(candidate,&revision,NULL)) {
+    if (bench_configuration_read(candidate,&revision,NULL)) {
         CHECK("cancel_restores_pages",candidate->common.page_count==original->common.page_count);
     } else ++failed;
     free(json); json=NULL;
-    if (!md_display_configuration_read(candidate,&revision,NULL)) { ++failed; goto done; }
+    if (!bench_configuration_read(candidate,&revision,NULL)) { ++failed; goto done; }
     root=bench_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); bench_json_delete(root);
     const uint8_t local_brightness=original->platform.brightness==70 ? 80 : 70;
     CHECK("local_brightness_queue_with_wifi",md_display_app_set_brightness(local_brightness));
     vTaskDelay(pdMS_TO_TICKS(350));
-    CHECK("local_brightness_applied_with_wifi",md_display_configuration_read(candidate,&revision,NULL) &&
+    CHECK("local_brightness_applied_with_wifi",bench_configuration_read(candidate,&revision,NULL) &&
         candidate->platform.brightness==local_brightness && md_ui_web_active());
     CHECK("local_edit_invalidates_web_revision",json && request("/api/preview",HTTP_METHOD_POST,json,s_token,&capture)==409);
     free(json); json=NULL;
     root=bench_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); bench_json_delete(root);
     CHECK("cancel_keeps_local_edit",json && request("/api/cancel",HTTP_METHOD_POST,json,s_token,&capture)==200 &&
-        md_display_configuration_read(candidate,&revision,NULL) && candidate->platform.brightness==local_brightness);
+        bench_configuration_read(candidate,&revision,NULL) && candidate->platform.brightness==local_brightness);
     free(json); json=NULL;
     candidate->platform.brightness=50;
     root=bench_configuration_json(candidate,revision); json=cJSON_PrintUnformatted(root); bench_json_delete(root);
@@ -565,7 +580,7 @@ static bool web_selftest_run(void)
     vTaskDelay(pdMS_TO_TICKS(250));
     CHECK("local_takeover_queue",md_display_app_set_brightness(local_brightness));
     vTaskDelay(pdMS_TO_TICKS(350));
-    CHECK("local_takeover_discards_preview",md_display_configuration_read(candidate,&revision,NULL) &&
+    CHECK("local_takeover_discards_preview",bench_configuration_read(candidate,&revision,NULL) &&
         candidate->platform.brightness==local_brightness && candidate->common.page_count==original->common.page_count);
     CHECK("local_settings_actions_with_wifi",
         md_display_app_dispatch(MD_UI_INPUT_CONSOLE,MD_UI_ACTION_OPEN_SETTINGS) &&
@@ -574,11 +589,11 @@ static bool web_selftest_run(void)
     bool local_theme_applied=false;
     for(unsigned i=0;i<40 && !local_theme_applied;i++) {
         vTaskDelay(pdMS_TO_TICKS(100));
-        local_theme_applied=md_display_configuration_read(candidate,&revision,NULL) &&
+        local_theme_applied=bench_configuration_read(candidate,&revision,NULL) &&
             candidate->common.theme==(original->common.theme+1)%MD_UI_THEME_COUNT;
     }
     CHECK("local_theme_applied_with_wifi",local_theme_applied && md_ui_web_active());
-    if (!md_display_configuration_read(candidate,&revision,NULL)) { ++failed; goto done; }
+    if (!bench_configuration_read(candidate,&revision,NULL)) { ++failed; goto done; }
     candidate->common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum=0;
     root=bench_configuration_json(original,revision);
     cJSON *range=cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(root,"common"),"gauge_ranges"),0);
@@ -592,21 +607,21 @@ static bool web_selftest_run(void)
     CHECK("http_save_manual_gauge",json && request("/api/config",HTTP_METHOD_PUT,json,s_token,&capture)==200);
     free(json); json=NULL;
     md_target_profile_t gauge_target={0};
-    CHECK("nvs_manual_gauge_roundtrip",md_display_configuration_read(candidate,&revision,&gauge_target) &&
+    CHECK("nvs_manual_gauge_roundtrip",bench_configuration_read(candidate,&revision,&gauge_target) &&
         md_configuration_storage_load(candidate,&gauge_target) && !candidate->common.gauge_auto &&
         candidate->common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum==10000);
     const uint8_t gauge_local_brightness=local_brightness==70 ? 80 : 70;
     const bool gauge_local_queued=md_display_app_set_brightness(gauge_local_brightness);
     vTaskDelay(pdMS_TO_TICKS(400));
     CHECK("local_action_preserves_gauge_ranges",gauge_local_queued &&
-        md_display_configuration_read(candidate,&revision,NULL) && candidate->platform.brightness==gauge_local_brightness && !candidate->common.gauge_auto &&
+        bench_configuration_read(candidate,&revision,NULL) && candidate->platform.brightness==gauge_local_brightness && !candidate->common.gauge_auto &&
         candidate->common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum==10000);
     vTaskDelay(pdMS_TO_TICKS(2000));
     CHECK("nvs_manual_gauge_after_local_edit",md_configuration_storage_load(candidate,&gauge_target) &&
         !candidate->common.gauge_auto && candidate->common.gauge_ranges[MD_SIGNAL_ENGINE_RPM].maximum==10000);
 #if CONFIG_MINIDASH_CYD
     for(unsigned theme=0;theme<MD_UI_THEME_COUNT;theme++) {
-        if(!md_display_configuration_read(candidate,&revision,NULL)){++failed;break;}
+        if(!bench_configuration_read(candidate,&revision,NULL)){++failed;break;}
         candidate->common.theme=theme;
         root=bench_configuration_json(candidate,revision);json=cJSON_PrintUnformatted(root);bench_json_delete(root);
         printf("MINIDASH_CYD_RENDER theme=%u\n",theme);
@@ -614,7 +629,7 @@ static bool web_selftest_run(void)
         free(json);json=NULL;vTaskDelay(pdMS_TO_TICKS(400));
     }
     for(unsigned layout=MD_UI_LAYOUT_SINGLE;layout<MD_UI_LAYOUT_COUNT;layout++) {
-        if(!md_display_configuration_read(candidate,&revision,NULL)){++failed;break;}
+        if(!bench_configuration_read(candidate,&revision,NULL)){++failed;break;}
         candidate->common.theme=MD_UI_THEME_OEM;candidate->common.active_page=0;candidate->common.page_count=1;
         bool layout_ok=md_configuration_set_layout(&candidate->common.pages[0],layout);
         root=bench_configuration_json(candidate,revision);json=cJSON_PrintUnformatted(root);bench_json_delete(root);
@@ -623,7 +638,7 @@ static bool web_selftest_run(void)
         free(json);json=NULL;vTaskDelay(pdMS_TO_TICKS(400));
     }
     for(unsigned rotation=0;rotation<4;rotation++) {
-        if(!md_display_configuration_read(candidate,&revision,NULL)){++failed;break;}
+        if(!bench_configuration_read(candidate,&revision,NULL)){++failed;break;}
         candidate->platform.rotation=rotation;
         root=bench_configuration_json(candidate,revision);json=cJSON_PrintUnformatted(root);bench_json_delete(root);
         printf("MINIDASH_CYD_RENDER rotation=%u\n",rotation);
@@ -633,14 +648,13 @@ static bool web_selftest_run(void)
 #endif
     /* Always save the captured original, never the last preview if cancel
        or a config read failed. Tests must not persist synthetic pages. */
-    if (!md_display_configuration_read(candidate,&revision,NULL)) { ++failed; goto done; }
+    if (!bench_configuration_read(candidate,&revision,NULL)) { ++failed; goto done; }
     root=bench_configuration_json(original,revision); json=cJSON_PrintUnformatted(root); bench_json_delete(root);
     CHECK("http_save_original",json && request("/api/config",HTTP_METHOD_PUT,json,s_token,&capture)==200);
     md_target_profile_t target;
-    if (md_display_configuration_read(candidate,&revision,&target)) {
-        CHECK("nvs_roundtrip",md_configuration_storage_load(candidate,&target) &&
-            original->common.page_count==candidate->common.page_count && original->common.language==candidate->common.language);
-    } else ++failed;
+    CHECK("nvs_roundtrip",bench_configuration_read(candidate,&revision,&target) &&
+        md_configuration_storage_load(candidate,&target) &&
+        original->common.page_count==candidate->common.page_count && original->common.language==candidate->common.language);
     CHECK("touch_calibration_preserved",!touch_loaded || (md_touch_map_storage_load(&touch_after,320,240,CONFIG_MINIDASH_DISPLAY_ROTATION) &&
         !memcmp(&touch_before,&touch_after,sizeof(touch_before))));
 done:

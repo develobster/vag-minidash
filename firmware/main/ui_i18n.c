@@ -8,6 +8,9 @@ typedef struct {
 } translation_t;
 
 static const translation_t s_translations[] = {
+    {"Pixel Arcade", "Аркада"},
+    {"Pixel Dungeon", "Подземелье"},
+    {"Pixel Handheld", "Портативная"},
     {"ENABLE", "ВКЛЮЧИТЬ"},
     {"DISABLE", "ОТКЛЮЧИТЬ"},
     {"DRIVE", "ДОРОГА"},
