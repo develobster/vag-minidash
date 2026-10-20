@@ -38,9 +38,47 @@
     "build": "PASS"
   },
   "hardware": {
-    "performed": false,
-    "serial_ports": [],
-    "reason": "No Windows serial device available; no flash or hardware writes performed."
+    "performed": true,
+    "serial_ports": [
+      "COM4"
+    ],
+    "result": {
+      "date": "2026-10-20",
+      "status": "PASS",
+      "tested_app_sha256": "ab9cf8890e7748e9b8ffc28c13c433fb2c8be70f0d2a8c33dc9ff292311babf9",
+      "version": "cyd-0.4.0-studio",
+      "port": "COM4",
+      "hardware": 8,
+      "ui_core": 27,
+      "http": {
+        "passed": 69,
+        "failed": 0
+      },
+      "lvgl_font_fit": "PASS all 17 themes EN/RU",
+      "calibration_preserved": true,
+      "user_common_preserved_except_last_screen": true,
+      "platform_preserved": true,
+      "auto_brightness_mode": 2,
+      "real_reset": true,
+      "final_manual_ap": true,
+      "final_screen": "Wi-Fi QR",
+      "no_reset_wdt_abort_detected": true,
+      "observation_seconds": 212.2,
+      "idle_final_status": "MINIDASH_UI_STATUS display=1 touch=1 calibrated=1 screen=0 wifi=0 heap=144936 minimum=109320 largest=110592 rpm=4503.2 rpm_demo=1 speed=109.2 speed_demo=1",
+      "qr_final_status": "MINIDASH_UI_STATUS display=1 touch=1 calibrated=1 screen=10 wifi=1 heap=88904 minimum=87980 largest=86016 rpm=4635.8 rpm_demo=1 speed=113.1 speed_demo=1",
+      "stack": [
+        "MINIDASH_CYD_STACK http_min=2284 selftest_min=2320\r"
+      ],
+      "heap_cycles": [
+        "AP cycle internal_before=73864 after=60628 minimum=6012\r"
+      ],
+      "physical_lcd_observed_by_agent": false,
+      "external_phone_test": false
+    },
+    "nvs_backup_verified": true,
+    "app_flash_digest_verified": true,
+    "external_phone_test": false,
+    "physical_lcd_observation_by_agent": false
   },
   "backup": {
     "original_bytes": 4194304,

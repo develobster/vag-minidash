@@ -4,7 +4,10 @@
 visual grid editor, pointer/keyboard move and resize, history, themed inspector
 and three additive firmware themes (14–16). Schema 4 and write endpoints remain
 compatible. CYD/S3 builds and browser/native tests pass; physical 0.4.0 acceptance
-is pending because no serial device is connected in this session.
+was pending at initial delivery. After reconnection, [COM4 installation and
+69 HTTP checks passed](../hardware/minidash-cyd-studio-flash-2026-10-20.md),
+with calibration, AUTO and user settings preserved. External phone/LCD acceptance
+for 0.4.0 remains separate.
 
 Current (2026-10-04): schema 4, 92 stable canonical IDs, six analytics presets
 and configurable event/context rules. See [delivery](../research/engine-analytics-delivery-2026-10-04.md).

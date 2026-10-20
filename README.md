@@ -11,8 +11,10 @@ display/touch bench results are documented, and full vehicle acceptance is pendi
 Licensed under [MIT](LICENSE); bundled third-party materials retain their own notices.
 
 20 октября: [Display Studio для конфигуратора платы](docs/ui/display-studio-2026-10-20.md)
-— перемещение/размер окон, история и новые темы. CYD 0.4.0 подготовлен, аппаратная
-приёмка этой версии ожидает подключённой платы.
+— перемещение/размер окон, история и новые темы. CYD 0.4.0
+[установлен на COM4](docs/hardware/minidash-cyd-studio-flash-2026-10-20.md):
+8 hardware / 27 UI / 69 HTTP PASS; внешний телефон и LCD на этой версии требуют
+отдельной физической оценки.
 
 Единая база разработки: **`integration/standalone`**. Продолжать работу в этой ветке.
 На устройство установлен [образ `canerr18`](docs/hardware/can-transmit-diagnostics-2026-10-18.md):
