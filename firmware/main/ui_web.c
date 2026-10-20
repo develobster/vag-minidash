@@ -158,7 +158,9 @@ static esp_err_t get_handler(httpd_req_t *req)
             cJSON_AddBoolToObject(root,"auto_brightness",md_target_has(&target,MD_CAP_AMBIENT_SOURCE));
             cJSON_AddNumberToObject(root,"maximum_pages",MD_CONFIG_MAX_PAGES);
 #if CONFIG_MINIDASH_CYD
-            cJSON_AddBoolToObject(root,"simulation",true);
+            cJSON_AddBoolToObject(root,"simulation",md_vehicle_app_demo());
+            cJSON_AddBoolToObject(root,"demo_switch",true);
+            cJSON_AddBoolToObject(root,"can_tx_requires_confirmation",true);
             cJSON_AddBoolToObject(root,"derived_analytics",false);
             cJSON_AddBoolToObject(root,"psram",false);
 #endif
@@ -229,6 +231,13 @@ static esp_err_t mutation_handler(httpd_req_t *req)
         received+=n;
     }
     body[received]=0;
+#if CONFIG_MINIDASH_CYD
+    /* Let the local maintenance HTTP client release its sent JSON buffer.
+     * With two cores a completed write and the server's last recv can overlap.
+     * No client/configuration locks are held by that writer. A phone also
+     * benefits from lwIP releasing consumed TCP buffers before the parse peak. */
+    vTaskDelay(1);
+#endif
     const char *end=NULL; cJSON *root=bounded_json(body,received) ? cJSON_ParseWithLengthOpts(body,received+1,&end,true) : NULL;
     uint32_t revision=0; bool parsed=md_configuration_parse_json(root,config,&revision);
     free(body); cJSON_Delete(root);
@@ -320,6 +329,16 @@ static void web_task(void *argument)
 #endif
     ESP_LOGI(TAG,"AP step: initialize Wi-Fi driver");
     wifi_init_config_t init=WIFI_INIT_CONFIG_DEFAULT();
+#if CONFIG_MINIDASH_CYD
+    /* Low-traffic manual configurator on a 4 MB/no-PSRAM board. The SDK
+     * permits two static RX buffers; keep BA <= that count. */
+    init.static_rx_buf_num=2;
+    init.dynamic_rx_buf_num=4;
+    init.dynamic_tx_buf_num=4;
+    init.rx_ba_win=2;
+    init.rx_mgmt_buf_num=2;
+    init.mgmt_sbuf_num=6; /* SDK minimum for management short buffers. */
+#endif
     error=esp_wifi_init(&init); if (error!=ESP_OK) { ESP_LOGE(TAG,"Wi-Fi init: %s",esp_err_to_name(error)); goto cleanup; }
     wifi_initialized=true;
     uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP,mac);
@@ -473,6 +492,7 @@ static int request_impl(const char *path, esp_http_client_method_t method, const
     error=esp_http_client_perform(client);
 #endif
     int status=error==ESP_OK && !capture->overflow ? esp_http_client_get_status_code(client) : -1;
+    if(status!=200) printf("MINIDASH_WEB_RESPONSE path=%s status=%d error=%s\n",path,status,esp_err_to_name(error));
     esp_http_client_cleanup(client); return status;
 }
 static int request(const char *path, esp_http_client_method_t method,const char *body,
@@ -722,22 +742,27 @@ done:
 }
 
 static atomic_bool s_testing;
+#if !CONFIG_MINIDASH_CYD
 static void web_test_task(void *argument)
 {
     (void)argument; web_selftest_run(); atomic_store(&s_testing,false); vTaskDelete(NULL);
 }
+#endif
 bool md_ui_web_selftest(void)
 {
     bool expected=false;
     if (!atomic_compare_exchange_strong(&s_testing,&expected,true)) return false;
-    if (xTaskCreate(web_test_task,"ui_web_test",
 #if CONFIG_MINIDASH_CYD
-        8192,
+    /* UART maintenance only: reuse the reserved 8 KiB app_main stack.
+     * Repeated asynchronous tests otherwise overlap deferred task deletion
+     * with another 8 KiB stack on this no-PSRAM board. UI/CAN/AP keep running. */
+    const bool passed=web_selftest_run();
+    atomic_store(&s_testing,false);
+    return passed;
 #else
-        12288,
-#endif
-        NULL,2,NULL)!=pdPASS) {
+    if (xTaskCreate(web_test_task,"ui_web_test",12288,NULL,2,NULL)!=pdPASS) {
         atomic_store(&s_testing,false); return false;
     }
     return true;
+#endif
 }

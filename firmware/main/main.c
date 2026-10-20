@@ -474,7 +474,7 @@ void app_main(void)
            (unsigned long)s_boot_count,
            reset_reason_name(esp_reset_reason()), esp_get_idf_version());
 #if CONFIG_MINIDASH_CYD
-    printf("MINIDASH_INFO board=minidash_cyd cores_expected=2 flash_expected_bytes=4194304 psram_expected_bytes=0 CAN=disabled WIFI=manual SIMULATION=1\n");
+    printf("MINIDASH_INFO board=minidash_cyd cores_expected=2 flash_expected_bytes=4194304 psram_expected_bytes=0 CAN=runtime_guarded WIFI=manual DEMO=menu\n");
 #else
     printf("MINIDASH_INFO board=ESP32-S3 cores_expected=2 flash_expected_bytes=16777216 psram_expected_bytes=8388608\n");
 #endif
@@ -535,10 +535,19 @@ void app_main(void)
             print_ready();
         } else if (strcmp(line, "status") == 0) {
             md_display_app_status_dump();
+#if CONFIG_MINIDASH_CYD
+            md_vehicle_app_mode_dump();
+#endif
             printf("MINIDASH_BOOT count=%lu reset=%s idf=%s\n",
                    (unsigned long)s_boot_count,
                    reset_reason_name(esp_reset_reason()), esp_get_idf_version());
             print_ready();
+#if CONFIG_MINIDASH_CYD
+        } else if (strcmp(line,"can-arm CONFIRM_WIRING_22_27_3V3")==0) {
+            printf("MINIDASH_CAN_ARM status=%s\n",md_vehicle_app_confirm_wiring(true) ? "ARMED_UNTIL_REBOOT" : "REJECTED_NEED_MONITOR_READY");
+        } else if (strcmp(line,"can-disarm")==0) {
+            md_vehicle_app_disarm(); md_vehicle_app_mode_dump();
+#endif
         } else if (strcmp(line, "config-legacy") == 0) {
             printf("MINIDASH_CONFIG_RECOVERY status=%s\n",md_display_app_restore_legacy()?"SAVED":"REJECTED");
             fflush(stdout);

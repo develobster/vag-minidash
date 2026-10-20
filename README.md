@@ -10,6 +10,10 @@ display/touch bench results are documented, and full vehicle acceptance is pendi
 [Publication readiness and Codex application draft](docs/development/open-source-readiness-2026-10-17.md).
 Licensed under [MIT](LICENSE); bundled third-party materials retain their own notices.
 
+20 октября: [CYD 0.5.0: DEMO из меню и подготовка CAN](docs/hardware/minidash-cyd-can-mode-2026-10-20.md)
+установлен на COM4. 15 native / 43 browser / 27 UI / два прогона 69 HTTP PASS.
+CAN остаётся listen-only до подтверждения проводки; испытания автомобиля впереди.
+
 20 октября: [Display Studio для конфигуратора платы](docs/ui/display-studio-2026-10-20.md)
 — перемещение/размер окон, история и новые темы. CYD 0.4.0
 [установлен на COM4](docs/hardware/minidash-cyd-studio-flash-2026-10-20.md):

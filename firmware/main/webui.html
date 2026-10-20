@@ -1502,7 +1502,7 @@
           device.height +
           " · Подсветка: " +
           (device.dimming ? "ШИМ" : "фиксированная (BL питание)");
-        if (device.simulation)
+        if (device.derived_analytics === false)
           $("hardware").textContent +=
             " · DEMO: без автомобиля. Минутная аналитика и события недоступны.";
         if (cfg.platform)
@@ -2653,13 +2653,14 @@
             value.textContent = brightness.value + "%";
           };
         }
-        $("analyticshint").textContent = device.simulation
-          ? "На CYD эти параметры сохраняются для совместимости; минутная аналитика и события не вычисляются."
-          : "События выключены по умолчанию. Это настраиваемые признаки, не диагноз.";
+        $("analyticshint").textContent =
+          device.derived_analytics === false
+            ? "На CYD эти параметры сохраняются для совместимости; минутная аналитика и события не вычисляются."
+            : "События выключены по умолчанию. Это настраиваемые признаки, не диагноз.";
         for (const control of $("analytics").querySelectorAll("input,select"))
-          control.disabled = !!device.simulation;
+          control.disabled = device.derived_analytics === false;
         for (const id of ["resettrip", "resetsession", "eventsrefresh"])
-          $(id).disabled = !!device.simulation;
+          $(id).disabled = device.derived_analytics === false;
         filterSignals();
         filterGauges();
         drawPreview();

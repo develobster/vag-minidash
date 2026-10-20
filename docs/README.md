@@ -8,6 +8,7 @@
 
 | Тема | Документы |
 |---|---|
+| CYD DEMO / CAN | [Переключатель, блокировка передачи и подготовка автомобиля](hardware/minidash-cyd-can-mode-2026-10-20.md) |
 | Display Studio: конфигуратор платы | [Редактор, темы, совместимость и проверки](ui/display-studio-2026-10-20.md), [загрузка на CYD и 69 HTTP проверок 20 октября](hardware/minidash-cyd-studio-flash-2026-10-20.md) |
 | Дополнительная платформа MiniDash CYD | [Профиль, GPIO, питание/CAN, сборка и восстановление](hardware/minidash-cyd.md), [фактические проверки 18 октября](hardware/minidash-cyd-2026-10-18.md) |
 | Стендовая загрузка единой версии 14 октября | [Образ 875106b, 27 проверок UI, подтверждённые дисплей/тач и сохранность настроек](hardware/standalone-flash-2026-10-14.md), [машинная сводка](hardware/standalone-flash-verification-2026-10-14.json) |

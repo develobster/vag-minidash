@@ -1,11 +1,13 @@
 param(
     [Parameter(Mandatory=$true)][string]$Port,
     [string]$Python='python',
-    [string]$FirmwareDirectory=$PSScriptRoot,
-    [string]$BackupDirectory=(Join-Path $PSScriptRoot '..\..\nerdminer-backup'),
+    [string]$FirmwareDirectory,
+    [string]$BackupDirectory,
     [switch]$ValidateOnly
 )
 $ErrorActionPreference='Stop'
+if([string]::IsNullOrWhiteSpace($FirmwareDirectory)) { $FirmwareDirectory=$PSScriptRoot }
+if([string]::IsNullOrWhiteSpace($BackupDirectory)) { $BackupDirectory=Join-Path $FirmwareDirectory '..\..\nerdminer-backup' }
 $backup=Get-Content -LiteralPath (Join-Path $BackupDirectory 'backup-manifest.json') -Raw | ConvertFrom-Json
 $backupPath=Join-Path $BackupDirectory $backup.filename
 if($backup.status -ne 'VERIFIED' -or (Get-Item -LiteralPath $backupPath).Length -ne 4194304 -or (Get-FileHash -LiteralPath $backupPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $backup.sha256) {
@@ -21,4 +23,4 @@ if($ValidateOnly) {Write-Host 'Backup, application and board identity verified. 
 if($LASTEXITCODE -ne 0) {throw 'Application write failed. Original backup is available separately.'}
 & $Python -m esptool --chip esp32 --port $Port --baud 115200 --before no-reset --after hard-reset verify-flash 0x10000 $image
 if($LASTEXITCODE -ne 0) {throw 'Application verification failed.'}
-Write-Host 'MiniDash CYD 0.4.0 application verified. NVS was preserved. Device restarted.'
+Write-Host 'MiniDash CYD application verified. NVS was preserved. Device restarted.'

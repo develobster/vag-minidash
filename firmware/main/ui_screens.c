@@ -3,6 +3,9 @@
 #include "ui_startup.h"
 #include "ui_pixel_art.h"
 #include "derived_engine.h"
+#if CONFIG_MINIDASH_CYD
+#include "vehicle_app.h"
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -961,7 +964,7 @@ static void create_diagnostics_screen(screen_view_t *view)
         {"STALE", DIAG_STALE}, {"ARB / BUS", DIAG_ERRORS},
     };
 #if CONFIG_MINIDASH_CYD
-    style_root(view,"SERVICE STATUS","DEMO | CAN DISABLED");
+    style_root(view,"SERVICE STATUS","CAN TX LOCKED | UDS OFF");
 #else
     style_root(view, "SERVICE STATUS", "HOLD: READ DTC / RETRY CAN");
 #endif
@@ -985,7 +988,11 @@ static void create_settings_screen(void)
         "Coolant warning", "Engine oil warn", "Trans oil warn", "Low voltage warn",
         "Dashboard layout", "Language", "Widget 1 signal", "Widget 2 signal",
         "Widget 3 signal", "Widget 4 signal", "Widget 5 signal", "Widget 6 signal",
-        "Widget 7 signal", "Widget 8 signal", "Wi-Fi configuration", "Screen rotation"};
+        "Widget 7 signal", "Widget 8 signal", "Wi-Fi configuration", "Screen rotation"
+#if CONFIG_MINIDASH_CYD
+        , "Demo mode"
+#endif
+    };
     screen_view_t *view = &s_screens[MD_UI_SCREEN_SETTINGS];
     style_root(view, "SETTINGS", "TAP ROW TO SELECT");
     for (unsigned i = 0; i < MD_UI_SETTINGS_ROWS; ++i) {
@@ -2071,6 +2078,9 @@ static void settings_value(uint8_t index, const md_ui_settings_t *settings,
         value = layout[settings->layout];
         break;
     }
+#if CONFIG_MINIDASH_CYD
+    case 24: value=md_vehicle_app_demo() ? "ON" : "OFF"; break;
+#endif
     case 23: snprintf(output, capacity, "%u°", settings->rotation * 90U); return;
     case 22: value = wifi_active ? "ON" : "OFF"; break;
     case 13:
@@ -2138,6 +2148,12 @@ void md_ui_screens_update(md_ui_screen_t screen,
     }
     set_ui_text(view->mode, view->mode_text, sizeof(view->mode_text), mode);
 
+#if CONFIG_MINIDASH_CYD
+    if (screen==MD_UI_SCREEN_DIAGNOSTICS)
+        set_ui_text(view->footer,view->footer_text,sizeof(view->footer_text),
+            md_vehicle_app_demo() ? "DEMO | CAN STOPPED" :
+                md_vehicle_app_tx_armed() ? "OBD READ ONLY | UDS OFF" : "CAN TX LOCKED | UDS OFF");
+#endif
     if (screen == MD_UI_SCREEN_WIDGET_PICKER) {
         s_picker_first=(unsigned)state->widget_picker_signal/MD_PICKER_SLOTS*MD_PICKER_SLOTS;
         char title[48];
@@ -2216,6 +2232,8 @@ void md_ui_screens_update(md_ui_screen_t screen,
         if (s_settings_action_label) {
             const char *action_label = state->selected_setting == 7 ? "START" : "CHANGE";
 #if CONFIG_MINIDASH_CYD
+            if(state->selected_setting==24)
+                action_label=md_vehicle_app_demo() ? "DISABLE" : "ENABLE";
             if(state->selected_setting==22)
                 action_label=diagnostics && diagnostics->wifi_active ? "DISABLE" : "ENABLE";
 #endif

@@ -3,11 +3,18 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#ifdef ESP_PLATFORM
+#include "sdkconfig.h"
+#endif
 
 #define MD_UI_MAX_WIDGETS 8
 #define MD_UI_SIGNAL_NAME_LEN 48
 #define MD_UI_MAX_WARNING_THRESHOLDS 4
+#if CONFIG_MINIDASH_CYD
+#define MD_UI_SETTINGS_ROWS 25U
+#else
 #define MD_UI_SETTINGS_ROWS 24U
+#endif
 #define MD_UI_SETTINGS_ROWS_PER_PAGE 4U
 #define MD_UI_GRID_COLUMNS 12
 #define MD_UI_GRID_ROWS 8

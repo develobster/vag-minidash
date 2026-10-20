@@ -29,6 +29,14 @@ typedef struct {
  * start the producer only after the display store has been initialized. */
 void md_vehicle_app_prepare(void);
 void md_vehicle_app_start(void);
+#if CONFIG_MINIDASH_CYD
+bool md_vehicle_app_demo(void);
+bool md_vehicle_app_tx_armed(void);
+bool md_vehicle_app_set_demo(bool enabled);
+bool md_vehicle_app_confirm_wiring(bool confirmed);
+void md_vehicle_app_disarm(void);
+void md_vehicle_app_mode_dump(void);
+#endif
 bool md_vehicle_app_status(md_vehicle_status_t *out);
 void md_vehicle_app_demand(uint32_t visible, uint32_t background);
 void md_vehicle_app_scan(void);

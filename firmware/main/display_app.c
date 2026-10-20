@@ -465,7 +465,12 @@ static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms,
         diagnostics.transport_available=true;
         snprintf(diagnostics.transport_state,sizeof(diagnostics.transport_state),"%s",md_acq_state_name(vehicle.state));
 #if CONFIG_MINIDASH_SIMULATION
+#if CONFIG_MINIDASH_CYD
+        if(md_vehicle_app_demo()) snprintf(diagnostics.transport_state,sizeof(diagnostics.transport_state),"SIMULATION");
+        else if(vehicle.ready && !md_vehicle_app_tx_armed()) snprintf(diagnostics.transport_state,sizeof(diagnostics.transport_state),"CAN LISTEN");
+#else
         snprintf(diagnostics.transport_state,sizeof(diagnostics.transport_state),"SIMULATION");
+#endif
 #endif
         diagnostics.ecu_count_available=vehicle.configured;
         diagnostics.ecu_count=vehicle.ecu_count;diagnostics.selected_ecu=vehicle.ecu_id;
@@ -479,6 +484,10 @@ static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms,
             snprintf(diagnostics.dtc_text,sizeof(diagnostics.dtc_text),"%s (%u%s)",code,vehicle.dtc_count,vehicle.dtc_truncated?"+":"");
         } else snprintf(diagnostics.dtc_text,sizeof(diagnostics.dtc_text),"%s",vehicle.dtc_valid?"0 STORED":"HOLD TO READ");
     }
+#if CONFIG_MINIDASH_CYD
+    if(md_vehicle_app_demo() || !md_vehicle_app_tx_armed())
+        snprintf(diagnostics.dtc_text,sizeof(diagnostics.dtc_text),"%s",md_vehicle_app_demo() ? "DISABLED" : "TX LOCKED");
+#endif
     diagnostics.wifi_active = md_ui_web_active();
     render_metrics_read(&diagnostics.refreshes_per_second,
                         &diagnostics.average_render_ms,
@@ -855,6 +864,13 @@ static void apply_event(const ui_event_t *event,
         return;
     }
 #if CONFIG_MINIDASH_CYD
+    if(state->screen==MD_UI_SCREEN_SETTINGS && state->selected_setting==24 &&
+       !state->sleeping && state->context!=MD_UI_CONTEXT_DRIVING &&
+       (action==MD_UI_ACTION_SELECT || action==MD_UI_ACTION_INCREMENT || action==MD_UI_ACTION_DECREMENT)) {
+        (void)md_vehicle_app_set_demo(!md_vehicle_app_demo());
+        md_vehicle_app_mode_dump();
+        return;
+    }
     if(state->screen==MD_UI_SCREEN_SETTINGS && state->selected_setting==5 &&
        !state->sleeping && state->context!=MD_UI_CONTEXT_DRIVING &&
        (action==MD_UI_ACTION_SELECT || action==MD_UI_ACTION_INCREMENT || action==MD_UI_ACTION_DECREMENT)) {
@@ -1158,6 +1174,12 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
     md_analytics_config_t applied_analytics=visible_config->common.analytics;
     (void)md_vehicle_app_analytics_configure(&applied_analytics);
     for (;;) {
+#if CONFIG_MINIDASH_CYD
+        /* HTTP JSON guards use LVGL -> configuration. Keep the same order:
+         * waiting for LVGL while owning configuration can starve HTTP writes. */
+        const bool config_render_guard=lvgl_port_lock(20);
+        if(config_render_guard) {
+#endif
         if (xSemaphoreTake(s_config_mutex,0)==pdTRUE) {
             s_config_driving=state.context==MD_UI_CONTEXT_DRIVING;
             if (seen_revision!=s_config_revision) {
@@ -1201,6 +1223,10 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
             }
             xSemaphoreGive(s_config_mutex);
         }
+#if CONFIG_MINIDASH_CYD
+            lvgl_port_unlock();
+        }
+#endif
         if (state.context==MD_UI_CONTEXT_DRIVING && md_ui_web_active()) md_ui_web_stop();
         if(memcmp(&applied_analytics,&visible_config->common.analytics,sizeof(applied_analytics)) && md_vehicle_app_analytics_configure(&visible_config->common.analytics))applied_analytics=visible_config->common.analytics;
         if (state.screen==MD_UI_SCREEN_CONFIG_MODE) {
@@ -1296,12 +1322,12 @@ void md_display_app_status_dump(void)
     rpm=md_ui_signal_snapshot(&s_signal_store,MD_SIGNAL_ENGINE_RPM,now);
     speed=md_ui_signal_snapshot(&s_signal_store,MD_SIGNAL_VEHICLE_SPEED,now);
     portEXIT_CRITICAL(&s_signal_mux);
-    printf("MINIDASH_UI_STATUS display=%u touch=%u calibrated=%u screen=%d wifi=%u heap=%u minimum=%u largest=%u rpm=%.1f rpm_demo=%u speed=%.1f speed_demo=%u\n",
+    printf("MINIDASH_UI_STATUS display=%u touch=%u calibrated=%u screen=%d wifi=%u heap=%u minimum=%u largest=%u rpm=%.1f rpm_demo=%u speed=%.1f speed_demo=%u rpm_state=%u speed_state=%u\n",
         s_display_ready,s_touch_ready,s_touch_calibrated,(int)atomic_load(&s_visible_screen),md_ui_web_active(),
         (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT),
         (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT),
         (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT),
-        rpm.value,rpm.demo,speed.value,speed.demo);
+        rpm.value,rpm.demo,speed.value,speed.demo,(unsigned)rpm.state,(unsigned)speed.state);
 #if CONFIG_MINIDASH_CYD
     printf("MINIDASH_LIGHT gpio=34 adc=%d mode=%u output=%u target=%u ready=%u\n",
         atomic_load(&s_light_raw),atomic_load(&s_light_mode),atomic_load(&s_light_output),

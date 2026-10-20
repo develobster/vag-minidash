@@ -19,6 +19,7 @@ fixture.device = {
   dimming: true,
   auto_brightness: true,
   simulation: true,
+  derived_analytics: false,
 };
 fixture.config.platform.brightness = 70;
 fixture.config.platform.brightness_mode = 1;
@@ -367,6 +368,13 @@ async function importConfig(page, doc) {
       "CYD unsupported analytics disabled",
     );
     fixture.device.simulation = false;
+    await page.reload();
+    await page.waitForSelector("#content:not([hidden])");
+    check(
+      await page.locator("#analytics input").first().isDisabled(),
+      "CYD CAN source keeps unsupported analytics disabled",
+    );
+    fixture.device.derived_analytics = true;
     await page.reload();
     await page.waitForSelector("#content:not([hidden])");
     await page.locator("[data-panel=advanced]").click();

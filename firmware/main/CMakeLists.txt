@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "cyd_ambient.c" "main.c" "simulation.c" "captive_dns.c" "backlight_controller.c" "display_manager.c" "st7789_backend.c"
+    SRCS "cyd_mode.c" "cyd_ambient.c" "main.c" "simulation.c" "captive_dns.c" "backlight_controller.c" "display_manager.c" "st7789_backend.c"
          "ili9341_backend.c" "xpt2046_touch.c" "display_app.c"
          "display_serial_protocol.c" "diagnostic_transport.c" "acquisition.c" "vehicle_app.c" "ui_instrument_profiles.c"
          "window_statistics.c" "performance_timer.c" "derived_engine.c" "validation_json.c"
@@ -21,6 +21,13 @@ idf_component_register(
 # firmware build, including builds outside the optional bench scripts.
 set_source_files_properties("display_app.c" PROPERTIES
     COMPILE_OPTIONS "-fstack-usage;-Werror=stack-usage=3072")
+if(MINIDASH_BOARD STREQUAL "minidash_cyd")
+    set_source_files_properties("vehicle_app.c" PROPERTIES
+        COMPILE_OPTIONS "-fstack-usage;-Werror=stack-usage=2048")
+else()
+    set_source_files_properties("vehicle_app.c" PROPERTIES
+        COMPILE_OPTIONS "-fstack-usage;-Werror=stack-usage=6144")
+endif()
 
 # Explicit bench-only image; normal builds contain no automatic loopback test.
 option(MINIDASH_USB_CAN_BENCH "USB-only external-transceiver loopback image; disconnect OBD" OFF)
