@@ -250,6 +250,9 @@ static esp_err_t mutation_handler(httpd_req_t *req)
 static esp_err_t guarded_get_handler(httpd_req_t *req)
 {
 #if CONFIG_MINIDASH_CYD
+    /* Static flash-backed HTML needs no JSON/LVGL allocation guard. A slow
+     * phone must not hold the display mutex while downloading the editor. */
+    if(!strcmp(req->uri,"/")) return get_handler(req);
     if(!lvgl_port_lock(1000)) {
         httpd_resp_set_status(req,"503 Service Unavailable");
         return httpd_resp_send(req,"display busy; retry",HTTPD_RESP_USE_STRLEN);

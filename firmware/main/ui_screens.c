@@ -353,6 +353,9 @@ static void themed_frame(lv_obj_t *object)
     lv_obj_set_style_shadow_width(object, xpx(s_theme_style.glow_width), 0);
     lv_obj_set_style_shadow_color(object, color(s_palette.accent), 0);
     lv_obj_set_style_shadow_opa(object, s_theme_style.glow_opacity, 0);
+    lv_obj_set_style_bg_grad_color(object, color(s_palette.surface_alt), 0);
+    lv_obj_set_style_bg_grad_dir(object, s_theme_style.frame_kind==9 ?
+        LV_GRAD_DIR_VER : LV_GRAD_DIR_NONE, 0);
 }
 /* These callbacks run under LVGL, allocate no canvas and retain no scene pointer. */
 typedef struct {lv_layer_t *layer;int x,y;} pixel_layer_t;
@@ -427,6 +430,19 @@ static void metric_frame_draw(lv_event_t *event)
     }
     lv_draw_line_dsc_t line; lv_draw_line_dsc_init(&line);
     line.color=color(s_palette.accent); line.width=1; line.opa=100;
+    if(s_theme_style.frame_kind==8 || s_theme_style.frame_kind==9) {
+        /* Original desktop bevel / chrome highlight, before labels. No canvas. */
+        const int inset=s_theme_style.frame_kind==9 ? 6 : 2;
+        line.color=color(s_palette.border);line.opa=220;
+        line.p1.x=a.x1+inset;line.p1.y=a.y2-inset;
+        line.p2.x=a.x1+inset;line.p2.y=a.y1+inset;lv_draw_line(layer,&line);
+        line.p1=line.p2;line.p2.x=a.x2-inset;lv_draw_line(layer,&line);
+        line.color=color(s_palette.background);
+        line.p1.x=a.x2-inset;line.p1.y=a.y1+inset;
+        line.p2.x=a.x2-inset;line.p2.y=a.y2-inset;lv_draw_line(layer,&line);
+        line.p1=line.p2;line.p2.x=a.x1+inset;lv_draw_line(layer,&line);
+        return;
+    }
     if(s_theme_style.frame_kind) {
         const int inset=s_theme_style.frame_kind==3 ? 5 : 3;
         line.p1.x=a.x1+inset; line.p1.y=a.y1+inset;

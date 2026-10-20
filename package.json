@@ -5,6 +5,7 @@
   "scripts": {
     "test": "node --test tests/frontend/model.test.js tests/frontend/units.test.js",
     "test:ui": "playwright test",
+    "test:device": "node core/test_webui_browser.cjs",
     "build": "node tools/build-web.mjs"
   },
   "devDependencies": {

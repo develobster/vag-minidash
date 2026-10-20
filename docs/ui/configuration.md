@@ -1,5 +1,11 @@
 # Device configuration and local editor
 
+20 October 2026: [Display Studio](display-studio-2026-10-20.md) adds an embedded
+visual grid editor, pointer/keyboard move and resize, history, themed inspector
+and three additive firmware themes (14–16). Schema 4 and write endpoints remain
+compatible. CYD/S3 builds and browser/native tests pass; physical 0.4.0 acceptance
+is pending because no serial device is connected in this session.
+
 Current (2026-10-04): schema 4, 92 stable canonical IDs, six analytics presets
 and configurable event/context rules. See [delivery](../research/engine-analytics-delivery-2026-10-04.md).
 Dated update paragraphs below describe prior versions.

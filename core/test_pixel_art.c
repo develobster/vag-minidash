@@ -18,7 +18,7 @@ static void collect(void *context,int x,int y,int w,int h,uint32_t rgb)
 static void preview(void)
 {
     printf("{\"themes\":[");
-    for(unsigned theme=MD_UI_THEME_PIXEL_ARCADE;theme<MD_UI_THEME_COUNT;theme++) {
+    for(unsigned theme=MD_UI_THEME_PIXEL_ARCADE;theme<=MD_UI_THEME_PIXEL_HANDHELD;theme++) {
         md_ui_palette_t p=md_ui_theme_palette(theme,false);
         printf("%s{\"id\":%u,\"name\":\"%s\",\"palette\":[%u,%u,%u,%u,%u,%u,%u,%u],\"decor\":[",
             theme==MD_UI_THEME_PIXEL_ARCADE?"":",",theme,md_ui_theme_name(theme),

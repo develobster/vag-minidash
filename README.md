@@ -10,6 +10,10 @@ display/touch bench results are documented, and full vehicle acceptance is pendi
 [Publication readiness and Codex application draft](docs/development/open-source-readiness-2026-10-17.md).
 Licensed under [MIT](LICENSE); bundled third-party materials retain their own notices.
 
+20 октября: [Display Studio для конфигуратора платы](docs/ui/display-studio-2026-10-20.md)
+— перемещение/размер окон, история и новые темы. CYD 0.4.0 подготовлен, аппаратная
+приёмка этой версии ожидает подключённой платы.
+
 Единая база разработки: **`integration/standalone`**. Продолжать работу в этой ветке.
 На устройство установлен [образ `canerr18`](docs/hardware/can-transmit-diagnostics-2026-10-18.md):
 счётчики арбитража/ошибок шины и TX на экране, пароль Wi-Fi `12345678`.

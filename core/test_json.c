@@ -55,6 +55,14 @@ static bool streamed_json_contract(void) {
     cJSON_free(expected);cJSON_Delete(root);return ok;
 }
 int main(int argc,char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--validate")) {
+        static char text[32769];
+        size_t count=fread(text,1,sizeof(text)-1,stdin);text[count]=0;
+        cJSON *json=cJSON_Parse(text);md_device_configuration_t parsed;uint32_t revision;
+        bool ok=json && md_configuration_parse_json(json,&parsed,&revision) &&
+            md_configuration_validate(&parsed,NULL);
+        cJSON_Delete(json);return ok?0:1;
+    }
     if (argc<2) { bool ok=md_ui_test_configuration_json() && analytics_json_contract() && streamed_json_contract(); printf("MINIDASH_JSON_TEST status=%s\n",ok?"PASS":"FAIL"); return ok?0:1; }
     md_ui_settings_t settings; md_ui_settings_defaults(&settings);
     md_target_profile_t target={.hardware=MD_CAP_COLOR|MD_CAP_WIFI};

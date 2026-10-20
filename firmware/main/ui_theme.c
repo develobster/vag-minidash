@@ -6,6 +6,12 @@ md_ui_palette_t md_ui_theme_palette(md_ui_theme_id_t theme, bool day_mode)
 {
     /* Original palettes; retro presets keep a dark phosphor background in DAY. */
     switch(theme) {
+    case MD_UI_THEME_DESKTOP_98:
+        return (md_ui_palette_t){.background=0x101d30,.surface=0x273449,.surface_alt=0x394960,.border=0x8eabc9,.text=0xf1f5ff,.muted=0xb5c7df,.accent=0xa9d4ff,.normal=0xf1f5ff,.warning=0xffd06a,.critical=0xff8c99,.unavailable=0x8da0ba};
+    case MD_UI_THEME_NEON_ARCADE:
+        return (md_ui_palette_t){.background=0x10091c,.surface=0x21122f,.surface_alt=0x362047,.border=0xa85dd2,.text=0xf8eeff,.muted=0xccb2df,.accent=0x69ffe3,.normal=0x69ffe3,.warning=0xffdd71,.critical=0xff7ba9,.unavailable=0x9d7dad};
+    case MD_UI_THEME_TECHNO_2000:
+        return (md_ui_palette_t){.background=0x0b2038,.surface=0x183e60,.surface_alt=0x2b5578,.border=0x85b9e0,.text=0xf1fbff,.muted=0xb4d3eb,.accent=0x8de5ff,.normal=0xf1fbff,.warning=0xffdc81,.critical=0xff9ba1,.unavailable=0x8cb0cb};
     case MD_UI_THEME_PIXEL_ARCADE:
         return (md_ui_palette_t){.background=0x080c24,.surface=0x121a3b,.surface_alt=0x24335b,.border=0x5066a0,.text=0xfff2c9,.muted=0xa2b2d7,.accent=0x46e5d2,.normal=0xfff2c9,.warning=0xffcc53,.critical=0xff657d,.unavailable=0x7284a3};
     case MD_UI_THEME_PIXEL_DUNGEON:
@@ -190,13 +196,16 @@ const char *md_ui_signal_state_label(md_ui_signal_state_t state)
 const char *md_ui_theme_name(md_ui_theme_id_t theme)
 {
     static const char *const names[MD_UI_THEME_COUNT] = {
-        "OEM", "Sport", "Minimal", "Terminal", "Matrix", "Fallout", "Amber CRT", "Cyberpunk", "Arctic", "Volkswagen", "Porsche", "Pixel Arcade", "Pixel Dungeon", "Pixel Handheld"
+        "OEM", "Sport", "Minimal", "Terminal", "Matrix", "Fallout", "Amber CRT", "Cyberpunk", "Arctic", "Volkswagen", "Porsche", "Pixel Arcade", "Pixel Dungeon", "Pixel Handheld", "Desktop 98", "Neon Arcade", "Techno 2000"
     };
     return theme >= 0 && theme < MD_UI_THEME_COUNT ? names[theme] : names[0];
 }
 md_ui_theme_style_t md_ui_theme_style(md_ui_theme_id_t theme)
 {
     switch(theme) {
+    case MD_UI_THEME_DESKTOP_98: return (md_ui_theme_style_t){0,2,0,0,0,0,1,8,0};
+    case MD_UI_THEME_NEON_ARCADE: return (md_ui_theme_style_t){2,2,4,40,18,1,1,4,0};
+    case MD_UI_THEME_TECHNO_2000: return (md_ui_theme_style_t){16,2,0,0,0,0,0,9,0};
     case MD_UI_THEME_PIXEL_ARCADE: return (md_ui_theme_style_t){0,2,0,0,0,0,3,5,0};
     case MD_UI_THEME_PIXEL_DUNGEON: return (md_ui_theme_style_t){0,2,0,0,0,0,3,6,0};
     case MD_UI_THEME_PIXEL_HANDHELD: return (md_ui_theme_style_t){0,2,0,0,0,0,3,7,0};
