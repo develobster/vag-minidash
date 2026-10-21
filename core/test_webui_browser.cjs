@@ -216,7 +216,7 @@ async function importConfig(page, doc) {
       "delete widget",
     );
     await page.locator("[data-panel=appearance]").click();
-    for (const id of [11, 14, 15, 16]) {
+    for (const id of [11, 12, 13, 14, 15, 16]) {
       await page.locator(`[data-theme="${id}"]`).click();
       check((await read(page)).common.theme === id, "theme " + id);
       await page.screenshot({

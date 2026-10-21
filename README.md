@@ -10,6 +10,12 @@ display/touch bench results are documented, and full vehicle acceptance is pendi
 [Publication readiness and Codex application draft](docs/development/open-source-readiness-2026-10-17.md).
 Licensed under [MIT](LICENSE); bundled third-party materials retain their own notices.
 
+22 октября: [CYD 0.5.1: переключение тем и скорость отрисовки](docs/hardware/minidash-cyd-performance-2026-10-22.md).
+Убраны повторная смена стилей и обработка скрытых настроек; на CYD отключены
+размытые свечения/CRT overlay, DMA работает с двумя меньшими буферами при
+прежнем бюджете RAM. Все 17 тем и сохранённые настройки совместимы.
+В галерее конфигуратора теперь видны все три пиксельные темы.
+
 20 октября: [CYD 0.5.0: DEMO из меню и подготовка CAN](docs/hardware/minidash-cyd-can-mode-2026-10-20.md)
 установлен на COM4. 15 native / 43 browser / 27 UI / два прогона 69 HTTP PASS.
 CAN остаётся listen-only до подтверждения проводки; испытания автомобиля впереди.

@@ -194,6 +194,8 @@ static const char *configured_driver_name(void)
 
 #if CONFIG_MINIDASH_CYD
 static int64_t s_scene_pending_us;
+static int64_t s_theme_pending_us;
+static unsigned s_theme_pending_id;
 #endif
 static void render_event_cb(lv_event_t *event)
 {
@@ -214,10 +216,14 @@ static void render_event_cb(lv_event_t *event)
 #if CONFIG_MINIDASH_CYD
     const int64_t scene_started=s_scene_pending_us;
     s_scene_pending_us=0;
+    const int64_t theme_started=s_theme_pending_us;
+    const unsigned theme_id=s_theme_pending_id;
+    s_theme_pending_us=0;
 #endif
     portEXIT_CRITICAL(&s_perf_mux);
 #if CONFIG_MINIDASH_CYD
     if(scene_started) printf("MINIDASH_CYD_FIRST_RENDER elapsed_ms=%lu\n",(unsigned long)((now_us-scene_started)/1000));
+    if(theme_started) printf("MINIDASH_CYD_THEME_READY id=%u elapsed_ms=%lu\n",theme_id,(unsigned long)((now_us-theme_started)/1000));
 #endif
 }
 
@@ -941,10 +947,14 @@ static void apply_event(const ui_event_t *event,
     }
     if (previous_theme != settings->theme || previous_day_night != settings->day_night) {
         *palette = md_ui_theme_palette(settings->theme, effective_day_mode(settings));
+#if !CONFIG_MINIDASH_CYD
         if (lvgl_port_lock(100)) {
             md_ui_screens_retheme(palette, settings->theme);
             lvgl_port_unlock();
         }
+#endif
+        /* CYD applies the saved revision once below, after queued input has
+         * settled. Retheming here too produced two full repaints per tap. */
     }
     if (previous_settings.layout != settings->layout ||
         memcmp(previous_settings.widgets, settings->widgets,
@@ -1098,10 +1108,13 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
     const lvgl_port_display_cfg_t display_config = {
         .io_handle = md_display_io(&display),
         .panel_handle = md_display_panel(&display),
-        .buffer_size = (uint32_t)profile.width * 16U,
 #if CONFIG_MINIDASH_CYD
-        .double_buffer = false,
+        /* Two 8-line DMA buffers use the same 10 KiB as the former single
+         * 16-line buffer. Draw the next stripe while SPI sends the previous. */
+        .buffer_size = (uint32_t)profile.width * 8U,
+        .double_buffer = true,
 #else
+        .buffer_size = (uint32_t)profile.width * 16U,
         .double_buffer = true,
 #endif
         .hres = profile.width,
@@ -1206,7 +1219,16 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
                     palette=visible_config->common.custom_theme ? visible_config->common.palette :
                         md_ui_theme_palette(settings.theme,effective_day_mode(&settings));
 #if CONFIG_MINIDASH_CYD
-                    if(theme_changed) md_ui_screens_retheme(&palette,settings.theme);
+                    if(theme_changed) {
+                        const int64_t theme_started=esp_timer_get_time();
+                        portENTER_CRITICAL(&s_perf_mux);
+                        s_theme_pending_us=theme_started;
+                        s_theme_pending_id=settings.theme;
+                        portEXIT_CRITICAL(&s_perf_mux);
+                        md_ui_screens_retheme(&palette,settings.theme);
+                        printf("MINIDASH_CYD_THEME_APPLY id=%u elapsed_us=%lu\n",(unsigned)settings.theme,
+                            (unsigned long)(esp_timer_get_time()-theme_started));
+                    }
                     if(page_changed) md_ui_screens_rebuild_custom(&settings);
 #else
                     md_ui_screens_retheme(&palette,settings.theme); md_ui_screens_rebuild_custom(&settings);
@@ -1291,15 +1313,36 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
         }
 #endif
         ui_event_t event;
+        bool input_changed=false;
         if (xQueueReceive(s_ui_event_queue, &event, pdMS_TO_TICKS(20)) == pdTRUE) {
+            input_changed=true;
             apply_event(&event, &state, &settings, &display, &profile, &palette,signals);
             while (xQueueReceive(s_ui_event_queue, &event, 0) == pdTRUE) {
                 apply_event(&event, &state, &settings, &display, &profile, &palette,signals);
             }
         }
 
+#if CONFIG_MINIDASH_CYD
+        if(input_changed) {
+            /* Do not paint new values using the old theme/page. Apply the
+             * pending configuration at the top of the next iteration first. */
+            bool pending=true;
+            if(xSemaphoreTake(s_config_mutex,0)==pdTRUE) {
+                pending=seen_revision!=s_config_revision;
+                xSemaphoreGive(s_config_mutex);
+            }
+            if(pending) continue;
+        }
+#endif
         const TickType_t now_ticks = xTaskGetTickCount();
-        if ((now_ticks - last_update) < pdMS_TO_TICKS(UI_UPDATE_PERIOD_MS)) continue;
+        if ((now_ticks - last_update) < pdMS_TO_TICKS(UI_UPDATE_PERIOD_MS)
+#if CONFIG_MINIDASH_CYD
+            && !input_changed
+#endif
+        ) continue;
+#if !CONFIG_MINIDASH_CYD
+        (void)input_changed;
+#endif
         last_update = now_ticks;
         if (state.sleeping || !lvgl_port_lock(20)) continue;
 
@@ -1332,6 +1375,10 @@ void md_display_app_status_dump(void)
     printf("MINIDASH_LIGHT gpio=34 adc=%d mode=%u output=%u target=%u ready=%u\n",
         atomic_load(&s_light_raw),atomic_load(&s_light_mode),atomic_load(&s_light_output),
         atomic_load(&s_light_target),s_light_ready);
+    uint32_t renders,render_ms; bool measured;
+    render_metrics_read(&renders,&render_ms,&measured);
+    printf("MINIDASH_CYD_RENDER rate=%lu average_ms=%lu measured=%u\n",
+        (unsigned long)renders,(unsigned long)render_ms,measured);
 #endif
     fflush(stdout);
 }

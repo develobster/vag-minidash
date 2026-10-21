@@ -22,6 +22,8 @@ idf_component_register(
 set_source_files_properties("display_app.c" PROPERTIES
     COMPILE_OPTIONS "-fstack-usage;-Werror=stack-usage=3072")
 if(MINIDASH_BOARD STREQUAL "minidash_cyd")
+    set_source_files_properties("ui_screens.c" PROPERTIES
+        COMPILE_OPTIONS "-fstack-usage;-Werror=stack-usage=4096")
     set_source_files_properties("vehicle_app.c" PROPERTIES
         COMPILE_OPTIONS "-fstack-usage;-Werror=stack-usage=2048")
 else()

@@ -1,5 +1,8 @@
 # Указатель документации
 
+Последнее обновление CYD: [0.5.1 — производительность тем и отрисовки](hardware/minidash-cyd-performance-2026-10-22.md),
+[измерения и проверки](hardware/minidash-cyd-performance-verification-2026-10-22.json).
+
 Начать с [состояния](status.md), [разработки](development.md) и
 [архитектуры](architecture/overview.md). Даты и количества тестов исторических
 отчётов не являются актуальной приёмкой.

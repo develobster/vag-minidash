@@ -170,6 +170,7 @@ static lv_obj_t *s_config_qr;
 static char s_qr_payload[128];
 static screen_view_t *s_cyd_current;
 static bool s_cyd_calibrated;
+static unsigned s_cyd_settings_page;
 #endif
 
 extern const lv_font_t md_ui_font_pixel_10;
@@ -236,11 +237,22 @@ static const lv_font_t *ui_font_for_language(const lv_font_t *font)
     return font;
 }
 
+static void set_text_font(lv_obj_t *object, const lv_font_t *font,
+                          uint32_t selector)
+{
+    if (!object || !font) return;
+#if CONFIG_MINIDASH_CYD
+    /* LVGL refreshes layout even when the local property has the same value. */
+    if (lv_obj_get_style_text_font(object,selector)==font) return;
+#endif
+    lv_obj_set_style_text_font(object,font,selector);
+}
+
 static void set_ui_font(lv_obj_t *object, const lv_font_t *font,
                         uint32_t selector)
 {
     if (object && font)
-        lv_obj_set_style_text_font(object, ui_font_for_language(font), selector);
+        set_text_font(object, ui_font_for_language(font), selector);
 }
 
 static const lv_font_t *metric_font(const lv_font_t *font)
@@ -281,9 +293,16 @@ static int32_t label_text_width(lv_obj_t *label,const lv_font_t *font)
 static void fit_label(lv_obj_t *label, const lv_font_t *preferred, int width)
 {
     if (!label) return;
-    lv_obj_update_layout(label);
+    /* These labels have explicit sizes. One scene layout pass is enough;
+     * forcing it here made each fitted label relayout the entire scene. */
     if(width<=0) width=lv_obj_get_width(label);
-    const lv_font_t *choices[]={preferred,&lv_font_montserrat_14,&lv_font_montserrat_12,&lv_font_montserrat_10};
+    if(width<=0) return;
+    const bool cyrillic=preferred==&md_ui_font_ru_16 || preferred==&md_ui_font_ru_14 ||
+        preferred==&md_ui_font_ru_12 || preferred==&md_ui_font_ru_10;
+    const lv_font_t *choices[]={preferred,
+        cyrillic ? &md_ui_font_ru_14 : &lv_font_montserrat_14,
+        cyrillic ? &md_ui_font_ru_12 : &lv_font_montserrat_12,
+        cyrillic ? &md_ui_font_ru_10 : &lv_font_montserrat_10};
     const lv_font_t *font=ui_font_for_language(preferred);
     for(unsigned i=0;i<sizeof(choices)/sizeof(choices[0]);i++) {
         const lv_font_t *candidate=ui_font_for_language(choices[i]);
@@ -291,8 +310,9 @@ static void fit_label(lv_obj_t *label, const lv_font_t *preferred, int width)
         font=candidate;
         if(label_text_width(label,font)<=width) break;
     }
-    lv_obj_set_style_text_font(label,font,0);
-    lv_label_set_long_mode(label,LV_LABEL_LONG_CLIP);
+    set_text_font(label,font,0);
+    if(lv_label_get_long_mode(label)!=LV_LABEL_LONG_CLIP)
+        lv_label_set_long_mode(label,LV_LABEL_LONG_CLIP);
 }
 #endif
 
@@ -353,7 +373,13 @@ static void themed_frame(lv_obj_t *object)
     if (!object) return;
     lv_obj_set_style_radius(object, xpx(s_theme_style.radius), 0);
     lv_obj_set_style_border_width(object, s_theme_style.border_width, 0);
+#if CONFIG_MINIDASH_CYD
+    /* Internal SRAM + software SPI rendering: keep the theme's geometry and
+     * palette, use its bright border instead of per-pixel blurred shadows. */
+    lv_obj_set_style_shadow_width(object, 0, 0);
+#else
     lv_obj_set_style_shadow_width(object, xpx(s_theme_style.glow_width), 0);
+#endif
     lv_obj_set_style_shadow_color(object, color(s_palette.accent), 0);
     lv_obj_set_style_shadow_opa(object, s_theme_style.glow_opacity, 0);
     lv_obj_set_style_bg_grad_color(object, color(s_palette.surface_alt), 0);
@@ -514,6 +540,11 @@ static void settings_row_select(setting_row_view_t *row, bool selected)
 }
 static void phosphor_scanlines(lv_event_t *event)
 {
+#if CONFIG_MINIDASH_CYD
+    /* A screen-wide post overlay turns small value changes into costly draws. */
+    (void)event;
+    return;
+#endif
     pixel_wipe_draw(event);
     if (!s_theme_style.scanline_opacity) return;
     lv_obj_t *root = lv_event_get_target(event);
@@ -528,22 +559,23 @@ static void phosphor_scanlines(lv_event_t *event)
     }
 }
 
-static void set_static_text(lv_obj_t *label, char *buffer, size_t capacity,
+static bool set_static_text(lv_obj_t *label, char *buffer, size_t capacity,
                             const char *text)
 {
-    if (!label || !buffer || capacity == 0 || !text) return;
+    if (!label || !buffer || capacity == 0 || !text) return false;
     /* Text content alone is insufficient after an object is recreated: its
        label may still contain LVGL's default "Text" instead of this buffer. */
-    if (strncmp(buffer, text, capacity) == 0 && lv_label_get_text(label) == buffer) return;
+    if (strncmp(buffer, text, capacity) == 0 && lv_label_get_text(label) == buffer) return false;
     (void)snprintf(buffer, capacity, "%s", text);
     lv_obj_invalidate(label);
     lv_label_set_text_static(label, buffer);
+    return true;
 }
 
-static void set_ui_text(lv_obj_t *label, char *buffer, size_t capacity,
+static bool set_ui_text(lv_obj_t *label, char *buffer, size_t capacity,
                         const char *english)
 {
-    set_static_text(label, buffer, capacity,
+    return set_static_text(label, buffer, capacity,
                     md_ui_i18n_text(s_language, english));
 }
 
@@ -980,7 +1012,7 @@ static void create_diagnostics_screen(screen_view_t *view)
     }
 }
 
-static void create_settings_screen(void)
+static void create_settings_rows(unsigned page)
 {
     static const char *const titles[MD_UI_SETTINGS_ROWS] = {
         "Dashboard", "Theme", "Day / night", "Speed units",
@@ -994,8 +1026,22 @@ static void create_settings_screen(void)
 #endif
     };
     screen_view_t *view = &s_screens[MD_UI_SCREEN_SETTINGS];
-    style_root(view, "SETTINGS", "TAP ROW TO SELECT");
+#if CONFIG_MINIDASH_CYD
+    /* Free the previous page before allocating its replacement. Hidden LVGL
+     * rows cost SRAM and layout time despite never being drawn. */
+    s_wifi_switch=NULL;
+    for(unsigned i=0;i<MD_UI_SETTINGS_ROWS;i++) {
+        if(s_setting_rows[i].row) lv_obj_delete(s_setting_rows[i].row);
+        memset(&s_setting_rows[i],0,sizeof(s_setting_rows[i]));
+    }
+    s_cyd_settings_page=page;
+#else
+    (void)page;
+#endif
     for (unsigned i = 0; i < MD_UI_SETTINGS_ROWS; ++i) {
+#if CONFIG_MINIDASH_CYD
+        if(i/MD_UI_SETTINGS_ROWS_PER_PAGE!=page) continue;
+#endif
         setting_row_view_t *row = &s_setting_rows[i];
         row->row = lv_obj_create(view->root);
         if (!row->row) continue;
@@ -1025,11 +1071,32 @@ static void create_settings_screen(void)
             lv_obj_set_pos(row->value,xpx(8),ypx(18)); lv_obj_set_size(row->value,xpx(284),ypx(15));
             set_ui_font(row->title,&lv_font_montserrat_12,0); set_ui_font(row->value,&lv_font_montserrat_12,0);
         }
+#if CONFIG_MINIDASH_CYD
+        lv_obj_remove_flag(row->row,LV_OBJ_FLAG_HIDDEN);
+        themed_frame(row->row);
+        lv_obj_set_style_text_color(row->title,color(s_palette.text),0);
+        lv_obj_set_style_text_color(row->value,color(s_palette.accent),0);
+        settings_row_reset(row);
+#endif
     }
-    s_wifi_switch=lv_switch_create(s_setting_rows[22].row);
-    lv_obj_set_pos(s_wifi_switch,xpx(250),ypx(7)); lv_obj_set_size(s_wifi_switch,xpx(42),ypx(24));
-    lv_obj_clear_flag(s_wifi_switch,LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_set_width(s_setting_rows[22].value,xpx(s_height>s_width?230:80));
+    if(s_setting_rows[22].row) {
+        s_wifi_switch=lv_switch_create(s_setting_rows[22].row);
+        lv_obj_set_pos(s_wifi_switch,xpx(250),ypx(7)); lv_obj_set_size(s_wifi_switch,xpx(42),ypx(24));
+        lv_obj_clear_flag(s_wifi_switch,LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_set_width(s_setting_rows[22].value,xpx(s_height>s_width?230:80));
+#if CONFIG_MINIDASH_CYD
+        lv_obj_set_style_bg_color(s_wifi_switch,color(s_palette.border),LV_PART_MAIN);
+        lv_obj_set_style_bg_color(s_wifi_switch,color(s_palette.accent),LV_PART_INDICATOR|LV_STATE_CHECKED);
+        lv_obj_set_style_bg_color(s_wifi_switch,color(s_palette.text),LV_PART_KNOB);
+#endif
+    }
+}
+
+static void create_settings_screen(void)
+{
+    screen_view_t *view = &s_screens[MD_UI_SCREEN_SETTINGS];
+    style_root(view, "SETTINGS", "TAP ROW TO SELECT");
+    create_settings_rows(0);
     s_settings_action = lv_obj_create(view->root);
     if (!s_settings_action) return;
     lv_obj_remove_style_all(s_settings_action);
@@ -1690,6 +1757,11 @@ static void retheme_view(screen_view_t *view)
 void md_ui_screens_retheme(const md_ui_palette_t *palette, md_ui_theme_id_t theme)
 {
     if (!palette || !s_created) return;
+#if CONFIG_MINIDASH_CYD
+    /* Change all local properties atomically under the caller's LVGL lock,
+     * then refresh inheritance/layout once, including the newly built scene. */
+    lv_obj_enable_style_refresh(false);
+#endif
     s_palette = *palette;
     bool pixel_theme_changed=s_render_theme!=theme;
     s_render_theme=theme;
@@ -1741,6 +1813,11 @@ void md_ui_screens_retheme(const md_ui_palette_t *palette, md_ui_theme_id_t them
         lv_obj_set_style_text_color(s_settings_previous_label, color(s_palette.text), 0);
     }
     if(pixel_theme_changed && s_pixel_screen!=MD_UI_SCREEN_COUNT)pixel_begin();
+#if CONFIG_MINIDASH_CYD
+    lv_obj_enable_style_refresh(true);
+    if(s_cyd_current && s_cyd_current->root)
+        lv_obj_refresh_style(s_cyd_current->root,LV_PART_ANY,LV_STYLE_PROP_ANY);
+#endif
 }
 
 static void update_focus_gauge(field_view_t *field, const md_ui_settings_t *settings,
@@ -1899,7 +1976,7 @@ static void update_metric_field(field_view_t *field,
     set_static_text(field->value, field->value_text, sizeof(field->value_text), formatted_value);
     if(md_ui_theme_is_pixel(s_render_theme)) {
         const lv_font_t *preferred=ui_font_for_language(metric_font(pixel_separate_units ? &lv_font_montserrat_28 : field->value_font));
-        lv_obj_set_style_text_font(field->value,pixel_fit_font(preferred,formatted_value,lv_obj_get_width(field->value)),0);
+        set_text_font(field->value,pixel_fit_font(preferred,formatted_value,lv_obj_get_width(field->value)),0);
     }
     set_static_text(field->unit, field->unit_text, sizeof(field->unit_text), formatted_unit);
     set_ui_text(field->status, field->status_text,
@@ -1944,7 +2021,7 @@ static void refresh_metric_binding(field_view_t *field,
         s_page_model.widgets[field->widget_slot].signal == signal && s_page_model.widgets[field->widget_slot].label[0])
         label = s_page_model.widgets[field->widget_slot].label;
     if (field->card_group==MD_UI_CARD_GROUP_CUSTOM)
-        lv_obj_set_style_text_font(field->title,(s_theme_style.font_family==1 || s_theme_style.font_family==3) ? ui_font_for_language(field->title_font) : (field->title_font==&lv_font_montserrat_10 ? &md_ui_font_ru_10 : &md_ui_font_ru_12),0);
+        set_text_font(field->title,(s_theme_style.font_family==1 || s_theme_style.font_family==3) ? ui_font_for_language(field->title_font) : (field->title_font==&lv_font_montserrat_10 ? &md_ui_font_ru_10 : &md_ui_font_ru_12),0);
     set_static_text(field->title, field->title_text,
                     sizeof(field->title_text), label);
 }
@@ -2120,15 +2197,22 @@ void md_ui_screens_update(md_ui_screen_t screen,
     if (s_font_language != s_language) apply_language_fonts();
     screen_view_t *view = view_for(screen, settings);
     if (!view || !view->root) return;
-    if(screen==MD_UI_SCREEN_FOCUS) md_ui_screens_focus_signal(state->focused_signal);
-    set_ui_text(view->title, view->title_text, sizeof(view->title_text),
-                view->title_key);
-    set_ui_text(view->footer, view->footer_text, sizeof(view->footer_text),
-                view->footer_key);
 #if CONFIG_MINIDASH_CYD
-    fit_label(view->title,&lv_font_montserrat_16,lv_obj_get_width(view->title));
-    fit_label(view->footer,&lv_font_montserrat_10,lv_obj_get_width(view->footer));
+    if(screen==MD_UI_SCREEN_SETTINGS && s_cyd_settings_page!=state->selected_setting/MD_UI_SETTINGS_ROWS_PER_PAGE)
+        create_settings_rows(state->selected_setting/MD_UI_SETTINGS_ROWS_PER_PAGE);
+    lv_obj_update_layout(view->root);
 #endif
+    if(screen==MD_UI_SCREEN_FOCUS) md_ui_screens_focus_signal(state->focused_signal);
+    const bool named_custom=(screen==MD_UI_SCREEN_CUSTOM ||
+        (screen==MD_UI_SCREEN_DASHBOARD && settings->dashboard==MD_UI_DASHBOARD_CUSTOM)) && s_page_model.title[0];
+    if(!named_custom && !(screen==MD_UI_SCREEN_FOCUS && s_theme_style.gauge_style))
+        set_ui_text(view->title, view->title_text, sizeof(view->title_text),view->title_key);
+    const char *footer=view->footer_key;
+#if CONFIG_MINIDASH_CYD
+    if(screen==MD_UI_SCREEN_DIAGNOSTICS) footer=md_vehicle_app_demo() ? "DEMO | CAN STOPPED" :
+        md_vehicle_app_tx_armed() ? "OBD READ ONLY | UDS OFF" : "CAN TX LOCKED | UDS OFF";
+#endif
+    set_ui_text(view->footer,view->footer_text,sizeof(view->footer_text),footer);
     const md_ui_signal_summary_t summary = md_ui_signal_summary(signals, now_ms);
     char mode[32];
     if (screen == MD_UI_SCREEN_SETTINGS) {
@@ -2148,12 +2232,6 @@ void md_ui_screens_update(md_ui_screen_t screen,
     }
     set_ui_text(view->mode, view->mode_text, sizeof(view->mode_text), mode);
 
-#if CONFIG_MINIDASH_CYD
-    if (screen==MD_UI_SCREEN_DIAGNOSTICS)
-        set_ui_text(view->footer,view->footer_text,sizeof(view->footer_text),
-            md_vehicle_app_demo() ? "DEMO | CAN STOPPED" :
-                md_vehicle_app_tx_armed() ? "OBD READ ONLY | UDS OFF" : "CAN TX LOCKED | UDS OFF");
-#endif
     if (screen == MD_UI_SCREEN_WIDGET_PICKER) {
         s_picker_first=(unsigned)state->widget_picker_signal/MD_PICKER_SLOTS*MD_PICKER_SLOTS;
         char title[48];
@@ -2217,11 +2295,14 @@ void md_ui_screens_update(md_ui_screen_t screen,
             md_ui_i18n_text(s_language,"MIN"),low,md_ui_i18n_text(s_language,"MAX"),high,
             md_ui_i18n_text(s_language,source),h->demo && h->valid ? " " : "",
             h->demo && h->valid ? md_ui_i18n_text(s_language,"DEMO") : "");
-        lv_label_set_text(s_focus_stats, s_focus_stats_text);
+        if(strcmp(lv_label_get_text(s_focus_stats),s_focus_stats_text))
+            lv_label_set_text(s_focus_stats, s_focus_stats_text);
     }
     if ((screen == MD_UI_SCREEN_CUSTOM || (screen == MD_UI_SCREEN_DASHBOARD && settings->dashboard == MD_UI_DASHBOARD_CUSTOM)) && s_page_model.title[0])
     {
-        lv_obj_set_style_text_font(view->title,s_theme_style.font_family==3 ? &md_ui_font_pixel_16 : s_theme_style.font_family==1 ? &md_ui_font_mono_16 : &md_ui_font_ru_16,0);
+#if !CONFIG_MINIDASH_CYD
+        set_text_font(view->title,s_theme_style.font_family==3 ? &md_ui_font_pixel_16 : s_theme_style.font_family==1 ? &md_ui_font_mono_16 : &md_ui_font_ru_16,0);
+#endif
         set_ui_text(view->title, view->title_text, sizeof(view->title_text), s_page_model.title);
     }
     if (screen == MD_UI_SCREEN_SETTINGS) {
@@ -2242,15 +2323,15 @@ void md_ui_screens_update(md_ui_screen_t screen,
             if (state->selected_setting >= 14U && state->selected_setting < 22U &&
                 state->selected_setting - 14U >= settings->widget_count)
                 action_label = "INACTIVE";
-            set_ui_text(s_settings_action_label, s_settings_action_text,
-                        sizeof(s_settings_action_text), action_label);
-            lv_obj_center(s_settings_action_label);
+            if(set_ui_text(s_settings_action_label, s_settings_action_text,
+                        sizeof(s_settings_action_text), action_label))
+                lv_obj_center(s_settings_action_label);
         }
         if (s_settings_page_label) {
             const unsigned page = state->selected_setting / MD_UI_SETTINGS_ROWS_PER_PAGE;
-            set_ui_text(s_settings_page_label, s_settings_page_text,
-                        sizeof(s_settings_page_text), "MORE");
-            lv_obj_center(s_settings_page_label);
+            if(set_ui_text(s_settings_page_label, s_settings_page_text,
+                        sizeof(s_settings_page_text), "MORE"))
+                lv_obj_center(s_settings_page_label);
             if (page + 1U < UI_SETTINGS_PAGE_COUNT)
                 lv_obj_remove_flag(s_settings_page, LV_OBJ_FLAG_HIDDEN);
             else
@@ -2261,16 +2342,32 @@ void md_ui_screens_update(md_ui_screen_t screen,
             if (page > 0U) lv_obj_remove_flag(s_settings_previous, LV_OBJ_FLAG_HIDDEN);
             else lv_obj_add_flag(s_settings_previous, LV_OBJ_FLAG_HIDDEN);
         }
+#if CONFIG_MINIDASH_CYD
+        /* Reveal the new page before resolving its fixed label geometry. */
+        for(unsigned i=0;i<MD_UI_SETTINGS_ROWS;i++) {
+            lv_obj_t *row=s_setting_rows[i].row;
+            if(!row) continue;
+            if(i/MD_UI_SETTINGS_ROWS_PER_PAGE==state->selected_setting/MD_UI_SETTINGS_ROWS_PER_PAGE)
+                lv_obj_remove_flag(row,LV_OBJ_FLAG_HIDDEN);
+            else lv_obj_add_flag(row,LV_OBJ_FLAG_HIDDEN);
+        }
+        lv_obj_update_layout(view->root);
+#endif
         for (unsigned i = 0; i < MD_UI_SETTINGS_ROWS; ++i) {
             setting_row_view_t *row = &s_setting_rows[i];
             if (!row->row) continue;
-            set_ui_text(row->title, row->title_text,
-                        sizeof(row->title_text), row->title_key);
+#if !CONFIG_MINIDASH_CYD
             if (i / MD_UI_SETTINGS_ROWS_PER_PAGE ==
                 state->selected_setting / MD_UI_SETTINGS_ROWS_PER_PAGE)
                 lv_obj_remove_flag(row->row, LV_OBJ_FLAG_HIDDEN);
             else
                 lv_obj_add_flag(row->row, LV_OBJ_FLAG_HIDDEN);
+#endif
+#if CONFIG_MINIDASH_CYD
+            if(lv_obj_has_flag(row->row,LV_OBJ_FLAG_HIDDEN)) continue;
+#endif
+            set_ui_text(row->title, row->title_text,
+                        sizeof(row->title_text), row->title_key);
             char value[32];
             settings_value((uint8_t)i, settings,
                            diagnostics && diagnostics->brightness_control, diagnostics && diagnostics->wifi_active,
@@ -2284,6 +2381,14 @@ void md_ui_screens_update(md_ui_screen_t screen,
 #endif
         }
     }
+#if CONFIG_MINIDASH_CYD
+    /* User page titles may be Cyrillic even in an English UI. Select and fit
+     * the final font once; do not alternate the generic and custom fonts. */
+    const lv_font_t *title_font=named_custom && s_theme_style.font_family!=1 && s_theme_style.font_family!=3
+        ? &md_ui_font_ru_16 : &lv_font_montserrat_16;
+    fit_label(view->title,title_font,lv_obj_get_width(view->title));
+    fit_label(view->footer,&lv_font_montserrat_10,lv_obj_get_width(view->footer));
+#endif
 }
 
 void md_ui_screens_instrument_profile(const char *id,uint32_t ttl_ms,uint32_t now_ms)
@@ -2343,8 +2448,10 @@ void md_ui_screens_config_credentials(const char *ssid, const char *password)
 #endif
         lv_label_set_text(s_config_credentials, text);
 #if CONFIG_MINIDASH_CYD
+    lv_obj_update_layout(s_config_credentials);
     fit_label(s_config_credentials,&lv_font_montserrat_14,lv_obj_get_width(s_config_credentials));
-    lv_obj_set_style_text_line_space(s_config_credentials,5,0);
+    if(lv_obj_get_style_text_line_space(s_config_credentials,0)!=5)
+        lv_obj_set_style_text_line_space(s_config_credentials,5,0);
 #endif
 #if CONFIG_MINIDASH_CYD
     char payload[128];
@@ -2433,7 +2540,21 @@ void md_ui_screens_startup_frame(uint32_t elapsed)
 /* Isolated actual-LVGL regression test; never loads or changes the owner's scene. */
 bool md_ui_screens_selftest(void)
 {
-    lv_obj_t *root=lv_obj_create(NULL); if(!root) return false;
+#if CONFIG_MINIDASH_CYD
+    /* The full signal fixture is too large for the console task's stack. */
+    md_ui_signal_store_t *store=malloc(sizeof(*store));
+    if(!store) return false;
+#else
+    md_ui_signal_store_t stack_store;
+    md_ui_signal_store_t *store=&stack_store;
+#endif
+    lv_obj_t *root=lv_obj_create(NULL);
+    if(!root) {
+#if CONFIG_MINIDASH_CYD
+        free(store);
+#endif
+        return false;
+    }
     bool ok=true; char cached[24]="PREV";
     const lv_font_t *mono[]={&md_ui_font_mono_10,&md_ui_font_mono_12,&md_ui_font_mono_14,&md_ui_font_mono_16};
     const uint32_t glyphs[]={0x410,0x42f,0x430,0x44f,0x401,0x451,'0','9',0xb0};
@@ -2480,26 +2601,26 @@ bool md_ui_screens_selftest(void)
     field.gauge_scale=lv_label_create(field.card);
     for(unsigned i=0;i<5;i++) field.gauge_ticks[i]=lv_label_create(field.card);
     md_ui_settings_t settings; md_ui_settings_defaults(&settings);
-    md_ui_signal_store_t store; md_ui_signal_store_init(&store);
+    md_ui_signal_store_init(store);
     for(unsigned theme=MD_UI_THEME_VOLKSWAGEN;theme<=MD_UI_THEME_PORSCHE;theme++) {
         s_theme_style=md_ui_theme_style(theme);
         for(unsigned portrait=0;portrait<2;portrait++) {
             lv_obj_set_size(field.card,portrait?159:212,portrait?208:156);
-            md_ui_signal_store_publish_id(&store,MD_SIGNAL_ENGINE_RPM,4000,MD_UI_SIGNAL_VALID,100,100,true);
-            field.gauge_layout=false; update_focus_gauge(&field,&settings,&store,100);
+            md_ui_signal_store_publish_id(store,MD_SIGNAL_ENGINE_RPM,4000,MD_UI_SIGNAL_VALID,100,100,true);
+            field.gauge_layout=false; update_focus_gauge(&field,&settings,store,100);
             ok=ok && field.gauge_available && field.gauge_level==500 &&
                 lv_obj_has_flag(field.visual,LV_OBJ_FLAG_HIDDEN) &&
                 lv_obj_get_style_text_font(field.value,0)==&md_ui_font_cluster_20 &&
                 !strcmp(lv_label_get_text(field.gauge_ticks[4]),"8");
-            update_focus_gauge(&field,&settings,&store,200);
+            update_focus_gauge(&field,&settings,store,200);
             ok=ok && !field.gauge_available;
             s_gauge_ranges[MD_SIGNAL_ENGINE_RPM][1]=10000;
-            update_focus_gauge(&field,&settings,&store,100);
+            update_focus_gauge(&field,&settings,store,100);
             ok=ok && field.gauge_level==400 && !strcmp(lv_label_get_text(field.gauge_ticks[4]),"10");
             s_gauge_ranges[MD_SIGNAL_ENGINE_RPM][1]=0;
         }
     }
-    s_theme_style=md_ui_theme_style(MD_UI_THEME_OEM); update_focus_gauge(&field,&settings,&store,100);
+    s_theme_style=md_ui_theme_style(MD_UI_THEME_OEM); update_focus_gauge(&field,&settings,store,100);
     ok=ok && !field.gauge_layout && lv_obj_has_flag(field.gauge_scale,LV_OBJ_FLAG_HIDDEN);
     s_gauge_auto=saved_auto; s_theme_style=saved_style; memcpy(s_gauge_ranges,saved_ranges,sizeof(saved_ranges));
     const lv_font_t *pixel_fonts[]={&md_ui_font_pixel_10,&md_ui_font_pixel_12,&md_ui_font_pixel_14,
@@ -2568,6 +2689,20 @@ bool md_ui_screens_selftest(void)
             && 4*font->line_height+15<=135;
     }
     lv_obj_delete(credentials);
+    lv_obj_t *page_title=lv_label_create(root);
+    lv_obj_set_size(page_title,205,20);
+    lv_label_set_text(page_title,"Температура двигателя");
+    s_language=MD_UI_LANGUAGE_ENGLISH;
+    s_theme_style=md_ui_theme_style(MD_UI_THEME_OEM);
+    fit_label(page_title,&md_ui_font_ru_16,205);
+    const lv_font_t *page_font=lv_obj_get_style_text_font(page_title,0);
+    lv_font_glyph_dsc_t title_glyph={0};
+    service_ok=service_ok && pixel_text_width(page_font,lv_label_get_text(page_title))<=205 &&
+        lv_font_get_glyph_dsc(page_font,&title_glyph,0x0422,0) && !title_glyph.is_placeholder;
+    fit_label(page_title,&md_ui_font_ru_16,205);
+    service_ok=service_ok && lv_obj_get_style_text_font(page_title,0)==page_font;
+    printf("MINIDASH_CYD_CUSTOM_TITLE cyrillic_in_english_ui/stable_font=%s\n",service_ok?"PASS":"FAIL");
+    lv_obj_delete(page_title);
     s_language=saved_language; s_theme_style=fit_style;
     pixel_begin();
     const bool cut_ok=!s_pixel_active && !s_pixel_timer;
@@ -2575,6 +2710,9 @@ bool md_ui_screens_selftest(void)
     service_ok=service_ok && cut_ok;
     printf("MINIDASH_CYD_TEXT_FIT diagnostics/credentials/all_themes/en_ru=%s\n",service_ok?"PASS":"FAIL");
     ok=ok && service_ok;
+#endif
+#if CONFIG_MINIDASH_CYD
+    free(store);
 #endif
     lv_obj_delete(root); return ok;
 }

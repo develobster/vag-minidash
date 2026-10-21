@@ -1,5 +1,7 @@
 # MiniDash CYD — отдельная платформа ESP32-2432S028R
 
+Обновление 22 октября: [CYD 0.5.1: скорость и упрощение эффектов](minidash-cyd-performance-2026-10-22.md).
+
 Обновление 20 октября: [CYD 0.5.0: переключатель DEMO и подготовка CAN](minidash-cyd-can-mode-2026-10-20.md).
 
 Статус исходной поставки и фактические тесты: [отчёт 18 октября 2026](minidash-cyd-2026-10-18.md).
@@ -41,8 +43,10 @@ layouts, touch gestures/affine calibration, schema 4, NVS и `webui.html`.
 Исходные CAN/ISO-TP/acquisition/analytics, Python runtime и desktop simulator
 сохраняются. Параллельного UI или отдельного Web Configurator нет.
 
-CYD: 4 МБ flash, internal SRAM, нет PSRAM и BLE. CPU 240 МГц, SPI TFT 20 МГц, модель UI 5 Гц. Один частичный DMA-буфер
-320×16 RGB565. В SRAM находится только текущая LVGL-сцена, при навигации
+CYD: 4 МБ flash, internal SRAM, нет PSRAM и BLE. CPU 240 МГц, SPI TFT 20 МГц,
+модель UI 5 Гц. С 0.5.1 — два частичных DMA-буфера по 320×8 RGB565, суммарно
+10 240 байт, как у прежнего одного 320×16. Тени и полноэкранные CRT-полосы
+отключены на CYD. В SRAM находится только текущая LVGL-сцена, при навигации
 она освобождается и создаётся теми же builders, что используются на S3.
 Массивы полей выделяются по вместимости текущего экрана. Не создаётся большой минутный analytics buffer S3.
 Поэтому производные минутные/trip/session показатели и event rules на CYD
