@@ -4,6 +4,8 @@ esp_err_t md_can_transmit_confirmed(twai_handle_t can,const twai_message_t *fram
 {
     uint32_t alerts=0;
     if(twai_read_alerts_v2(can,&alerts,0)==ESP_OK)*deferred|=alerts&~(TWAI_ALERT_TX_SUCCESS|TWAI_ALERT_TX_FAILED);
+    /* Do not attempt another frame after an unprocessed bus-off event. */
+    if(alerts&TWAI_ALERT_BUS_OFF)return ESP_FAIL;
     esp_err_t error=twai_transmit_v2(can,frame,0);
     if(error!=ESP_OK)return error;
     TickType_t started=xTaskGetTickCount(),budget=pdMS_TO_TICKS(20);
@@ -14,7 +16,7 @@ esp_err_t md_can_transmit_confirmed(twai_handle_t can,const twai_message_t *fram
             return ESP_ERR_TIMEOUT;
         }
         if(twai_read_alerts_v2(can,&alerts,budget-spent)!=ESP_OK)continue;
-        *deferred|=alerts&~(TWAI_ALERT_TX_SUCCESS|TWAI_ALERT_TX_FAILED);
+        *deferred|=alerts&~TWAI_ALERT_TX_SUCCESS;
         if(alerts&(TWAI_ALERT_TX_FAILED|TWAI_ALERT_BUS_OFF))return ESP_FAIL;
         if(alerts&TWAI_ALERT_TX_SUCCESS)return ESP_OK;
     }

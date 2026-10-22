@@ -30,12 +30,16 @@ int main(void)
     CHECK(md_can_transmit_confirmed(NULL,&frame,&deferred)==ESP_ERR_TIMEOUT && stops==1);
     init();events[0]=TWAI_ALERT_TX_FAILED;event_count=1;deferred=0;
     CHECK(md_can_transmit_confirmed(NULL,&frame,&deferred)==ESP_FAIL && sends==1 && stops==0);
+    CHECK(deferred==TWAI_ALERT_TX_FAILED);
     init();events[0]=TWAI_ALERT_TX_SUCCESS;event_count=1;deferred=0;
     CHECK(md_can_transmit_confirmed(NULL,&frame,&deferred)==ESP_OK && sends==1 && stops==0);
     init();stale=TWAI_ALERT_RX_QUEUE_FULL;events[0]=TWAI_ALERT_BUS_OFF|TWAI_ALERT_TX_SUCCESS;
     event_count=1;deferred=0;
     CHECK(md_can_transmit_confirmed(NULL,&frame,&deferred)==ESP_FAIL);
     CHECK(deferred==(TWAI_ALERT_RX_QUEUE_FULL|TWAI_ALERT_BUS_OFF));
+    init();stale=TWAI_ALERT_BUS_OFF;deferred=0;
+    CHECK(md_can_transmit_confirmed(NULL,&frame,&deferred)==ESP_FAIL && sends==0);
+    CHECK(deferred==TWAI_ALERT_BUS_OFF);
     init();events[0]=TWAI_ALERT_RX_QUEUE_FULL;events[1]=TWAI_ALERT_TX_SUCCESS;
     event_count=2;deferred=0;
     CHECK(md_can_transmit_confirmed(NULL,&frame,&deferred)==ESP_OK && deferred==TWAI_ALERT_RX_QUEUE_FULL);
