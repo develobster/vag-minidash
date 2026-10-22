@@ -225,6 +225,60 @@ static void test_pending_and_validation(void)
     neg[2]=0x12;payload(0x7e8,neg,3,4630);CHECK(a.failures[0]==3 && a.consecutive_failures==0);
     CHECK(!md_acq_request_dtc(&a,10000)); /* stale speed */
 }
+static void test_transport_boundaries(void)
+{
+    /* An unpadded capability response participates in functional discovery. */
+    init(true,NULL,0);md_acq_tick(&a,1000);
+    md_can_frame_t f={.id=0x7e8,.dlc=7,.data={6,0x41,0,0x18,0x38,0,0}};
+    md_acq_receive(&a,&f,1001);CHECK(a.ecu_count==1);
+    f.id=0x7e9;md_acq_receive(&a,&f,1002);CHECK(a.ecu_count==2);
+    init(true,NULL,0);run(0,4000);request_rpm(4100);
+    f=(md_can_frame_t){.id=0x7e8,.dlc=5,.data={4,0x41,0x0c,0x32,0}};
+    md_acq_receive(&a,&f,4110);CHECK(!a.active);
+    CHECK(md_acq_snapshot(&a,MD_SIGNAL_ENGINE_RPM,4110,NULL).value==3200);
+    /* Transport readiness protects FC, not just the next scheduler request. */
+    init(true,NULL,0);run(0,4000);CHECK(md_acq_request_dtc(&a,4000));
+    a.active=false;md_acq_tick(&a,4100);CHECK(a.active && a.service==3);
+    md_acq_set_tx_ready(&a,false);unsigned before=count;
+    f=(md_can_frame_t){.id=0x7e8,.dlc=8,.data={0x10,8,0x43,3,1,0x33,0,0}};
+    md_acq_receive(&a,&f,4110);CHECK(count==before && !a.active);
+    /* A long response with CF progress is not subject to first-response P2. */
+    init(true,NULL,0);run(0,4000);CHECK(md_acq_request_dtc(&a,4000));
+    a.active=false;md_acq_tick(&a,4100);
+    f=(md_can_frame_t){.id=0x7e8,.dlc=8,.data={0x10,32,0x43,15,1,0x33,0,0}};
+    md_acq_receive(&a,&f,4200);
+    for(unsigned seq=1;seq<=4;seq++) {
+        f.data[0]=0x20|seq;memset(f.data+1,0,7);
+        uint32_t now=4200+seq*180;md_acq_tick(&a,now);CHECK(a.active);
+        md_acq_receive(&a,&f,now);
+    }
+    CHECK(!a.active && a.dtc_valid);
+}
+static void prepare_uds(uint32_t now)
+{
+    init(true,&profile,0);run(0,4000);CHECK(a.profile_matched);
+    /* Force only the already identity-verified synthetic UDS binding due. */
+    a.active=false;a.cursor=12;a.uds_due[0]=now;
+    for(unsigned j=0;j<MD_ACQ_MAX_BINDINGS;j++)a.due[j]=now+20000;
+    memset(a.samples,0,sizeof(a.samples));md_acq_tick(&a,now);
+    CHECK(a.active && a.did_request && a.service==0x22);
+}
+static void test_uds_pending_deadlines(void)
+{
+    prepare_uds(4100);unsigned before=count;
+    uint8_t pending[]={0x7f,0x22,0x78},positive[]={0x62,0x12,0x34,0x0f,0xa0};
+    payload(0x77c,pending,3,4200);
+    md_acq_tick(&a,4800);CHECK(a.active && count==before); /* beyond original 500 ms P2 */
+    payload(0x77c,positive,5,6000);CHECK(!a.active && a.uds_failures[0]==0);
+    prepare_uds(4100);before=count;payload(0x77c,pending,3,4200);
+    md_acq_tick(&a,9199);CHECK(a.active);md_acq_tick(&a,9200);CHECK(!a.active && count==before);
+    prepare_uds(4100);before=count;payload(0x77c,pending,3,4200);
+    payload(0x77c,positive,5,9200);CHECK(!a.active && a.timeout_count==1 && count==before);
+    /* Repeated pending cannot extend the absolute ten-second bound. */
+    prepare_uds(4100);before=count;
+    payload(0x77c,pending,3,4200);payload(0x77c,pending,3,9000);payload(0x77c,pending,3,13000);
+    md_acq_tick(&a,14100);CHECK(!a.active && count==before);
+}
 static void test_fuzz_and_wrap(void)
 {
     init(true,NULL,0);uint32_t rnd=0x12345;md_can_frame_t f;
@@ -246,7 +300,7 @@ static void test_analytics_codecs(void)
     const uint8_t bytes[]={70,60,144,112};
     const double expected[]={30,20,12.5,-12.5};
     for(unsigned i=0;i<4;i++) {
-        a.active=true;a.service=1;a.pid=pids[i];a.active_rx=0x7e8;a.job=8+i;a.did_request=false;a.request_ms=5000+i;
+        a.active=true;a.service=1;a.pid=pids[i];a.active_rx=0x7e8;a.job=8+i;a.did_request=false;a.request_ms=a.progress_ms=5000+i;
         uint8_t d[]={0x41,pids[i],bytes[i]};payload(0x7e8,d,3,5001+i);
         md_ui_signal_snapshot_t s=md_acq_snapshot(&a,ids[i],5001+i,NULL);
         CHECK(s.state==MD_UI_SIGNAL_VALID && s.value==expected[i]);
@@ -257,7 +311,7 @@ static void test_analytics_codecs(void)
     signed_binding.signal=MD_SIGNAL_RETARD_1;signed_binding.scale=.25;
     md_vehicle_profile_t signed_profile=profile;signed_profile.uds=&signed_binding;
     init(true,&signed_profile,0);run(0,4000);
-    a.active=true;a.did_request=true;a.service=0x22;a.pid=(uint8_t)uds.did;a.active_rx=0x77c;a.job=0;a.request_ms=5000;
+    a.active=true;a.did_request=true;a.service=0x22;a.pid=(uint8_t)uds.did;a.active_rx=0x77c;a.job=0;a.request_ms=a.progress_ms=5000;
     uint8_t d[]={0x62,0x12,0x34,0xff,0xf0};payload(0x77c,d,5,5001);
     CHECK(md_acq_snapshot(&a,MD_SIGNAL_RETARD_1,5001,NULL).value==-4);
     signed_binding.signal=MD_SIGNAL_BOOST_PEAK;
@@ -266,6 +320,6 @@ static void test_analytics_codecs(void)
 int main(void)
 {
     test_end_to_end();test_dtc();test_closed_and_timeout();test_fault_reconnect_and_idle();
-    test_profiles_arbitration();test_isotp();test_pending_and_validation();test_fuzz_and_wrap();test_analytics_codecs();test_late_ecu_startup();test_production_bus_gate();
-    printf("PASS: 11 acquisition scenarios + 50,000 malformed frames; core=%zu bytes, trace=%zu bytes\n",sizeof(a),sizeof(a.trace));return 0;
+    test_profiles_arbitration();test_isotp();test_transport_boundaries();test_uds_pending_deadlines();test_pending_and_validation();test_fuzz_and_wrap();test_analytics_codecs();test_late_ecu_startup();test_production_bus_gate();
+    printf("PASS: 13 acquisition scenarios + 50,000 malformed frames; core=%zu bytes, trace=%zu bytes\n",sizeof(a),sizeof(a.trace));return 0;
 }

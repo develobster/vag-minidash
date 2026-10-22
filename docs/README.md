@@ -54,3 +54,7 @@ architecture, test totals, session defaults or planned functionality:
 No research/evidence was removed. One duplicated navigation purpose is resolved
 by this index; historical text is retained, rather than merging contradictory
 versions into an apparent current specification.
+
+## Diagnostic feature branch (2026-10-22)
+
+[Research and validation](research/vag-diagnostics-deep-research.md) | [Architecture](architecture/vag-diagnostic-discovery.md) | [Next car test](validation/vag-diagnostics-car-test-plan.md). P0/P1 fixes and Web connection doctor; experimental gateway helpers are offline-only. No new active UDS queries or vehicle acceptance.

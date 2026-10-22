@@ -18,6 +18,41 @@ static void raw(cJSON *row, const uint8_t *data, size_t count)
     for(size_t i=0;i<count;i++){hex[i*2]=digits[data[i]>>4];hex[i*2+1]=digits[data[i]&15];}
     hex[count*2]=0;cJSON_AddStringToObject(row,"raw",hex);
 }
+/* Evidence classification, not an electrical diagnosis. Counters are cumulative
+ * since boot; an old ACK error must not override a later valid ECU response. */
+static void connection_doctor(cJSON *root,const md_vehicle_validation_t *v)
+{
+    const md_vehicle_status_t *s=&v->status;
+    const char *code,*next;
+    if(!s->configured) {
+        code="can_disabled";next="CAN is not configured in this firmware.";
+    } else if(s->state==MD_ACQ_FAULT || !s->ready) {
+        code="controller_unavailable";next="Inspect fault and controller state before further requests.";
+    } else if(!v->standard_obd) {
+        code="listen_only";next="Passive mode: no diagnostic response is expected without a request.";
+    } else if(s->ecu_count || s->ecu_id) {
+        code="ecu_response_observed";next="Check signal freshness and exchange results; discovery is not vehicle acceptance.";
+    } else if(s->tx) {
+        code="tx_confirmed_no_ecu";next="Inspect response IDs, RX drops, ISO-TP and application timeouts. CAN ACK does not identify the acknowledging ECU.";
+    } else if(s->tx_failed) {
+        code="tx_unconfirmed";next="Resolve CAN transmission first. ACK/bit counters narrow the layer, not the electrical cause; do not scan DIDs.";
+    } else if(s->rx) {
+        code="rx_only";next="Inspect startup, TX readiness and QUIET state. Received traffic alone does not prove diagnostic delivery.";
+    } else {
+        code="no_bus_evidence";next="Check ignition, connection and listen-only capture before diagnosing gateway routing.";
+    }
+    cJSON *d=cJSON_AddObjectToObject(root,"connection_doctor");
+    cJSON_AddStringToObject(d,"code",code);
+    cJSON_AddStringToObject(d,"next_step",next);
+    cJSON_AddStringToObject(d,"counter_scope","since_boot_not_current_exchange");
+    cJSON_AddBoolToObject(d,"controller_ready",s->ready);
+    cJSON_AddBoolToObject(d,"tx_confirmed_observed",s->tx>0);
+    cJSON_AddBoolToObject(d,"ack_error_observed",s->can_errors.ack>0);
+    cJSON_AddBoolToObject(d,"bit_error_observed",s->can_errors.bit>0);
+    cJSON_AddBoolToObject(d,"bus_off_observed",s->bus_offs>0);
+    cJSON_AddBoolToObject(d,"rx_loss_observed",s->rx_dropped>0);
+    cJSON_AddBoolToObject(d,"root_cause_confirmed",false);
+}
 cJSON *md_validation_json(const md_vehicle_validation_t *v, const char *version, uint64_t uptime)
 {
     if(!v)return NULL;
@@ -29,6 +64,7 @@ cJSON *md_validation_json(const md_vehicle_validation_t *v, const char *version,
     cJSON_AddBoolToObject(root,"validation_mode",v->validation_mode);
     cJSON_AddBoolToObject(root,"standard_obd",v->standard_obd);
     cJSON_AddBoolToObject(root,"vehicle_validated",false);
+    connection_doctor(root,v);
     cJSON_AddStringToObject(root,"state",md_acq_state_name(v->status.state));
     cJSON_AddStringToObject(root,"fault",v->status.fault);
     cJSON_AddStringToObject(root,"vin",v->status.vin);

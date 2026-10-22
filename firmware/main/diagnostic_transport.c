@@ -7,16 +7,17 @@ bool md_tp_expired(const md_tp_rx_t *rx, uint32_t now_ms)
 
 md_tp_result_t md_tp_receive(md_tp_rx_t *rx, const md_can_frame_t *f, uint32_t now)
 {
-    if (!rx || !f || f->extended || f->remote || f->dlc != 8) return MD_TP_INVALID;
+    if (!rx || !f || f->extended || f->remote || f->dlc == 0 || f->dlc > 8) return MD_TP_INVALID;
     uint8_t type = f->data[0] >> 4;
     if (type == 0) {
         uint8_t n = f->data[0] & 15;
-        if (n == 0 || n > 7 || rx->receiving) return MD_TP_INVALID;
+        if (n == 0 || n > 7 || n > f->dlc - 1U || rx->receiving) return MD_TP_INVALID;
         memcpy(rx->data, f->data + 1, n);
         rx->used = rx->length = n;
         return MD_TP_COMPLETE;
     }
     if (type == 1) {
+        if (f->dlc != 8) return MD_TP_INVALID;
         uint16_t n = ((uint16_t)(f->data[0] & 15) << 8) | f->data[1];
         if (rx->receiving || n <= 7 || n > MD_DIAG_PAYLOAD_MAX) return MD_TP_INVALID;
         memcpy(rx->data, f->data + 2, 6);
@@ -29,6 +30,8 @@ md_tp_result_t md_tp_receive(md_tp_rx_t *rx, const md_can_frame_t *f, uint32_t n
             (f->data[0] & 15) != rx->sequence) return MD_TP_INVALID;
         size_t n = rx->length - rx->used;
         if (n > 7) n = 7;
+        /* Intermediate CFs are full; the final CF may omit padding. */
+        if (f->dlc < n + 1U) return MD_TP_INVALID;
         memcpy(rx->data + rx->used, f->data + 1, n);
         rx->used += n; rx->sequence = (rx->sequence + 1) & 15;
         rx->last_ms = now;

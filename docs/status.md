@@ -187,3 +187,7 @@ separate reviewed guard/confirmation workflow; it is not part of this release.
 **P2:** controlled adaptation/coding allowlists and recovery, verified car-button
 adapter, AUTO illumination source/PWM hardware, optional BLE app/OTA authenticity,
 confirmed Lite target. Hardware capability bits alone do not implement these paths.
+
+## Diagnostic feature branch (2026-10-22)
+
+[Research and validation](research/vag-diagnostics-deep-research.md) | [Architecture](architecture/vag-diagnostic-discovery.md) | [Next car test](validation/vag-diagnostics-car-test-plan.md). P0/P1 fixes and Web connection doctor; experimental gateway helpers are offline-only. No new active UDS queries or vehicle acceptance.

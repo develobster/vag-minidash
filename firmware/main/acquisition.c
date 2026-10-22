@@ -5,6 +5,8 @@
 
 #define BIT(s) (UINT32_C(1) << (s))
 #define RESPONSE_MS 500U
+#define UDS_PENDING_MS 5000U
+#define UDS_TOTAL_MS 10000U
 #define REQUEST_GAP_MS 100U
 #define RETRY_LIMIT 3U
 #define IDLE_QUIET_MS 120000U
@@ -101,7 +103,7 @@ static void exchange(md_acquisition_t *a, uint32_t now, md_exchange_result_t res
 }
 static bool send_frame(md_acquisition_t *a, const md_can_frame_t *f, uint32_t now)
 {
-    if (!a->bus_available || !a->config.allow_standard_obd || !a->send ||
+    if (!a->bus_available || !a->tx_ready || !a->config.allow_standard_obd || !a->send ||
         a->state==MD_ACQ_QUIET || a->state==MD_ACQ_FAULT) return false;
     /* Application requests and authenticated ISO-TP FC share one TX gate. */
     a->last_tx_ms=now; a->sent_any=true;
@@ -297,12 +299,19 @@ static void fail(md_acquisition_t *a, uint32_t now, bool unsupported)
         if (++a->consecutive_failures>=RETRY_LIMIT) { a->state=MD_ACQ_VIN; a->consecutive_failures=0; }
     }
 }
+static bool response_expired(const md_acquisition_t *a,uint32_t now)
+{
+    return md_tp_expired(&a->tp,now) ||
+        (!a->tp.receiving && elapsed(now,a->progress_ms,
+            a->did_request && a->pending_count?UDS_PENDING_MS:RESPONSE_MS)) ||
+        elapsed(now,a->request_ms,a->did_request?UDS_TOTAL_MS:2000U);
+}
 static void complete(md_acquisition_t *a, uint32_t now)
 {
     const uint8_t *d=a->tp.data; size_t n=a->tp.length;
     if (!response_matches(a,d,n)) { a->rejected_count++; return; }
     if (d[0]==0x7f) {
-        if (d[2]==0x78 && ++a->pending_count<=3 && !elapsed(now,a->request_ms,2000)) {
+        if (d[2]==0x78 && ++a->pending_count<=3 && !elapsed(now,a->request_ms,a->did_request?UDS_TOTAL_MS:2000U)) {
             a->progress_ms=now; md_tp_reset(&a->tp); return;
         }
         exchange(a,now,MD_EXCHANGE_NEGATIVE);
@@ -384,7 +393,7 @@ void md_acq_receive(md_acquisition_t *a,const md_can_frame_t *f,uint32_t now)
     }
     if (!a->active || f->extended || f->remote) return;
     if(a->state==MD_ACQ_DISCOVERY) {
-        if (f->id>=0x7e8 && f->id<=0x7ef && f->dlc==8 && f->data[0]==6 && f->data[1]==0x41 && f->data[2]==0) {
+        if (f->id>=0x7e8 && f->id<=0x7ef && f->dlc>=7 && f->data[0]==6 && f->data[1]==0x41 && f->data[2]==0) {
             unsigned i=f->id-0x7e8;uint32_t bits=be32(f->data+3);
             if (!a->responders[i] && bits) a->ecu_count++;
             a->responders[i]=bits;
@@ -392,13 +401,22 @@ void md_acq_receive(md_acquisition_t *a,const md_can_frame_t *f,uint32_t now)
         return;
     }
     if(f->id!=a->active_rx) return;
+    /* The adapter drains RX before tick: a late response must not evade the
+     * absolute deadline merely by arriving in that same scheduler iteration. */
+    if(response_expired(a,now)) {
+        exchange(a,now,MD_EXCHANGE_TIMEOUT);a->timeout_count++;fail(a,now,false);return;
+    }
     /* Authenticate service/PID/DID AND address before sending flow control. */
     uint8_t type=f->dlc?f->data[0]>>4:255;
-    if ((type==0 || type==1) && f->dlc==8 &&
-        !response_matches(a,f->data+(type==0?1:2),type==0?((f->data[0]&15)<=7?(f->data[0]&15):0):6)) {
+    /* Authenticate only bytes actually received, including unpadded SFs.
+     * A malformed/truncated prefix must never trigger Flow Control. */
+    bool prefix_valid=(type==0 && f->dlc>=2 && (f->data[0]&15)>0 &&
+        (f->data[0]&15)<=7 && (f->data[0]&15)<=f->dlc-1U) || (type==1 && f->dlc==8);
+    if (prefix_valid &&
+        !response_matches(a,f->data+(type==0?1:2),type==0?(f->data[0]&15):6)) {
         a->rejected_count++;return;
     }
-    if((type==0 || type==1) && f->dlc==8) {
+    if(prefix_valid) {
         size_t length=type==0?(f->data[0]&15):((size_t)(f->data[0]&15)<<8)|f->data[1];
         if(!response_length_matches(a,f->data+(type==0?1:2),length)) {
             a->rejected_count++;return;
@@ -448,8 +466,7 @@ void md_acq_tick(md_acquisition_t *a,uint32_t now)
                 a->state=(a->supported[0]&1)?MD_ACQ_CAPABILITIES:MD_ACQ_VIN;return;
             }
             if(a->attempts>=RETRY_LIMIT) discovery_quiet(a,now);
-        } else if(a->state!=MD_ACQ_DISCOVERY &&
-                  (md_tp_expired(&a->tp,now) || elapsed(now,a->progress_ms,RESPONSE_MS) || elapsed(now,a->request_ms,2000))) {
+        } else if(a->state!=MD_ACQ_DISCOVERY && response_expired(a,now)) {
             exchange(a,now,MD_EXCHANGE_TIMEOUT);a->timeout_count++;fail(a,now,false);
         }
         return;

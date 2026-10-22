@@ -135,3 +135,7 @@ python -m unittest discover -s tests -v
 в [tests/fixtures/README.md](tests/fixtures/README.md); авторский код проекта распространяется по [MIT](LICENSE), сторонние материалы сохраняют свои лицензии.
 
 Старые заметки сохранены в [историческом README](docs/history/README-pre-consolidation.md).
+
+## Diagnostic feature branch (2026-10-22)
+
+[Research and validation](docs/research/vag-diagnostics-deep-research.md) | [Architecture](docs/architecture/vag-diagnostic-discovery.md) | [Next car test](docs/validation/vag-diagnostics-car-test-plan.md). P0/P1 fixes and Web connection doctor; experimental gateway helpers are offline-only. No new active UDS queries or vehicle acceptance.
