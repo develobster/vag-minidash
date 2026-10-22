@@ -61,6 +61,66 @@ DEFAULT_IDENTITY_PROBES = (IdentityProbe(0xF190, "vehicle.vin"),)
 
 
 @dataclass(frozen=True)
+class GatewayEndpointHint:
+    """Offline candidate, never an observed ECU or permission to transmit.
+
+    The configured endpoint is supplied by a separately reviewed vehicle mapping;
+    no address, identity, DID support or reachability is learned from a bitmap.
+    """
+    bit_index: int
+    configured_endpoint: EcuIdentity
+
+
+def parse_gateway_bitmap(did, payload):
+    """Experimental Octavia-layout hypothesis, NOT a verified Tiguan decoder.
+
+    Accept only the 32 data bytes after the 62/DID echo has been validated by
+    ReadClient. Return LSB-first bit positions, deliberately not CAN IDs. The
+    2A26/04A3 layout was reported by vagcan on one Octavia; 2A28 semantics are
+    unresolved. This pure offline helper sends nothing and makes no claim that
+    set bits are reachable ECUs. Other lengths/layouts fail closed.
+    """
+    if type(did) is not int or did not in (0x2A26, 0x04A3):
+        raise ValueError("Unsupported experimental gateway bitmap DID")
+    if not isinstance(payload, bytes) or len(payload) != 32:
+        raise ValueError("Experimental gateway bitmap requires exactly 32 bytes")
+    return tuple(index * 8 + bit for index, byte in enumerate(payload)
+                 for bit in range(8) if byte & (1 << bit))
+
+
+def plan_gateway_hints(did, payload, reviewed_endpoints):
+    """Intersect offline bitmap positions with explicit reviewed endpoint mappings.
+
+    reviewed_endpoints maps bit index to EcuIdentity containing an explicit
+    standard CAN request/response pair. Empty mappings are the safe default at
+    the call site: there is no built-in Octavia-to-Tiguan mapping. Validate the
+    whole supplied map, including unset bits, so collisions cannot silently be
+    reintroduced when a later bitmap changes. No transport or registry mutation
+    occurs. Active identity reads still use discover_endpoint and cached results
+    still require verify_discovered_identity on reconnect.
+    """
+    bits = parse_gateway_bitmap(did, payload)
+    if len(reviewed_endpoints) > 256:
+        raise ValueError("Too many gateway endpoint mappings")
+    used_ids = set()
+    for index, endpoint in reviewed_endpoints.items():
+        if type(index) is not int or not 0 <= index < 256:
+            raise ValueError("Gateway bit index must be between 0 and 255")
+        if not isinstance(endpoint, EcuIdentity):
+            raise ValueError("Gateway mapping must contain configured EcuIdentity values")
+        if endpoint.request_id is None or endpoint.response_id is None:
+            raise ValueError("Gateway mapping requires an explicit CAN pair")
+        pair = (int(endpoint.request_id, 16), int(endpoint.response_id, 16))
+        if any(not 0 <= can_id <= 0x7FF for can_id in pair):
+            raise ValueError("Experimental gateway mappings require standard CAN IDs")
+        if pair[0] == pair[1] or used_ids.intersection(pair):
+            raise ValueError("Ambiguous gateway mapping: CAN request/response ID collision")
+        used_ids.update(pair)
+    return tuple(GatewayEndpointHint(index, reviewed_endpoints[index])
+                 for index in bits if index in reviewed_endpoints)
+
+
+@dataclass(frozen=True)
 class DiscoveredEcu:
     role: str
     identity: EcuIdentity
