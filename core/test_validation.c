@@ -111,9 +111,34 @@ static void test_json(void)
     CHECK(cJSON_IsNull(cJSON_GetObjectItem(s,"value")));cJSON_Delete(j);
     CHECK(md_validation_json(NULL,NULL,0)==NULL);
 }
+static void doctor_is(md_vehicle_validation_t *v,const char *code)
+{
+    cJSON *j=md_validation_json(v,"synthetic",0);CHECK(j);
+    cJSON *d=cJSON_GetObjectItem(j,"connection_doctor");CHECK(d);
+    CHECK(!strcmp(cJSON_GetObjectItem(d,"code")->valuestring,code));
+    CHECK(cJSON_IsFalse(cJSON_GetObjectItem(d,"root_cause_confirmed")));
+    CHECK(cJSON_IsFalse(cJSON_GetObjectItem(j,"vehicle_validated")));
+    CHECK(cJSON_IsTrue(cJSON_GetObjectItem(d,"ack_error_observed"))==(v->status.can_errors.ack>0));
+    cJSON_Delete(j);
+}
+static void test_doctor(void)
+{
+    static md_vehicle_validation_t v;memset(&v,0,sizeof(v));
+    doctor_is(&v,"can_disabled");
+    v.status.configured=true;doctor_is(&v,"controller_unavailable");
+    v.status.ready=true;doctor_is(&v,"listen_only");
+    v.standard_obd=true;doctor_is(&v,"no_bus_evidence");
+    v.status.rx=100;doctor_is(&v,"rx_only");
+    v.status.tx_failed=3;v.status.can_errors.ack=3;doctor_is(&v,"tx_unconfirmed");
+    v.status.tx=1;doctor_is(&v,"tx_confirmed_no_ecu");
+    v.status.ecu_count=2;doctor_is(&v,"ecu_response_observed");
+    /* Historical errors cannot hide later responses; a current fault can. */
+    v.status.bus_offs=1;v.status.rx_dropped=8;doctor_is(&v,"ecu_response_observed");
+    v.status.state=MD_ACQ_FAULT;doctor_is(&v,"controller_unavailable");
+}
 int main(void)
 {
-    test_passive();test_reads();test_errors_and_rollover();test_json();
+    test_passive();test_reads();test_errors_and_rollover();test_json();test_doctor();
     printf("VALIDATION PASS: read allowlist, 4 requests/s, raw/decoded, error/rollover, bounded rings and canonical JSON; acquisition_bytes=%zu exchange_bytes=%zu\n",sizeof(acq),sizeof(md_acq_exchange_t));
     return 0;
 }

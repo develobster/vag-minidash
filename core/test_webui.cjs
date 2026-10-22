@@ -8,7 +8,7 @@ class Element {
     replaceChildren(...nodes){this.children=[...nodes]}
     click(){return this.onclick?.()}
 }
-const ids=['message','general','gaugemode','gauges','hardware','pages','add','delete','resetpage','pageform','preview','widgets','themes','customtheme','colors','resettheme','warnings','export','import','resetui','try','save','cancel','reload','analyticpresets','analytics','resettrip','resetsession','eventsrefresh','events'];
+const ids=['message','general','gaugemode','gauges','hardware','pages','add','delete','resetpage','pageform','preview','widgets','themes','customtheme','colors','resettheme','warnings','export','import','resetui','try','save','cancel','reload','analyticpresets','analytics','resettrip','resetsession','eventsrefresh','events','doctorrefresh','doctor'];
 const elements=Object.fromEntries(ids.map(id=>[id,new Element(['add','delete','resetpage','resettheme','export','resetui','try','save','cancel','reload'].includes(id)?'button':'div')]));
 const document={getElementById:id=>elements[id],createElement:tag=>new Element(tag),querySelectorAll:tag=>Object.values(elements).filter(e=>e.tagName===tag.toUpperCase())};
 let current=structuredClone(fixture.config),saved=structuredClone(current),writes=[];
@@ -29,6 +29,8 @@ const selectOf=id=>elements[id].children.flatMap(x=>x.children).find(x=>x.tagNam
 const change=(select,value)=>{select.value=String(value);select.onchange()};
 (async()=>{
     await tick();assert.equal(elements.message.textContent,'Соединение с устройством установлено');
+    fixture.validation={connection_doctor:{code:'tx_unconfirmed'},tx:0,tx_failed:3,can_error_types:{ack:3,bit:0},rx_dropped:0};
+    await elements.doctorrefresh.click();assert.match(elements.doctor.textContent,/Передача не подтверждена/);assert.equal(writes.length,0);
     assert.equal(elements.gauges.children[0].children[0].textContent,'ОБОРОТЫ ДВИГАТЕЛЯ · rpm');
     assert.equal(selectOf('analyticpresets').children[1].textContent,'ДВИГАТЕЛЬ');
     const rotation=()=>elements.general.children.find(x=>x.textContent==='Поворот экрана').children[0];
