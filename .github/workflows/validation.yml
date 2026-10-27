@@ -39,7 +39,7 @@ jobs:
           ctest --test-dir .local/core --output-on-failure
       - name: Static C analysis
         run: |
-          for source in acquisition diagnostic_transport can_pipeline generated_can_signals; do
+          for source in acquisition diagnostic_transport can_pipeline generated_can_signals power_manager can_link_tx; do
             clang-tidy -p .local/core "firmware/main/$source.c" --checks='-*,clang-analyzer-core.*,clang-analyzer-unix.Malloc,bugprone-sizeof-expression' --warnings-as-errors='*'
           done
       - name: Python and web contracts

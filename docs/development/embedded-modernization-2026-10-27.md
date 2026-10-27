@@ -18,7 +18,7 @@ through GitHub. All original blobs and the complete tree were hash-verified.
 | Reduce redraw | `ui_screens.c`, `display_app.c` | Reuse existing LVGL port, DMA and two 16-line partial buffers. UI/LVGL use core 0. Invalidate old/new needle bounds; cache tick artwork and chart updates. Existing renderer/backend interfaces remain the abstraction boundary. |
 | Gate RF | `ui_web.[ch]`, `sdkconfig.service` | Manual AP requires fresh zero speed or service boot. Positive speed stops RF; stale parked evidence revokes permission. Stop RF before waiting for HTTP cleanup. No automatic AP restart. |
 | Deep sleep | `power_manager.[ch]`, `display_app.[ch]`, `main.c`, `Kconfig.projbuild` | Optional silence policy, off by default. Finish NVS commits, prevent further saves, hold LVGL ownership, blank backlight, send SLPIN, stop RX/controller, hold TX recessive and enter sleep. RTC EXT0 and fallback timer wake are supported. |
-| Validate | `core/test_can_pipeline.c`, transport/acquisition tests, `tests/test_can_codegen.py`, `.github/workflows/validation.yml` | Concurrency, parity, protocol boundaries, static analysis, sanitizers and ESP-IDF build matrix. CI never flashes a device. |
+| Validate | `core/test_can_pipeline.c`, `core/test_power.c` and power stubs, transport/acquisition tests, `tests/test_can_codegen.py`, `.github/workflows/validation.yml` | Concurrency, parity, protocol/power boundaries, static analysis, sanitizers and ESP-IDF build matrix. CI never flashes a device. |
 
 `md_ui_model_lock` does not exist in this baseline. The actual UI path used a
 critical section and 92 separate publications. The acquisition mutex remains
@@ -140,6 +140,9 @@ sleep. NVS failure, UI timeout, resumed CAN or an active wake level abort entry.
 Canceled entry wakes the panel and restores Listen-Only reception. Firmware
 logging is a bounded RAM trace, not a file logger; no filesystem log writer is
 invented. Existing synchronous incident/NVS writes finish before shutdown.
+An already active wake input is rejected before blanking the display, and is
+checked again immediately before entry. Dedicated ignition GPIOs are configured
+as inputs before sampling; the live CAN RX pin's mode is preserved.
 
 After electrical validation, GPIO5/active-low can be the current CAN RX wake
 input. EXT0 is level-sensitive. Alternatively use a conditioned Kl.15 input
@@ -175,6 +178,10 @@ Local checks:
   checked decoder now replaces that code.
 - Host JavaScript model/unit contracts.
 - Local ASan/UBSan runs passed for transport, concurrent pipeline and acquisition.
+- Four additional power-policy variants passed locally with ASan/UBSan: CAN RX
+  wake, conditioned active-high ignition, timer-only and disabled sleep. They
+  check active-wake refusal, AP inhibition, timer probing, GPIO holds and abort
+  paths. The complete native matrix now has 15 CTest groups (13 without cJSON).
 
 The final local Python run exercised 237 tests: 209 passed, eight localhost HTTP
 tests were blocked by the host sandbox, and twenty optional/platform tests were
@@ -183,8 +190,12 @@ resolved those environment gaps: the host job passed 11 native CTest groups,
 237 Python tests (236 passed, one platform skip), 10 JavaScript contracts,
 clang-tidy, and nine ASan/UBSan groups. The first target matrix correctly rejected
 the overly strict unconditional lock-free assertion; the internal-DRAM/S32C1I
-fix above is included for target revalidation. Record final target results
-separately from bench/vehicle evidence.
+fix above passed all three ESP32-S3 target builds in
+[40507537836](https://github.com/develobster/vag-minidash/actions/runs/40507537836).
+The final workflow repeats this matrix with the additional power-policy tests;
+its latest result is available from [MiniDash validation](https://github.com/develobster/vag-minidash/actions/workflows/validation.yml).
+Neither successful target builds nor mocked power tests constitute physical
+sleep, wake, graphical, thermal or vehicle acceptance.
 
 Next steps, with acceptance criteria:
 

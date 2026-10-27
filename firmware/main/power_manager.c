@@ -55,6 +55,10 @@ bool md_power_prepare(void)
     if(!rtc_gpio_is_valid_gpio(pin)) return false;
     for(unsigned i=0;i<sizeof(reserved)/sizeof(reserved[0]);i++) if(pin==reserved[i]) return false;
     if(pin==CONFIG_MINIDASH_CAN_RX_GPIO && CONFIG_MINIDASH_WAKE_LEVEL!=0) return false;
+    if(pin!=CONFIG_MINIDASH_CAN_RX_GPIO && gpio_set_direction(pin,GPIO_MODE_INPUT)!=ESP_OK) return false;
+    /* Check before blanking the UI as well as immediately before sleep. An
+     * active ignition level must not cause repeated sleep/cancel screen flashes. */
+    if(gpio_get_level(pin)==CONFIG_MINIDASH_WAKE_LEVEL) return false;
     /* External bias/level conditioning is required; never connect Kl.15 12 V. */
     if(esp_sleep_enable_ext0_wakeup(pin,CONFIG_MINIDASH_WAKE_LEVEL)!=ESP_OK) return false;
 #endif
