@@ -268,3 +268,16 @@ Remaining priorities:
   bounded simulated workloads, not CAN hardware throughput measurements.
 
 Target/actual LVGL CI results will be added after the remote run completes.
+
+### First remote target pass
+
+Run [40542662692](https://github.com/develobster/vag-minidash/actions/runs/40542662692)
+built all three ESP-IDF 5.5.5 variants successfully. Eighteen of nineteen native
+CTest groups passed. The new LVGL unchanged-frame assertion failed after the
+first screen-load refresh; startup layout settling and diagnostic output were
+added before measuring application invalidation, with a bounded quiescence
+assertion. A follow-up run must confirm the cause and full host suite. The full
+Drag RESET hit box now takes precedence over the generic right-edge navigation
+zone; stationary debounce counters saturate instead of growing indefinitely.
+Local clang-tidy on decoder/drag/acquisition/mailbox and six ASan/UBSan groups
+also passed before the local execution environment became unavailable.

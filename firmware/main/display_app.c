@@ -609,7 +609,15 @@ static void apply_event(const ui_event_t *event,
                 md_ui_screens_debug_touch(x, y);
                 lvgl_port_unlock();
             } else if (md_ui_screen_is_content(state->screen) && lvgl_port_lock(20)) {
-                const md_touch_hit_t hit = md_touch_hit_zone(x, y,
+                /* RESET crosses the generic right-edge navigation zone. Give its
+             * whole visible hit box precedence, including the press origin. */
+            if(state->screen==MD_UI_SCREEN_DRAG && x>=s_ui_width*240/320 &&
+               y>=s_ui_height*108/240 && y<s_ui_height*132/240 &&
+               s_last_press_x>=s_ui_width*240/320 &&
+               s_last_press_y>=s_ui_height*108/240 && s_last_press_y<s_ui_height*132/240) {
+                md_vehicle_app_drag_reset();return;
+            }
+            const md_touch_hit_t hit = md_touch_hit_zone(x, y,
                                                             s_ui_width, s_ui_height);
                 md_ui_screens_nav_pressed(state->screen, settings,
                     hit == MD_TOUCH_HIT_PREVIOUS ? -1 :
@@ -763,11 +771,7 @@ static void apply_event(const ui_event_t *event,
             else if (hit == MD_TOUCH_HIT_NEXT) action = MD_UI_ACTION_NEXT_SCREEN;
             else if (hit == MD_TOUCH_HIT_CONTENT) {
                 if(md_automotive_screen(state->screen)) {
-                    if(state->screen==MD_UI_SCREEN_DRAG && x>=s_ui_width*240/320 &&
-                        y>=s_ui_height*108/240 && y<s_ui_height*132/240) md_vehicle_app_drag_reset();
-                    else action=MD_UI_ACTION_NEXT_SCREEN;
-                    if(state->screen==MD_UI_SCREEN_DRAG && x>=s_ui_width*240/320 &&
-                        y>=s_ui_height*108/240 && y<s_ui_height*132/240) return;
+                    action=MD_UI_ACTION_NEXT_SCREEN;
                 } else {
                 if (!lvgl_port_lock(20)) return;
                 details_signal = md_ui_screens_signal_at(state->screen, settings, x, y);

@@ -57,9 +57,10 @@ void drag_timer_observe(drag_timer_t *t,const vehicle_telemetry_t *v,uint32_t no
     if(speed<.5) {
         if(t->result.state==DRAG_RUNNING) abort_run(t,DRAG_STOPPED);
         if(!t->stationary) {t->stationary=true;t->stationary_since=stamp;t->stationary_samples=0;}
-        ++t->stationary_samples;t->last_zero_ms=stamp;t->launch_pending=false;
-        unsigned progress=(stamp-t->stationary_since)*2U;
-        if(progress>1000U) progress=1000U;
+        if(t->stationary_samples<3) ++t->stationary_samples;
+        t->last_zero_ms=stamp;t->launch_pending=false;
+        unsigned stationary_ms=stamp-t->stationary_since;
+        unsigned progress=stationary_ms>=500U?1000U:stationary_ms*2U;
         unsigned samples=t->stationary_samples*1000U/3U;
         t->result.readiness_per_mille=(uint16_t)(progress<samples?progress:samples);
         if(t->stationary_samples>=3 && stamp-t->stationary_since>=500) {

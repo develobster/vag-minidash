@@ -59,8 +59,10 @@ jobs:
           cmake --build .local/sanitized
           ctest --test-dir .local/sanitized --output-on-failure
       - name: Encode exact UI previews
+        if: always()
         run: python scripts/ui_previews_to_png.py .local/core/ui-previews
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: synthetic-lvgl-previews
           path: .local/core/ui-previews/*.png

@@ -46,7 +46,17 @@ static void canvas(unsigned w,unsigned h,const char *dir)
         md_ui_screen_t s=(md_ui_screen_t)(MD_UI_SCREEN_SPORT_BOOST+i);
         md_automotive_frame(&f);md_automotive_update(s,100);lv_screen_load(md_automotive_root(s));
         CHECK(md_automotive_geometry_valid(s));dirty_pixels=0;flushes=0;lv_refr_now(display);
-        CHECK(flushes && dirty_pixels);if(i==4) CHECK(pixels[0]==0);image(dir,i);
+        CHECK(flushes && dirty_pixels);if(i==4) CHECK(pixels[0]==0);
+        /* Screen-load/layout events may invalidate during the first refresh.
+         * Settle startup before measuring application-induced dirty regions. */
+        unsigned settled=0;
+        for(unsigned attempt=0;attempt<4;attempt++) {
+            unsigned previous=flushes;lv_refr_now(display);
+            if(flushes==previous) {settled=1;break;}
+        }
+        fprintf(stderr,"AUTO UI %ux%u page=%u startup_flushes=%u settled=%u\n",
+                w,h,i,flushes,settled);
+        CHECK(settled);image(dir,i);
         unsigned before=flushes;md_automotive_update(s,100);lv_refr_now(display);CHECK(flushes==before);
         md_dashboard_frame_t changed=f;
         if(i==0 || i==4) changed.vehicle.value[VAG_SPEED]+=1;
