@@ -3,6 +3,9 @@
 #include <stddef.h>
 #include <stdint.h>
 #define MD_DIAG_PAYLOAD_MAX 128U
+#define MD_TP_N_CR_MS 250U
+typedef struct { uint8_t status, block_size; uint32_t stmin_us; } md_tp_flow_control_t;
+bool md_tp_parse_flow_control(const uint8_t *data, size_t length, md_tp_flow_control_t *out);
 typedef struct {
     uint32_t id;
     uint8_t data[8], dlc;

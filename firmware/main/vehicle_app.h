@@ -11,6 +11,7 @@ typedef struct {
     uint32_t rx, tx, tx_failed, timeouts, malformed, rejected, rx_dropped, bus_offs, trace_overwritten;
     uint32_t arbitration_lost, bus_errors, tx_error_counter, rx_error_counter;
     uint32_t peak_tx_error_counter, peak_rx_error_counter;
+    uint32_t rx_driver_dropped, rx_ring_dropped, rx_epoch_dropped, rx_ring_high_water;
     md_can_error_counts_t can_errors;
     bool dtc_valid, dtc_truncated;
     uint32_t dtc_ms;

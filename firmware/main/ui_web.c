@@ -22,11 +22,37 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdatomic.h>
+#include <math.h>
 
 #define BODY_MAX 16384
 static httpd_handle_t s_server;
 static esp_netif_t *s_netif;
 static atomic_bool s_active, s_starting, s_stop;
+/* One packed observation: top two bits encode unknown/parked/moving, lower
+ * thirty bits hold a modular timestamp. No torn speed/time pair at AP start. */
+static atomic_uint s_speed_observation;
+static bool wifi_permitted(void)
+{
+    unsigned sample=atomic_load(&s_speed_observation),state=sample>>30;
+    uint32_t now=(uint32_t)(esp_timer_get_time()/1000);
+    if(state==2) return false;
+    if(state==1 && ((now-(sample&0x3fffffffU))&0x3fffffffU)<1500U) return true;
+#if CONFIG_MINIDASH_SERVICE_MODE
+    return state==0;
+#else
+    return false;
+#endif
+}
+void md_ui_web_vehicle_speed(bool valid,double speed,uint32_t observed)
+{
+    if(!valid || !isfinite(speed) || speed<0) {
+        unsigned old=atomic_load(&s_speed_observation);
+        if((old>>30)==1) (void)atomic_compare_exchange_strong(&s_speed_observation,&old,3U<<30);
+        return; /* Preserve moving latch; stale parked evidence cannot revive. */
+    }
+    atomic_store(&s_speed_observation,((speed>0?2U:1U)<<30)|(observed&0x3fffffffU));
+    if(speed>0) atomic_store(&s_stop,true);
+}
 static char s_ssid[32], s_password[24], s_token[33];
 extern const unsigned char webui_start[] asm("_binary_webui_html_start");
 extern const unsigned char webui_end[] asm("_binary_webui_html_end");
@@ -194,6 +220,7 @@ static void web_task(void *argument)
     ESP_LOGI(TAG,"AP start internal_free=%u largest=%u",(unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT),(unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT));
     ESP_LOGI(TAG,"AP step: initialize network stack");
     esp_err_t error=esp_netif_init();
+    if(!wifi_permitted() || atomic_load(&s_stop)) goto cleanup;
     if (error!=ESP_OK && error!=ESP_ERR_INVALID_STATE) goto cleanup;
     ESP_LOGI(TAG,"AP step: initialize event loop");
     error=esp_event_loop_create_default();
@@ -217,6 +244,7 @@ static void web_task(void *argument)
     error=esp_wifi_set_mode(WIFI_MODE_AP); if(error!=ESP_OK)goto cleanup;
     error=esp_wifi_set_config(WIFI_IF_AP,&wifi); if(error!=ESP_OK)goto cleanup;
     ESP_LOGI(TAG,"AP step: start Wi-Fi");
+    if(!wifi_permitted() || atomic_load(&s_stop)) goto cleanup;
     error=esp_wifi_start(); if(error!=ESP_OK)goto cleanup;
     wifi_started=true;
     esp_netif_ip_info_t ip;
@@ -240,10 +268,13 @@ static void web_task(void *argument)
     atomic_store(&s_active,true); atomic_store(&s_starting,false);
     ESP_LOGI(TAG,"Configuration AP ready (credentials on device), expires in 600 seconds");
     const int64_t started=esp_timer_get_time();
-    while (!atomic_load(&s_stop) && esp_timer_get_time()-started<600000000LL) vTaskDelay(pdMS_TO_TICKS(200));
+    while (!atomic_load(&s_stop) && wifi_permitted() && esp_timer_get_time()-started<600000000LL)
+        vTaskDelay(pdMS_TO_TICKS(20));
 cleanup:
     if(error!=ESP_OK && error!=ESP_ERR_INVALID_STATE)
         ESP_LOGE(TAG,"AP start/operation failed: %s",esp_err_to_name(error));
+    /* Stop RF before waiting on HTTP handlers or NVS preview rollback. */
+    if (wifi_started) {esp_wifi_stop();wifi_started=false;}
     if (s_server) { httpd_stop(s_server); s_server=NULL; }
     /* Roll back a preview before another local editor can run. */
     md_device_configuration_t *config=malloc(sizeof(*config)); uint32_t revision;
@@ -258,10 +289,12 @@ cleanup:
 }
 bool md_ui_web_start(void)
 {
+    if(!wifi_permitted()) return false;
     bool expected=false;
     if (atomic_load(&s_active) || !atomic_compare_exchange_strong(&s_starting,&expected,true)) return false;
     if (!md_display_configuration_begin()) { atomic_store(&s_starting,false); return false; }
     atomic_store(&s_stop,false);
+    if(!wifi_permitted()) {atomic_store(&s_starting,false);return false;}
     if (xTaskCreate(web_task,"ui_config",8192,NULL,2,NULL)!=pdPASS) { atomic_store(&s_starting,false); return false; }
     return true;
 }

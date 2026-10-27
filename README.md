@@ -11,6 +11,8 @@ display/touch bench results are documented, and full vehicle acceptance is pendi
 Licensed under [MIT](LICENSE); bundled third-party materials retain their own notices.
 
 Единая база разработки: **`integration/standalone`**. Продолжать работу в этой ветке.
+Приём CAN, атомарные снимки UI, генерация C/Python-сигналов, Wi-Fi и опциональный
+сон: [изменения, сборка и ограничения от 27 октября](docs/development/embedded-modernization-2026-10-27.md).
 Актуальный образ — [canfix19: анализ и исправления CAN](docs/hardware/can-deep-analysis-2026-10-19.md):
 подтверждение TX контроллером, запуск по живой шине, явная точка выборки 87,5%,
 различение ошибок ACK/bit и сохранение отчёта для чтения после возвращения к USB.

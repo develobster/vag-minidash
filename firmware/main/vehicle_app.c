@@ -14,7 +14,12 @@
 #include "can_error_probe.h"
 #include "can_incident.h"
 #include "can_link_tx.h"
+#include "can_pipeline.h"
+#include "power_manager.h"
+#include "ui_web.h"
+#include "freertos/queue.h"
 #include "esp_app_desc.h"
+#include "esp_intr_alloc.h"
 #include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
@@ -81,6 +86,16 @@ bool md_vehicle_app_validation(md_vehicle_validation_t *out)
 
 #if CONFIG_MINIDASH_CAN_ENABLE
 static twai_handle_t can;
+static md_can_ring_t rx_ring;
+static QueueHandle_t rx_commands;
+static SemaphoreHandle_t rx_command_done;
+static bool rx_command_ok;
+static unsigned rx_epoch;
+static uint32_t epoch_dropped;
+static atomic_uint last_valid_rx;
+/* The RX task owns install/uninstall as well as receive. A mode command is
+ * acknowledged only after the blocking receive has returned: no stale handle. */
+typedef enum { CAN_LISTEN, CAN_NORMAL, CAN_STOP } can_command_t;
 static bool normal_mode;
 static uint32_t dropped_base;
 static uint32_t arbitration_base, bus_error_base;
@@ -89,7 +104,11 @@ static uint32_t rx_standard,rx_extended,last_rx_id;
 static bool last_rx_extended;
 static void read_can_status(const twai_status_info_t *info)
 {
-    status.rx_dropped=dropped_base+info->rx_missed_count+info->rx_overrun_count;
+    status.rx_driver_dropped=dropped_base+info->rx_missed_count+info->rx_overrun_count;
+    status.rx_ring_dropped=atomic_load(&rx_ring.dropped);
+    status.rx_epoch_dropped=epoch_dropped;
+    status.rx_ring_high_water=atomic_load(&rx_ring.high_water);
+    status.rx_dropped=status.rx_driver_dropped+status.rx_ring_dropped+epoch_dropped;
     status.arbitration_lost=arbitration_base+info->arb_lost_count;
     status.bus_errors=bus_error_base+info->bus_error_count;
     status.tx_error_counter=info->tx_error_counter;
@@ -127,22 +146,30 @@ static bool pins_valid(void)
         if(tx==reserved[i] || rx==reserved[i])return false;
     return true;
 }
-static bool install_can(bool normal)
+static bool install_can_owned(can_command_t command)
 {
     if(can) {
         twai_status_info_t info;
         if(twai_get_status_info_v2(can,&info)==ESP_OK) {
             read_can_status(&info);
-            dropped_base=status.rx_dropped;
+            dropped_base=status.rx_driver_dropped;
             arbitration_base=status.arbitration_lost;
             bus_error_base=status.bus_errors;
         }
-        (void)twai_stop_v2(can);(void)twai_driver_uninstall_v2(can);can=NULL;
+        (void)twai_stop_v2(can);
+        if(twai_driver_uninstall_v2(can)!=ESP_OK) return false;
+        can=NULL;
     }
     normal_mode=false;
+    ++rx_epoch;
+    if(command==CAN_STOP) return true;
+    bool normal=command==CAN_NORMAL;
     twai_general_config_t g=TWAI_GENERAL_CONFIG_DEFAULT(CONFIG_MINIDASH_CAN_TX_GPIO,
         CONFIG_MINIDASH_CAN_RX_GPIO,normal?TWAI_MODE_NORMAL:TWAI_MODE_LISTEN_ONLY);
     g.tx_queue_len=0;g.rx_queue_len=128;
+#if CONFIG_TWAI_ISR_IN_IRAM
+    g.intr_flags=ESP_INTR_FLAG_IRAM;
+#endif
     g.alerts_enabled=TWAI_ALERT_BUS_OFF|TWAI_ALERT_RX_QUEUE_FULL|TWAI_ALERT_TX_FAILED|TWAI_ALERT_TX_SUCCESS;
     twai_timing_config_t timing=md_can_timing_500k();
     twai_filter_config_t filter=TWAI_FILTER_CONFIG_ACCEPT_ALL();
@@ -150,6 +177,38 @@ static bool install_can(bool normal)
     if(twai_start_v2(can)==ESP_OK){normal_mode=normal;return true;}
     (void)twai_driver_uninstall_v2(can);can=NULL;return false;
 }
+static void can_rx_task(void *unused)
+{
+    (void)unused;
+    for(;;) {
+        can_command_t command;
+        if(xQueueReceive(rx_commands,&command,can?0:portMAX_DELAY)==pdTRUE) {
+            rx_command_ok=install_can_owned(command);
+            xSemaphoreGive(rx_command_done);
+        }
+        if(!can) continue;
+        twai_message_t message;
+        if(twai_receive_v2(can,&message,pdMS_TO_TICKS(5)+1)!=ESP_OK) {
+            vTaskDelay(1); continue;
+        }
+        md_can_sample_t sample={.ms=now_ms(),.epoch=rx_epoch,
+            .frame={.id=message.identifier,.dlc=message.data_length_code,
+                .extended=message.extd,.remote=message.rtr}};
+        memcpy(sample.frame.data,message.data,8);
+        if(!sample.frame.remote && sample.frame.dlc<=8 &&
+            sample.frame.id<=(sample.frame.extended?0x1fffffffU:0x7ffU))
+            atomic_store(&last_valid_rx,sample.ms);
+        (void)md_can_ring_push(&rx_ring,&sample);
+    }
+}
+static bool set_can_mode(can_command_t command)
+{
+    if(xQueueSend(rx_commands,&command,portMAX_DELAY)!=pdTRUE) return false;
+    if(xSemaphoreTake(rx_command_done,portMAX_DELAY)!=pdTRUE) return false;
+    return rx_command_ok;
+}
+static bool install_can(bool normal)
+{ return set_can_mode(normal?CAN_NORMAL:CAN_LISTEN); }
 static void update_status(uint32_t now)
 {
     status.state=engine.state;status.ecu_count=engine.ecu_count;status.ecu_id=engine.response_id;
@@ -182,7 +241,7 @@ static void vehicle_task(void *unused)
 #if CONFIG_MINIDASH_CAR_VALIDATION_MODE
         .car_validation_mode=true,
 #endif
-        .startup_ms=1500,.require_bus_activity=true,.profile=NULL};
+        .startup_ms=1500,.require_bus_activity=true,.request_gap_ms=200,.profile=NULL};
     ESP_LOGI(TAG,"CAN 500 kbit/s sample=87.5%% TX=%d RX=%d standard_obd=%s VAG_profile=none UDS=off",
         CONFIG_MINIDASH_CAN_TX_GPIO,CONFIG_MINIDASH_CAN_RX_GPIO,allow_obd?"on":"off");
     xSemaphoreTake(lock,portMAX_DELAY);
@@ -190,7 +249,9 @@ static void vehicle_task(void *unused)
     md_acq_set_tx_ready(&engine,false);
     md_ui_signal_store_init(&canonical);(void)md_derived_init(&analytics,&pending_analytics,now_ms());
     xSemaphoreGive(lock);
-    uint32_t recovery_at=0,last_publish=0,recovery_attempts=0;
+    uint32_t recovery_at=0,last_publish=0;
+    md_can_recovery_t recovery={0};
+    bool recovering=false,validating=false;
     bool fault=false,first=true,was_quiet=false,motion_latched=false,incident_attempted=false;
     for(;;) {
         uint32_t now=now_ms();
@@ -202,12 +263,14 @@ static void vehicle_task(void *unused)
         if(first) {
             first=false;status.ready=pins_valid() && install_can(false);
             if(!status.ready) {snprintf(status.fault,sizeof(status.fault),"CHECK CAN PINS/DRIVER");
-                md_acq_bus_available(&engine,false,now);fault=true;recovery_attempts=3;}
+                md_acq_bus_available(&engine,false,now);fault=true;
+                md_can_recovery_fault(&recovery,now);recovery_at=recovery.retry_at;}
         }
         uint32_t alerts=0;
         if(can) {
             (void)twai_read_alerts_v2(can,&alerts,0);alerts|=deferred_alerts;deferred_alerts=0;
-            if(alerts&TWAI_ALERT_BUS_OFF) {status.bus_offs++;fault=true;recovery_at=now+1000;
+            if((alerts&TWAI_ALERT_BUS_OFF) && !fault) {status.bus_offs++;fault=true;
+                recovering=validating=false;md_can_recovery_fault(&recovery,now);recovery_at=recovery.retry_at;
                 status.ready=false;md_acq_bus_available(&engine,false,now);md_derived_can_error(&analytics,&canonical,now,alerts);}
         }
         twai_status_info_t info;
@@ -219,10 +282,29 @@ static void vehicle_task(void *unused)
                     (unsigned long)status.tx_error_counter,(unsigned long)status.rx_error_counter);
         }
         bool requested=atomic_exchange(&scan,false);
-        if(requested && fault && pins_valid()) {recovery_attempts=0;recovery_at=now;}
-        if(fault && recovery_attempts<3 && (int32_t)(now-recovery_at)>=0) {
-            recovery_attempts++;status.ready=install_can(false);recovery_at=now+5000;
-            if(status.ready) {fault=false;status.fault[0]=0;md_acq_bus_available(&engine,true,now);}
+        /* A manual scan cannot bypass bus-off backoff or hardware recovery. */
+        if(fault && pins_valid() && (int32_t)(now-recovery_at)>=0) {
+            twai_status_info_t recovery_info={0};
+            bool known=can && twai_get_status_info_v2(can,&recovery_info)==ESP_OK;
+            if(known && recovery_info.state==TWAI_STATE_BUS_OFF) {
+                if(twai_initiate_recovery_v2(can)==ESP_OK) {recovering=true;recovery_at=now+5000;}
+                else {md_can_recovery_fault(&recovery,now);recovery_at=recovery.retry_at;}
+            } else if(known && recovery_info.state==TWAI_STATE_RECOVERING) {
+                /* Do not reset the TEC by reinstalling a recovering controller. */
+                recovery_at=now+5000;
+            } else {
+                status.ready=install_can(false);
+                if(status.ready) {
+                    fault=recovering=false;validating=true;status.fault[0]=0;
+                    md_can_recovery_listen(&recovery,now,status.bus_errors);
+                    md_acq_bus_available(&engine,true,now);
+                } else {md_can_recovery_fault(&recovery,now);recovery_at=recovery.retry_at;}
+            }
+        }
+        if(recovering && can) {
+            twai_status_info_t recovery_info;
+            if(twai_get_status_info_v2(can,&recovery_info)==ESP_OK && recovery_info.state==TWAI_STATE_STOPPED)
+                recovery_at=now;
         }
         if(!fault) {
             bool quiet=engine.state==MD_ACQ_QUIET;
@@ -235,18 +317,27 @@ static void vehicle_task(void *unused)
                 if(quiet) {md_acq_restart(&engine,now);}
                 else (void)md_acq_request_dtc(&engine,now);
             }
-            if(!fault && !normal_mode && md_acq_wants_tx(&engine,now)) {
+            if(validating && status.bus_errors!=recovery.errors)
+                md_can_recovery_listen(&recovery,now,status.bus_errors);
+            if(validating && md_can_recovery_valid(&recovery,now,atomic_load(&last_valid_rx),status.bus_errors)) {
+                validating=false; /* attempts reset only after sustained normal operation below */
+            }
+            if(!fault && !validating && !normal_mode && md_acq_wants_tx(&engine,now)) {
                 status.ready=install_can(true);
                 if(!status.ready) {fault=true;recovery_at=now+1000;md_acq_bus_available(&engine,false,now);}
             }
             /* Bounded work and queues: a saturated bus cannot monopolise this task. */
-            for(unsigned i=0;can && !fault && i<64;i++) {
-                twai_message_t m;if(twai_receive_v2(can,&m,0)!=ESP_OK)break;
-                if(m.extd)rx_extended++;else rx_standard++;
-                last_rx_id=m.identifier;last_rx_extended=m.extd;
-                md_can_frame_t f={.id=m.identifier,.dlc=m.data_length_code,.extended=m.extd,.remote=m.rtr};
-                memcpy(f.data,m.data,8);md_acq_receive(&engine,&f,now);
+            for(unsigned i=0;!fault && i<MD_CAN_RING_CAPACITY;i++) {
+                md_can_sample_t sample;if(!md_can_ring_pop(&rx_ring,&sample))break;
+                if(sample.epoch!=rx_epoch) {++epoch_dropped;continue;}
+                md_can_frame_t *f=&sample.frame;
+                if(f->extended)rx_extended++;else rx_standard++;
+                last_rx_id=f->id;last_rx_extended=f->extended;
+                if(validating && !f->remote && f->dlc<=8) ++recovery.frames;
+                /* Old queued replies must not revive an expired transaction. */
+                md_acq_receive_at(&engine,f,sample.ms,now_ms());
             }
+            now=now_ms();
             /* Standard source background collection maintains observed trip peaks.
              * Performance speed stays at the planner's 200 ms visible priority.
              * The existing 100 ms global request floor is never bypassed. */
@@ -254,7 +345,9 @@ static void vehicle_task(void *unused)
             for(unsigned id=0;id<MD_SIGNAL_RAW_COUNT;id++) stats_demand|=md_derived_raw_demand(id);
             /* The acquisition core limits validation demand to four sources. */
             md_acq_set_demand(&engine,atomic_load(&visible)|(UINT32_C(1)<<MD_SIGNAL_VEHICLE_SPEED),atomic_load(&background)|stats_demand);
-            md_acq_set_tx_ready(&engine,normal_mode);
+            unsigned queued=atomic_load(&rx_ring.head)-atomic_load(&rx_ring.tail);
+            engine.config.request_gap_ms=md_ui_web_active() || queued>MD_CAN_RING_CAPACITY/2?200U:100U;
+            md_acq_set_tx_ready(&engine,normal_mode && !validating);
             if(!fault)md_acq_tick(&engine,now);
         }
         update_status(now);
@@ -267,20 +360,33 @@ static void vehicle_task(void *unused)
             snprintf(record.firmware,sizeof(record.firmware),"%s",esp_app_get_description()->version);
             incident_attempted=true;(void)md_can_incident_save(&record);
         }
-        md_vehicle_status_t copy=status;
+        md_ui_signal_snapshot_t speed=status.signals[MD_SIGNAL_VEHICLE_SPEED];
+        if(normal_mode && recovery.attempts && now-recovery.listen_since>=60000U &&
+            now-atomic_load(&last_valid_rx)<100U) recovery.attempts=0;
+        if((uint32_t)(now-last_publish)>=100) md_display_app_publish_store(&canonical);
         xSemaphoreGive(lock);
         /* Never call UI under CAN mutex: fixed lock ordering. */
         if((uint32_t)(now-last_publish)>=100) {
             last_publish=now;
-            for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) {
-                md_ui_signal_snapshot_t *s=&copy.signals[i];
-                md_display_app_publish_signal(md_ui_signal_definitions[i].canonical_name,s->value,s->state,300,false);
-            }
-            md_ui_signal_snapshot_t speed=copy.signals[MD_SIGNAL_VEHICLE_SPEED];
+            md_ui_web_vehicle_speed(speed.state==MD_UI_SIGNAL_VALID && !speed.demo,
+                speed.value,now-speed.age_ms);
             if(speed.state==MD_UI_SIGNAL_VALID) motion_latched=speed.value>0;
             md_ui_context_t context=motion_latched?MD_UI_CONTEXT_DRIVING:
                 speed.state==MD_UI_SIGNAL_VALID?MD_UI_CONTEXT_PARKED:MD_UI_CONTEXT_UNKNOWN;
             (void)md_display_app_set_vehicle_context(context,context!=MD_UI_CONTEXT_UNKNOWN);
+        }
+        if(!fault && !validating && md_power_sleep_due(now_ms(),atomic_load(&last_valid_rx))) {
+            if(md_power_prepare() && md_display_app_prepare_sleep(5000)) {
+                /* Quiesce the sole RX owner; the timer is always a fallback. */
+                xSemaphoreTake(lock,portMAX_DELAY);
+                bool stopped=md_power_sleep_due(now_ms(),atomic_load(&last_valid_rx)) && set_can_mode(CAN_STOP);
+                xSemaphoreGive(lock);
+                if(stopped) (void)md_power_enter();
+                xSemaphoreTake(lock,portMAX_DELAY);
+                status.ready=install_can(false);
+                xSemaphoreGive(lock);
+            }
+            md_display_app_cancel_sleep();
         }
         vTaskDelay(pdMS_TO_TICKS(10));
     }
@@ -295,6 +401,8 @@ void md_vehicle_app_prepare(void)
     }
     md_analytics_config_defaults(&pending_analytics);
 #if CONFIG_MINIDASH_CAN_ENABLE
+    md_can_ring_init(&rx_ring);atomic_init(&last_valid_rx,0);
+    rx_commands=xQueueCreate(1,sizeof(can_command_t));rx_command_done=xSemaphoreCreateBinary();
     md_can_incident_dump();
     status.configured=true;status.state=MD_ACQ_LISTEN;
 #else
@@ -309,7 +417,9 @@ void md_vehicle_app_start(void)
     if(!lock || started) return;
     /* UI readers already exist. Publish task-creation failure under the lock. */
     xSemaphoreTake(lock,portMAX_DELAY);
-    started=xTaskCreate(vehicle_task,"vehicle",8192,NULL,5,NULL)==pdPASS;
+    if(rx_commands && rx_command_done &&
+        xTaskCreatePinnedToCore(can_rx_task,"can_rx",4096,NULL,18,NULL,1)==pdPASS)
+        started=xTaskCreatePinnedToCore(vehicle_task,"vehicle",8192,NULL,5,NULL,0)==pdPASS;
     if(!started) {
         status.state=MD_ACQ_FAULT;snprintf(status.fault,sizeof(status.fault),"TASK ALLOCATION");
     }

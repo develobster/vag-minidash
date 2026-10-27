@@ -1,5 +1,7 @@
 # Разработка и повторяемые проверки
 
+[Рефакторинг CAN/UI, генератор сигналов и сон: 27 октября](development/embedded-modernization-2026-10-27.md).
+
 Текущая ветка: **`integration/standalone`**. См.
 [интеграцию экранных исправлений и свежие проверки от 14 октября](development/standalone-realignment-2026-10-14.md),
 [карту веток](development/branch-consolidation.md),

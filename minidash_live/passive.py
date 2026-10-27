@@ -1,6 +1,7 @@
 """Receive-only declarative CAN decoding. No supplied definitions describe VAG."""
 from dataclasses import dataclass
 import math
+from .generated_can_signals import unpack_scalar
 
 
 @dataclass(frozen=True)
@@ -57,7 +58,13 @@ class PassiveDecoder:
                 if raw.hex() in field.invalid_raw:
                     quality = "invalid"
                 else:
-                    value = int.from_bytes(raw, field.byteorder, signed=field.signed)*field.scale+field.bias
+                    # Same generated scalar contract as provisioned ESP32 bindings.
+                    # Retain the legacy API's support for 64-bit byte fields.
+                    if len(raw) <= 4:
+                        value = unpack_scalar(raw, 0, len(raw)*8, field.byteorder == "little",
+                                              field.signed, field.scale, field.bias)
+                    else:
+                        value = int.from_bytes(raw, field.byteorder, signed=field.signed)*field.scale+field.bias
                     quality = "valid"
             self.store.publish(field.ecu, field.signal, "can", value, field.ttl, quality, field.unit)
             count += 1

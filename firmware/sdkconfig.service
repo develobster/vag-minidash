@@ -1,0 +1,3 @@
+# Explicit stationary service/USB bench image; manual AP may start without speed.
+# An observed positive speed still shuts Wi-Fi down.
+CONFIG_MINIDASH_SERVICE_MODE=y

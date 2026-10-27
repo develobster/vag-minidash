@@ -30,6 +30,7 @@
 #include "xpt2046_touch.h"
 #include "vehicle_app.h"
 #include "derived_engine.h"
+#include "can_pipeline.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -87,6 +88,7 @@ static md_device_configuration_t s_configuration, s_saved_configuration;
 static md_target_profile_t s_target;
 static uint32_t s_config_revision;
 static bool s_config_ready, s_config_driving, s_config_preview, s_preview_ended_locally;
+static atomic_bool s_sleep_requested, s_sleep_ack, s_sleep_ok;
 static lv_display_t *s_lv_display;
 static uint8_t s_applied_rotation;
 static uint16_t s_ui_width, s_ui_height;
@@ -101,6 +103,7 @@ bool md_display_configuration_read(md_device_configuration_t *config, uint32_t *
 }
 bool md_display_configuration_begin(void)
 {
+    if(atomic_load(&s_sleep_requested)) return false;
     if (!s_config_mutex || xSemaphoreTake(s_config_mutex,pdMS_TO_TICKS(500))!=pdTRUE) return false;
     bool ok=s_config_ready && !s_config_driving && !s_config_preview;
     if (ok && memcmp(&s_configuration,&s_saved_configuration,sizeof(s_configuration))) {
@@ -111,6 +114,7 @@ bool md_display_configuration_begin(void)
 }
 int md_display_configuration_apply(const md_device_configuration_t *config, uint32_t revision, bool save, bool cancel)
 {
+    if(!cancel && atomic_load(&s_sleep_requested)) return 503;
     if (!config || !s_config_mutex || xSemaphoreTake(s_config_mutex,pdMS_TO_TICKS(500))!=pdTRUE) return 500;
     int result=200;
     if (!s_config_ready || revision!=s_config_revision) result=409;
@@ -132,6 +136,7 @@ int md_display_configuration_apply(const md_device_configuration_t *config, uint
     xSemaphoreGive(s_config_mutex); return result;
 }
 static md_ui_signal_store_t s_signal_store;
+static md_signal_mailbox_t s_vehicle_mailbox MD_DISPLAY_TASK_UNUSED;
 static portMUX_TYPE s_signal_mux = portMUX_INITIALIZER_UNLOCKED;
 static volatile bool s_display_ready;
 static volatile bool s_touch_ready;
@@ -240,7 +245,7 @@ static void MD_DISPLAY_TASK_UNUSED settings_storage_task(void *argument)
             if (xQueueReceive(s_settings_save_queue,&pending,quiet_period-elapsed)==pdTRUE) quiet_since=xTaskGetTickCount();
         }
         if (xSemaphoreTake(s_config_mutex,portMAX_DELAY)==pdTRUE) {
-            if (pending==s_config_revision && !s_config_preview) {
+            if (pending==s_config_revision && !s_config_preview && !atomic_load(&s_sleep_requested)) {
                 if (md_configuration_storage_save(&s_configuration)) s_saved_configuration=s_configuration;
                 else ESP_LOGW(TAG,"Configuration not saved; retry by changing a setting");
             }
@@ -961,6 +966,7 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
         vTaskDelete(NULL); return;
     }
     *visible_config=s_configuration; uint32_t seen_revision=s_config_revision;
+    md_ui_signal_store_init(signals);
     uint8_t applied_brightness = settings.brightness_pct;
     md_ui_state_t state;
     md_ui_state_init(&state, &settings);
@@ -980,6 +986,7 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
 
     lvgl_port_cfg_t lvgl_config = ESP_LVGL_PORT_INIT_CONFIG();
     lvgl_config.task_priority = 4;
+    lvgl_config.task_affinity = 0;
     lvgl_config.task_stack = 8192;
     lvgl_config.task_stack_caps = MALLOC_CAP_INTERNAL | MALLOC_CAP_DEFAULT;
     if (lvgl_port_init(&lvgl_config) != ESP_OK) {
@@ -1054,7 +1061,40 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
     TickType_t last_update = xTaskGetTickCount();
     md_analytics_config_t applied_analytics=visible_config->common.analytics;
     (void)md_vehicle_app_analytics_configure(&applied_analytics);
+    bool sleep_lock_held=false;
     for (;;) {
+        if(atomic_load(&s_sleep_requested)) {
+            if(!atomic_load(&s_sleep_ack)) {
+                md_ui_web_stop();
+                if(md_ui_web_active()) {vTaskDelay(pdMS_TO_TICKS(20));continue;}
+                bool ok=false;
+                if(xSemaphoreTake(s_config_mutex,pdMS_TO_TICKS(100))==pdTRUE) {
+                    if(s_config_preview) {s_configuration=s_saved_configuration;s_config_preview=false;}
+                    ok=!memcmp(&s_configuration,&s_saved_configuration,sizeof(s_configuration)) ||
+                        md_configuration_storage_save(&s_configuration);
+                    if(ok) s_saved_configuration=s_configuration;
+                    xSemaphoreGive(s_config_mutex);
+                }
+                if(ok && lvgl_port_lock(100)) {
+                    /* Keep LVGL stopped at this ownership boundary until sleep
+                     * or cancellation. Panel commands drain queued SPI DMA. */
+                    sleep_lock_held=true;
+                    md_display_power(&display,false);
+                    ok=esp_lcd_panel_io_tx_param(md_display_io(&display),0x10,NULL,0)==ESP_OK;
+                    vTaskDelay(pdMS_TO_TICKS(120));
+                } else ok=false;
+                atomic_store(&s_sleep_ok,ok);atomic_store(&s_sleep_ack,true);
+            }
+            vTaskDelay(pdMS_TO_TICKS(20));continue;
+        }
+        if(atomic_load(&s_sleep_ack)) {
+            if(sleep_lock_held) {
+                (void)esp_lcd_panel_io_tx_param(md_display_io(&display),0x11,NULL,0);
+                vTaskDelay(pdMS_TO_TICKS(120));md_display_power(&display,true);
+                lvgl_port_unlock();sleep_lock_held=false;
+            }
+            atomic_store(&s_sleep_ack,false);
+        }
         if (xSemaphoreTake(s_config_mutex,0)==pdTRUE) {
             s_config_driving=state.context==MD_UI_CONTEXT_DRIVING;
             if (seen_revision!=s_config_revision) {
@@ -1123,9 +1163,13 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
         last_update = now_ticks;
         if (state.sleeping || !lvgl_port_lock(20)) continue;
 
+#if CONFIG_MINIDASH_CAN_ENABLE
+        (void)md_signal_mailbox_read(&s_vehicle_mailbox,signals);
+#else
         portENTER_CRITICAL(&s_signal_mux);
         *signals = s_signal_store;
         portEXIT_CRITICAL(&s_signal_mux);
+#endif
         const uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000);
         const md_ui_diagnostics_t diagnostics = diagnostics_snapshot(now_ms,signals);
         md_ui_lvgl_renderer()->update(NULL,state.screen, &settings, &state, signals,
@@ -1138,6 +1182,7 @@ void md_display_app_start(void)
 {
 #if CONFIG_MINIDASH_DISPLAY_ENABLE
     md_ui_signal_store_init(&s_signal_store);
+    md_signal_mailbox_init(&s_vehicle_mailbox);
     s_ui_event_queue = xQueueCreate(UI_EVENT_QUEUE_LENGTH, sizeof(ui_event_t));
     s_settings_save_queue = xQueueCreate(1, sizeof(uint32_t));
     s_config_mutex=xSemaphoreCreateMutex();
@@ -1149,7 +1194,7 @@ void md_display_app_start(void)
         ESP_LOGE(TAG, "Could not start settings storage task");
         return;
     }
-    if (xTaskCreate(ui_task, "ui_controller", MD_UI_TASK_STACK_BYTES, NULL, 3, &s_ui_task) != pdPASS) {
+    if (xTaskCreatePinnedToCore(ui_task, "ui_controller", MD_UI_TASK_STACK_BYTES, NULL, 3, &s_ui_task,0) != pdPASS) {
         ESP_LOGE(TAG, "Could not start UI controller task");
         s_ui_task = NULL;
         return;
@@ -1195,11 +1240,36 @@ bool md_display_app_set_vehicle_context(md_ui_context_t context, bool verified)
     return xQueueSend(s_ui_event_queue, &event, 0) == pdTRUE;
 }
 
+void md_display_app_publish_store(const md_ui_signal_store_t *store)
+{
+#if CONFIG_MINIDASH_DISPLAY_ENABLE
+    if(store && s_ui_event_queue) md_signal_mailbox_publish(&s_vehicle_mailbox,store);
+#else
+    (void)store;
+#endif
+}
+bool md_display_app_prepare_sleep(uint32_t timeout_ms)
+{
+#if CONFIG_MINIDASH_DISPLAY_ENABLE
+    if(!s_display_ready || atomic_load(&s_sleep_ack)) return false;
+    atomic_store(&s_sleep_requested,true);
+    TickType_t started=xTaskGetTickCount();
+    while(!atomic_load(&s_sleep_ack) && xTaskGetTickCount()-started<pdMS_TO_TICKS(timeout_ms))
+        vTaskDelay(pdMS_TO_TICKS(20));
+    bool ok=atomic_load(&s_sleep_ack) && atomic_load(&s_sleep_ok);
+    if(!ok) atomic_store(&s_sleep_requested,false);
+    return ok;
+#else
+    (void)timeout_ms;return true;
+#endif
+}
+void md_display_app_cancel_sleep(void) {atomic_store(&s_sleep_requested,false);}
+
 bool md_display_app_publish_signal(const char *canonical_signal, double value,
                                    md_ui_signal_state_t state, uint32_t ttl_ms,
                                    bool demo)
 {
-    if (!canonical_signal) return false;
+    if (!canonical_signal || atomic_load(&s_sleep_requested)) return false;
     const int id = md_ui_signal_id_from_name(canonical_signal);
     const uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000);
     portENTER_CRITICAL(&s_signal_mux);

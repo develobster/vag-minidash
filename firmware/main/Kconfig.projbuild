@@ -1,6 +1,41 @@
 menu "MiniDash display and UI"
+    config MINIDASH_DEEP_SLEEP
+        bool "Deep sleep on CAN silence (requires reviewed wake/power wiring)"
+        depends on MINIDASH_CAN_ENABLE && !FREERTOS_UNICORE
+        default n
+        help
+            CAN silence is not ignition evidence on a filtered OBD gateway.
+            Verify this policy in the vehicle before enabling. This does not
+            power off the buck converter or the CAN transceiver.
+    config MINIDASH_CAN_SLEEP_SECONDS
+        int "CAN silence before deep sleep, seconds"
+        depends on MINIDASH_DEEP_SLEEP
+        range 15 300
+        default 30
+    config MINIDASH_WAKE_GPIO
+        int "RTC wake input, -1 for timer only"
+        depends on MINIDASH_DEEP_SLEEP
+        range -1 21
+        default -1
+    config MINIDASH_WAKE_LEVEL
+        int "Wake GPIO active level (CAN RX must use 0)"
+        depends on MINIDASH_DEEP_SLEEP
+        range 0 1
+        default 0
+    config MINIDASH_WAKE_SECONDS
+        int "Fallback timer wake interval, seconds"
+        depends on MINIDASH_DEEP_SLEEP
+        range 10 3600
+        default 300
+    config MINIDASH_SERVICE_MODE
+        bool "Service boot: permit manual AP without measured speed"
+        default n
+        help
+            For a disconnected bench or stationary service only. An observed
+            positive speed stops Wi-Fi even in this mode. AP is never automatic.
     config MINIDASH_CAN_ENABLE
         bool "Standalone CAN acquisition (review wiring first)"
+        depends on !FREERTOS_UNICORE
         default n
     config MINIDASH_CAN_TX_GPIO
         int "CAN TX GPIO"

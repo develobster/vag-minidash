@@ -73,6 +73,11 @@ typedef struct {
     bool focus, gauge_available, gauge_layout, focus_inline_unit;
     uint16_t gauge_level;
     float gauge_minimum, gauge_maximum;
+    int gauge_width, gauge_height;
+    bool gauge_art_valid, chart_valid;
+    uint32_t chart_update_ms;
+    float chart_minimum, chart_maximum;
+    md_ui_signal_id_t chart_signal;
     lv_obj_t *gauge_scale;
     lv_obj_t *gauge_ticks[5];
     char gauge_scale_text[80];
@@ -1370,7 +1375,7 @@ static void retheme_view(screen_view_t *view)
             if (field->widget_type==MD_UI_WIDGET_BAR) lv_obj_set_style_bg_color(field->visual,color(s_palette.accent),LV_PART_INDICATOR);
             else if (field->series) lv_chart_set_series_color(field->visual,field->series,color(s_palette.accent));
         }
-        field->color_set = false;
+        field->color_set = false;field->gauge_art_valid=false;field->chart_valid=false;
     }
 }
 
@@ -1426,6 +1431,20 @@ void md_ui_screens_retheme(const md_ui_palette_t *palette, md_ui_theme_id_t them
     }
 }
 
+static void invalidate_needle(field_view_t *field,uint16_t level)
+{
+    lv_area_t a;lv_obj_get_coords(field->card,&a);
+    int w=lv_area_get_width(&a),h=lv_area_get_height(&a);
+    int radius=(w-24<h-70?w-24:h-70)/2;
+    if(radius<16) return;
+    float angle=(135.0f+270.0f*level/1000.0f)*0.01745329252f;
+    int cx=(a.x1+a.x2)/2,cy=a.y1+26+radius;
+    int x1=cx-(int)(cosf(angle)*7),y1=cy-(int)(sinf(angle)*7);
+    int x2=cx+(int)(cosf(angle)*(radius-9)),y2=cy+(int)(sinf(angle)*(radius-9));
+    lv_area_t dirty={.x1=(x1<x2?x1:x2)-4,.y1=(y1<y2?y1:y2)-4,
+        .x2=(x1>x2?x1:x2)+4,.y2=(y1>y2?y1:y2)+4};
+    lv_obj_invalidate_area(field->card,&dirty);
+}
 static void update_focus_gauge(field_view_t *field, const md_ui_settings_t *settings,
     const md_ui_signal_store_t *signals, uint32_t now_ms)
 {
@@ -1454,14 +1473,21 @@ static void update_focus_gauge(field_view_t *field, const md_ui_settings_t *sett
         low=s_gauge_ranges[field->signal_id][0]; high=s_gauge_ranges[field->signal_id][1];
     }
     if(s_gauge_auto) md_instrument_profile_range(md_instrument_active(&s_instrument_selection,now_ms,NULL),field->signal_id,&low,&high);
-    field->gauge_minimum=low; field->gauge_maximum=high;
+    const int width=lv_obj_get_width(field->card),height=lv_obj_get_height(field->card);
+    bool artwork_changed=!field->gauge_art_valid || field->gauge_minimum!=low ||
+        field->gauge_maximum!=high || field->gauge_width!=width || field->gauge_height!=height;
+    field->gauge_minimum=low;field->gauge_maximum=high;
+    field->gauge_width=width;field->gauge_height=height;
     md_ui_widget_view_t projected;
     md_ui_project_widget(&projected,field->signal_id,settings,signals,now_ms,low,high,NULL);
     const bool available=projected.has_range && projected.signal.state==MD_UI_SIGNAL_VALID;
     if(field->gauge_available!=available || field->gauge_level!=projected.level_per_mille) {
+        if(field->gauge_available) invalidate_needle(field,field->gauge_level);
         field->gauge_available=available; field->gauge_level=projected.level_per_mille;
-        lv_obj_invalidate(field->card);
+        if(available) invalidate_needle(field,field->gauge_level);
     }
+    if(!artwork_changed) return;
+    field->gauge_art_valid=true;
     const md_ui_signal_definition_t *definition=md_ui_signal_definition(field->signal_id);
     md_ui_signal_snapshot_t sample={.state=MD_UI_SIGNAL_VALID,.value_available=true,.value=low};
     char left[20],right[20],unit[12],text[80];
@@ -1469,7 +1495,6 @@ static void update_focus_gauge(field_view_t *field, const md_ui_settings_t *sett
     sample.value=high;
     md_ui_format_signal(definition,&sample,settings,right,sizeof(right),unit,sizeof(unit));
     snprintf(text,sizeof(text),"%s  ...  %s %s",left,right,unit);
-    const int width=lv_obj_get_width(field->card),height=lv_obj_get_height(field->card);
     const int radius=(width-24<height-70 ? width-24 : height-70)/2;
     for(unsigned i=0;i<5;i++) {
         sample.value=low+(high-low)*i/4.0f;
@@ -1539,7 +1564,12 @@ static void update_metric_field(field_view_t *field,
         else {
             lv_obj_remove_flag(field->visual, LV_OBJ_FLAG_HIDDEN);
             if (field->widget_type == MD_UI_WIDGET_BAR) lv_bar_set_value(field->visual, projected.level_per_mille, LV_ANIM_OFF);
-            else if (field->series) {
+            else if (field->series && (!field->chart_valid || field->chart_signal!=id ||
+                field->chart_update_ms!=s_history[id].last_update_ms ||
+                field->chart_minimum!=spec->minimum || field->chart_maximum!=spec->maximum)) {
+                field->chart_valid=true;field->chart_signal=id;
+                field->chart_update_ms=s_history[id].last_update_ms;
+                field->chart_minimum=spec->minimum;field->chart_maximum=spec->maximum;
                 lv_chart_set_axis_range(field->visual, LV_CHART_AXIS_PRIMARY_Y, 0, 1000);
                 for (unsigned i = 0; i < MD_UI_HISTORY_SAMPLES; ++i) {
                     int32_t point = LV_CHART_POINT_NONE;

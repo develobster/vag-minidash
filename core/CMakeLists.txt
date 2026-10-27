@@ -4,6 +4,8 @@ set(CMAKE_C_STANDARD 11)
 # Same physical sources used by ESP-IDF; no duplicated target source trees.
 set(MD_CORE_DIR ${CMAKE_CURRENT_LIST_DIR}/../firmware/main)
 add_library(minidash-core STATIC
+    ${MD_CORE_DIR}/can_pipeline.c
+    ${MD_CORE_DIR}/generated_can_signals.c
     ${MD_CORE_DIR}/ui_core.c ${MD_CORE_DIR}/ui_theme.c
     ${MD_CORE_DIR}/ui_startup.c ${MD_CORE_DIR}/ui_i18n.c ${MD_CORE_DIR}/ui_model.c
     ${MD_CORE_DIR}/ui_platform.c ${MD_CORE_DIR}/ui_configuration.c
@@ -18,6 +20,10 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+    find_package(Threads REQUIRED)
+    add_executable(minidash-pipeline-tests test_can_pipeline.c)
+    target_link_libraries(minidash-pipeline-tests PRIVATE minidash-core Threads::Threads)
+    add_test(NAME can-realtime-pipeline COMMAND minidash-pipeline-tests)
     add_executable(minidash-transport-tests test_diagnostic_transport.c)
     target_link_libraries(minidash-transport-tests PRIVATE minidash-core)
     add_test(NAME diagnostic-transport COMMAND minidash-transport-tests)

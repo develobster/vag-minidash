@@ -43,6 +43,7 @@ typedef struct {
     bool car_validation_mode; /* Bounded evidence recording; never relaxes TX gates. */
     uint32_t startup_ms;
     bool require_bus_activity;
+    uint32_t request_gap_ms; /* 0 => 100 ms, clamped to 100..1000 ms. */
     const md_vehicle_profile_t *profile;
 } md_acq_config_t;
 typedef struct { double value; uint32_t updated_ms, ttl_ms; bool valid; } md_acq_sample_t;
@@ -72,6 +73,8 @@ typedef struct {
     uint8_t failures[MD_ACQ_MAX_BINDINGS], uds_failures[MD_ACQ_MAX_BINDINGS];
     uint32_t started_ms, last_tx_ms, request_ms, progress_ms, quiet_ms, idle_since_ms;
     uint32_t startup_retry_at, last_bus_ms;
+    uint32_t external_tester_ms;
+    bool external_tester_seen;
     uint8_t startup_retry_round;
     bool startup_retry_pending, seen_bus_activity;
     uint32_t rx_count, tx_count, timeout_count, malformed_count, rejected_count;
@@ -98,6 +101,10 @@ void md_acq_init(md_acquisition_t *a, const md_acq_config_t *config,
                  md_acq_send_t send, void *context, uint32_t now_ms);
 void md_acq_tick(md_acquisition_t *a, uint32_t now_ms);
 void md_acq_receive(md_acquisition_t *a, const md_can_frame_t *f, uint32_t now_ms);
+/* Preserve RX timestamps for passive samples, but apply protocol deadlines at
+ * processing time as well: a backlogged reply cannot extend an expired job. */
+void md_acq_receive_at(md_acquisition_t *a, const md_can_frame_t *f,
+                       uint32_t received_ms, uint32_t processed_ms);
 void md_acq_bus_available(md_acquisition_t *a, bool available, uint32_t now_ms);
 void md_acq_restart(md_acquisition_t *a, uint32_t now_ms);
 /* Mode changes belong to the adapter. Do not consume a probe while it is

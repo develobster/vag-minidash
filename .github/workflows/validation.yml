@@ -1,0 +1,83 @@
+name: MiniDash validation
+on:
+  push:
+    branches: [integration/standalone]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: minidash-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  host:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build clang-tidy
+          python -m pip install -r requirements-transport.txt -r requirements-data.txt
+      - uses: actions/checkout@v4
+        with:
+          repository: DaveGamble/cJSON
+          ref: v1.7.19
+          path: .local/cjson
+      - name: Generated source consistency
+        run: python scripts/generate_can_signals.py --check
+      - name: Portable C (warnings are errors)
+        run: |
+          cmake -S core -B .local/core -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DMD_JSON_SOURCE_DIR="$GITHUB_WORKSPACE/.local/cjson"
+          cmake --build .local/core
+          ctest --test-dir .local/core --output-on-failure
+      - name: Static C analysis
+        run: |
+          for source in acquisition diagnostic_transport can_pipeline generated_can_signals; do
+            clang-tidy -p .local/core "firmware/main/$source.c" --checks='-*,clang-analyzer-core.*,clang-analyzer-unix.Malloc,bugprone-sizeof-expression' --warnings-as-errors='*'
+          done
+      - name: Python and web contracts
+        run: |
+          python -m unittest discover -s tests -v
+          node --test tests/frontend/model.test.js tests/frontend/units.test.js
+      - name: Address and undefined behavior sanitizers
+        run: |
+          cmake -S core -B .local/sanitized -G Ninja -DCMAKE_C_FLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer -g'
+          cmake --build .local/sanitized
+          ctest --test-dir .local/sanitized --output-on-failure
+  firmware:
+    runs-on: ubuntu-24.04
+    container: espressif/idf:v5.5.5
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [standalone, listen-only, sleep-ili9341]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ESP32-S3 (never flash)
+        shell: bash
+        working-directory: firmware
+        run: |
+          . "$IDF_PATH/export.sh"
+          preset=sdkconfig.standalone
+          if [ '${{ matrix.variant }}' = listen-only ]; then preset=sdkconfig.listen-only; fi
+          cat > sdkconfig.ci.generated <<'CONFIG'
+          CONFIG_TWAI_ISR_IN_IRAM=y
+          CONFIG_MINIDASH_DEEP_SLEEP=n
+          CONFIG
+          if [ '${{ matrix.variant }}' = sleep-ili9341 ]; then
+            cat >> sdkconfig.ci.generated <<'CONFIG'
+          CONFIG_MINIDASH_DEEP_SLEEP=y
+          CONFIG_MINIDASH_WAKE_GPIO=5
+          CONFIG_MINIDASH_WAKE_LEVEL=0
+          CONFIG_MINIDASH_LCD_CONTROLLER_ST7789=n
+          CONFIG_MINIDASH_LCD_CONTROLLER_ILI9341=y
+          CONFIG
+          fi
+          idf.py -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;$preset;sdkconfig.ci.generated" build

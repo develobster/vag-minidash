@@ -1,4 +1,5 @@
 #include "acquisition.h"
+#include "generated_can_signals.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -176,6 +177,7 @@ void md_acq_set_demand(md_acquisition_t *a, uint32_t visible, uint32_t backgroun
 void md_acq_set_tx_ready(md_acquisition_t *a, bool ready) { a->tx_ready=ready; }
 bool md_acq_wants_tx(const md_acquisition_t *a,uint32_t now)
 {
+    if(a->external_tester_seen && !elapsed(now,a->external_tester_ms,2000U)) return false;
     if(!a->bus_available || !a->config.allow_standard_obd || a->state==MD_ACQ_FAULT || a->state==MD_ACQ_QUIET)return false;
     if(a->state!=MD_ACQ_LISTEN)return true;
     return elapsed(now,a->started_ms,a->config.startup_ms) &&
@@ -342,12 +344,12 @@ static void complete(md_acquisition_t *a, uint32_t now)
         a->dtc_truncated=d[1]>MD_ACQ_DTC_MAX;
         for(unsigned i=0;i<a->dtc_count;i++) a->dtc[i]=((uint16_t)d[2+i*2]<<8)|d[3+i*2];
         a->dtc_valid=true; a->dtc_ms=now; ok=true;
-    } else if (a->did_request) {
+    } else if (a->did_request && a->config.profile && a->job<a->config.profile->uds_count) {
         const md_uds_binding_t *b=&a->config.profile->uds[a->job];
-        if(n==3U+b->bytes) { uint32_t v=0; for(unsigned i=0;i<b->bytes;i++) v=(v<<8)|d[3+i];
-            double scalar=v;
-            if(b->signed_value && (v&(UINT32_C(1)<<(b->bytes*8U-1U)))) scalar=(double)v-(double)(UINT64_C(1)<<(b->bytes*8U));
-            publish(a,b->signal,MD_SOURCE_UDS,scalar*b->scale+b->offset,b->ttl_ms,now);
+        double value;
+        if(b->bytes && b->bytes<=4 && n==3U+b->bytes &&
+            md_can_unpack_scalar(d+3,b->bytes,0,b->bytes*8U,false,b->signed_value,b->scale,b->offset,&value)) {
+            publish(a,b->signal,MD_SOURCE_UDS,value,b->ttl_ms,now);
             a->uds_failures[a->job]=0; ok=true; }
     } else if (a->service==1 && a->job<OBD_COUNT && n==2U+obd[a->job].bytes) {
         const obd_signal_t *b=&obd[a->job]; float v=d[2];
@@ -365,10 +367,23 @@ static void complete(md_acquisition_t *a, uint32_t now)
     if(ok) { exchange(a,now,MD_EXCHANGE_OK);a->active=false;a->consecutive_failures=0;md_tp_reset(&a->tp); }
     else { exchange(a,now,MD_EXCHANGE_MALFORMED);a->malformed_count++;fail(a,now,false); }
 }
-void md_acq_receive(md_acquisition_t *a,const md_can_frame_t *f,uint32_t now)
+void md_acq_receive_at(md_acquisition_t *a,const md_can_frame_t *f,uint32_t now,uint32_t processed)
 {
     if (!f || f->dlc>8 || f->id>(f->extended?0x1fffffff:0x7ff)) { a->malformed_count++;return; }
     a->rx_count++;trace(a,f,now,false);
+    /* Own TX has self-reception disabled. A well-formed diagnostic request
+     * observed on the bus belongs to another tester; stop initiating jobs. */
+    if(!f->extended && !f->remote && f->id>=0x700 && f->id<=0x7e7 &&
+        f->dlc>=2 && (f->data[0]>>4)==0 && (f->data[0]&15)>=1 &&
+        (f->data[0]&15)<=f->dlc-1U) {
+        uint8_t service=f->data[1];
+        if((service>=1 && service<=0x0a) || service==0x10 || service==0x14 ||
+            service==0x19 || service==0x22 || service==0x27 || service==0x2e ||
+            service==0x31 || service==0x3e) {
+            a->external_tester_seen=true;a->external_tester_ms=processed;
+            a->active=false;md_tp_reset(&a->tp);
+        }
+    }
     /* Bus availability after a genuine quiet gap is NOT ignition evidence. */
     /* Independent traffic may use 29-bit IDs. Never treat diagnostic response
      * addresses or our own request ID as proof that another bus is awake. */
@@ -384,14 +399,15 @@ void md_acq_receive(md_acquisition_t *a,const md_can_frame_t *f,uint32_t now)
         for(size_t i=0;i<p->passive_count;i++) {
             const md_passive_binding_t *b=&p->passive[i];
             if(f->id!=b->id || f->dlc!=b->dlc) continue;
-            uint64_t raw=0;for(unsigned k=0;k<f->dlc;k++) raw|=(uint64_t)f->data[k]<<(8*k);
-            uint64_t mask=(UINT64_C(1)<<b->bit_count)-1; raw=(raw>>b->start_bit)&mask;
-            int64_t value=(int64_t)raw;
-            if(b->signed_value && (raw&(UINT64_C(1)<<(b->bit_count-1)))) value-=(INT64_C(1)<<b->bit_count);
-            publish(a,b->signal,MD_SOURCE_PASSIVE,value*b->scale+b->offset,b->ttl_ms,now);
+            double value;
+            if(md_can_unpack_scalar(f->data,f->dlc,b->start_bit,b->bit_count,true,
+                b->signed_value,b->scale,b->offset,&value))
+                publish(a,b->signal,MD_SOURCE_PASSIVE,value,b->ttl_ms,now);
         }
     }
     if (!a->active || f->extended || f->remote) return;
+    if((int32_t)(now-a->request_ms)<0) return; /* queued before this request */
+    now=processed;
     if(a->state==MD_ACQ_DISCOVERY) {
         if (f->id>=0x7e8 && f->id<=0x7ef && f->dlc>=7 && f->data[0]==6 && f->data[1]==0x41 && f->data[2]==0) {
             unsigned i=f->id-0x7e8;uint32_t bits=be32(f->data+3);
@@ -429,6 +445,8 @@ void md_acq_receive(md_acquisition_t *a,const md_can_frame_t *f,uint32_t now)
     } else if(r==MD_TP_COMPLETE) complete(a,now);
     else if(r==MD_TP_INVALID) {exchange(a,now,MD_EXCHANGE_MALFORMED);a->malformed_count++;fail(a,now,false);}
 }
+void md_acq_receive(md_acquisition_t *a,const md_can_frame_t *f,uint32_t now)
+{ md_acq_receive_at(a,f,now,now); }
 bool md_acq_request_dtc(md_acquisition_t *a,uint32_t now)
 {
     md_ui_signal_snapshot_t speed=md_acq_snapshot(a,MD_SIGNAL_VEHICLE_SPEED,now,NULL);
@@ -439,6 +457,7 @@ void md_acq_format_dtc(uint16_t code,char text[6])
 { (void)snprintf(text,6,"%c%04X","PCBU"[code>>14],code&0x3fff); }
 void md_acq_tick(md_acquisition_t *a,uint32_t now)
 {
+    if(a->external_tester_seen && !elapsed(now,a->external_tester_ms,2000U)) return;
     if(!a->bus_available || a->state==MD_ACQ_FAULT || !a->config.allow_standard_obd) return;
     if(a->state==MD_ACQ_QUIET) {
         if(!a->startup_retry_pending || !due(now,a->startup_retry_at) ||
@@ -472,6 +491,9 @@ void md_acq_tick(md_acquisition_t *a,uint32_t now)
         return;
     }
     uint32_t gap=a->config.car_validation_mode?MD_ACQ_VALIDATION_GAP_MS:REQUEST_GAP_MS;
+    uint32_t configured=a->config.request_gap_ms;
+    if(configured>1000U) configured=1000U;
+    if(configured>gap) gap=configured;
     if(a->sent_any && !elapsed(now,a->last_tx_ms,gap)) return;
     if(a->state==MD_ACQ_LISTEN) {
         if(!md_acq_wants_tx(a,now) || !a->tx_ready) return;

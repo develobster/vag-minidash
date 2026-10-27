@@ -1,4 +1,5 @@
 #include "acquisition.h"
+#include "generated_can_signals.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -317,9 +318,41 @@ static void test_analytics_codecs(void)
     signed_binding.signal=MD_SIGNAL_BOOST_PEAK;
     CHECK(!md_acq_profile_valid(&signed_profile));
 }
+static void test_external_tester_and_backlog(void)
+{
+    init(true,NULL,0);run(0,4000);request_rpm(4100);
+    md_can_frame_t frame={.id=0x7e8,.dlc=5,.data={4,0x41,0x0c,0x32,0}};
+    md_acq_receive_at(&a,&frame,4099,4110);CHECK(a.active); /* previous job */
+    md_acq_receive_at(&a,&frame,4110,4700);CHECK(!a.active && a.timeout_count>0);
+    request_rpm(4800);
+    frame=(md_can_frame_t){.id=0x7e0,.dlc=8,.data={3,0x22,0xf1,0x90}};
+    md_acq_receive(&a,&frame,4810);CHECK(!a.active && !md_acq_wants_tx(&a,5000));
+    unsigned before=count;md_acq_tick(&a,6809);CHECK(count==before);
+    md_acq_tick(&a,6810);CHECK(count>before);
+    init(true,&profile,0);run(0,4000);prepare_uds(4100);
+    uint8_t unsupported[]={0x7f,0x22,0x31};
+    payload(0x77c,unsupported,3,4200);CHECK(!a.active && a.uds_failures[0]==3);
+}
+static void test_generated_passive_profile(void)
+{
+    md_passive_binding_t bindings[MD_ACQ_MAX_BINDINGS];
+    size_t count_bindings=md_generated_can_bindings("MQB",bindings,MD_ACQ_MAX_BINDINGS);
+    CHECK(count_bindings==4); /* pedal has no canonical firmware raw ID yet */
+    CHECK(!md_generated_can_bindings("MQB",bindings,1));
+    CHECK(!md_generated_can_bindings("UNKNOWN",bindings,MD_ACQ_MAX_BINDINGS));
+    count_bindings=md_generated_can_bindings("MQB",bindings,MD_ACQ_MAX_BINDINGS);
+    md_vehicle_profile_t staged=profile;staged.passive=bindings;staged.passive_count=count_bindings;
+    CHECK(md_acq_profile_valid(&staged));init(true,&staged,0);run(0,4000);
+    md_can_frame_t frame={.id=168,.dlc=8,.data={0,0,0,0,0,0,0,0x32}};
+    md_acq_receive(&a,&frame,4010);
+    md_source_t source;md_ui_signal_snapshot_t sample=md_acq_snapshot(&a,MD_SIGNAL_ENGINE_RPM,4011,&source);
+    CHECK(sample.value==3200 && source==MD_SOURCE_PASSIVE);
+    staged.definitions_verified=false;init(true,&staged,0);
+    md_acq_receive(&a,&frame,4010);CHECK(!a.samples[MD_SIGNAL_ENGINE_RPM][MD_SOURCE_PASSIVE].valid);
+}
 int main(void)
 {
     test_end_to_end();test_dtc();test_closed_and_timeout();test_fault_reconnect_and_idle();
-    test_profiles_arbitration();test_isotp();test_transport_boundaries();test_uds_pending_deadlines();test_pending_and_validation();test_fuzz_and_wrap();test_analytics_codecs();test_late_ecu_startup();test_production_bus_gate();
+    test_profiles_arbitration();test_isotp();test_transport_boundaries();test_uds_pending_deadlines();test_pending_and_validation();test_fuzz_and_wrap();test_analytics_codecs();test_late_ecu_startup();test_production_bus_gate();test_external_tester_and_backlog();test_generated_passive_profile();
     printf("PASS: 13 acquisition scenarios + 50,000 malformed frames; core=%zu bytes, trace=%zu bytes\n",sizeof(a),sizeof(a.trace));return 0;
 }

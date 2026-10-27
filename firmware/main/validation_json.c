@@ -88,6 +88,10 @@ cJSON *md_validation_json(const md_vehicle_validation_t *v, const char *version,
     cJSON_AddNumberToObject(errors,"other",v->status.can_errors.other);
     cJSON_AddNumberToObject(root,"bus_offs",v->status.bus_offs);
     cJSON_AddNumberToObject(root,"rx_dropped",v->status.rx_dropped);
+    cJSON_AddNumberToObject(root,"rx_driver_dropped",v->status.rx_driver_dropped);
+    cJSON_AddNumberToObject(root,"rx_ring_dropped",v->status.rx_ring_dropped);
+    cJSON_AddNumberToObject(root,"rx_epoch_dropped",v->status.rx_epoch_dropped);
+    cJSON_AddNumberToObject(root,"rx_ring_high_water",v->status.rx_ring_high_water);
     cJSON_AddNumberToObject(root,"trace_overwritten",v->status.trace_overwritten);
     cJSON_AddNumberToObject(root,"exchange_overwritten",v->exchange_overwritten);
     cJSON_AddNumberToObject(root,"trace_sequence",v->trace_sequence);

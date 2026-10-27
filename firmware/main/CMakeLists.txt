@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "main.c" "backlight_controller.c" "display_manager.c" "st7789_backend.c"
+    SRCS "main.c" "can_pipeline.c" "generated_can_signals.c" "power_manager.c" "backlight_controller.c" "display_manager.c" "st7789_backend.c"
          "ili9341_backend.c" "xpt2046_touch.c" "display_app.c"
          "display_serial_protocol.c" "diagnostic_transport.c" "acquisition.c" "vehicle_app.c" "ui_instrument_profiles.c"
          "window_statistics.c" "performance_timer.c" "derived_engine.c" "validation_json.c"

@@ -25,6 +25,7 @@
 #include "ui_web.h"
 #include "ui_core_selftest.h"
 #include "vehicle_app.h"
+#include "power_manager.h"
 #ifdef MINIDASH_USB_CAN_BENCH
 #include "can_usb_bench.h"
 #endif
@@ -395,6 +396,7 @@ static void print_ready(void)
 
 void app_main(void)
 {
+    md_power_boot();
 #ifdef MINIDASH_USB_CAN_BENCH
     if(!md_backlight_init())return;
     md_vehicle_app_prepare();

@@ -4,6 +4,7 @@
 cJSON *md_analytics_presets_json(void);
 int md_display_analytics_reset(uint32_t revision,bool session);
 bool md_ui_web_start(void);
+void md_ui_web_vehicle_speed(bool valid, double speed_kph, uint32_t observed_ms);
 void md_ui_web_stop(void);
 bool md_ui_web_active(void);
 const char *md_ui_web_ssid(void);

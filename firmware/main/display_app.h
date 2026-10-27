@@ -3,6 +3,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "ui_core.h"
+/* SPSC handoff: acquisition owns publication, UI owns consumption. */
+void md_display_app_publish_store(const md_ui_signal_store_t *store);
+bool md_display_app_prepare_sleep(uint32_t timeout_ms);
+void md_display_app_cancel_sleep(void);
 
 void md_display_app_start(void);
 void md_display_app_command(const char *command);
