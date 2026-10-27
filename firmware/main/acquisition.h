@@ -43,7 +43,7 @@ typedef struct {
     bool car_validation_mode; /* Bounded evidence recording; never relaxes TX gates. */
     uint32_t startup_ms;
     bool require_bus_activity;
-    uint32_t request_gap_ms; /* 0 => 100 ms, clamped to 100..1000 ms. */
+    uint32_t request_gap_ms; /* 0 => 200 ms, may only increase the 5 Hz floor. */
     const md_vehicle_profile_t *profile;
 } md_acq_config_t;
 typedef struct { double value; uint32_t updated_ms, ttl_ms; bool valid; } md_acq_sample_t;
@@ -105,6 +105,9 @@ void md_acq_receive(md_acquisition_t *a, const md_can_frame_t *f, uint32_t now_m
  * processing time as well: a backlogged reply cannot extend an expired job. */
 void md_acq_receive_at(md_acquisition_t *a, const md_can_frame_t *f,
                        uint32_t received_ms, uint32_t processed_ms);
+struct vag_can_db;
+void md_acq_receive_with_vag(md_acquisition_t *a, struct vag_can_db *db,
+    const md_can_frame_t *f, uint32_t received_ms, uint32_t processed_ms);
 void md_acq_bus_available(md_acquisition_t *a, bool available, uint32_t now_ms);
 void md_acq_restart(md_acquisition_t *a, uint32_t now_ms);
 /* Mode changes belong to the adapter. Do not consume a probe while it is

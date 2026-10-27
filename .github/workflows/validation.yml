@@ -31,15 +31,22 @@ jobs:
           ref: v1.7.19
           path: .local/cjson
       - name: Generated source consistency
-        run: python scripts/generate_can_signals.py --check
+        run: |
+          python scripts/generate_vag_can_db.py --check
+          python scripts/generate_can_signals.py --check
+      - uses: actions/checkout@v4
+        with:
+          repository: lvgl/lvgl
+          ref: v9.5.0
+          path: .local/lvgl
       - name: Portable C (warnings are errors)
         run: |
-          cmake -S core -B .local/core -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DMD_JSON_SOURCE_DIR="$GITHUB_WORKSPACE/.local/cjson"
+          cmake -S core -B .local/core -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DMD_JSON_SOURCE_DIR="$GITHUB_WORKSPACE/.local/cjson" -DMD_LVGL_SOURCE_DIR="$GITHUB_WORKSPACE/.local/lvgl"
           cmake --build .local/core
           ctest --test-dir .local/core --output-on-failure
       - name: Static C analysis
         run: |
-          for source in acquisition diagnostic_transport can_pipeline generated_can_signals power_manager can_link_tx; do
+          for source in acquisition diagnostic_transport can_pipeline generated_can_signals power_manager can_link_tx vag_can_db drag_timer automotive_screens; do
             clang-tidy -p .local/core "firmware/main/$source.c" --checks='-*,clang-analyzer-core.*,clang-analyzer-unix.Malloc,bugprone-sizeof-expression' --warnings-as-errors='*'
           done
       - name: Python and web contracts
@@ -51,6 +58,13 @@ jobs:
           cmake -S core -B .local/sanitized -G Ninja -DCMAKE_C_FLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer -g'
           cmake --build .local/sanitized
           ctest --test-dir .local/sanitized --output-on-failure
+      - name: Encode exact UI previews
+        run: python scripts/ui_previews_to_png.py .local/core/ui-previews
+      - uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-lvgl-previews
+          path: .local/core/ui-previews/*.png
+          retention-days: 7
   firmware:
     runs-on: ubuntu-24.04
     container: espressif/idf:v5.5.5

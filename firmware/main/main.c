@@ -465,6 +465,35 @@ void app_main(void)
             printf("MINIDASH_TEST_REJECTED standalone_runtime_active\n");
 #endif
             print_ready();
+        } else if(strncmp(line,"screen ",7)==0) {
+            static const char *const names[]={"sport","thermals","diesel","drag","night"};
+            bool queued=false;
+            for(unsigned i=0;i<5;i++) if(!strcmp(line+7,names[i]))
+                queued=md_display_app_show_automotive((md_ui_screen_t)(MD_UI_SCREEN_SPORT_BOOST+i));
+            printf("MINIDASH_SCREEN status=%s\n",queued?"QUEUED":"REJECTED");
+        } else if(strcmp(line,"drag-reset")==0) {
+            md_vehicle_app_drag_reset();printf("MINIDASH_DRAG_RESET status=QUEUED\n");
+        } else if(strcmp(line,"vag-config")==0) {
+            vag_db_config_t c;
+            if(md_vehicle_app_vag_config(&c)) printf("MINIDASH_VAG_CONFIG platform=%s layout=%u shift_rpm=%u soot_limit_g=%.1f\n",
+                vag_platform_name(c.platform),(unsigned)c.layout,c.shift_rpm,c.soot_limit_decigrams*.1);
+        } else if(strncmp(line,"vag-platform ",13)==0 || strncmp(line,"vag-layout ",11)==0 ||
+                  strncmp(line,"shift-rpm ",10)==0 || strncmp(line,"soot-limit ",11)==0) {
+            vag_db_config_t c;bool valid=md_vehicle_app_vag_config(&c);unsigned n=0;char extra;
+            if(strncmp(line,"vag-platform ",13)==0) {
+                if(!strcmp(line+13,"mqb")) c.platform=PLATFORM_MQB;
+                else if(!strcmp(line+13,"pq35_46")) c.platform=PLATFORM_PQ35_46;else valid=false;
+            } else if(strncmp(line,"vag-layout ",11)==0) {
+                if(!strcmp(line+11,"sourced")) c.layout=VAG_LAYOUT_SOURCED;
+                else if(!strcmp(line+11,"experimental")) c.layout=VAG_LAYOUT_REQUESTED_EXPERIMENTAL;else valid=false;
+            } else if(strncmp(line,"shift-rpm ",10)==0) {
+                valid=valid && sscanf(line+10,"%u %c",&n,&extra)==1 && n>=1000 && n<=12000;
+                if(valid)c.shift_rpm=(uint16_t)n;
+            } else {
+                valid=valid && sscanf(line+11,"%u %c",&n,&extra)==1 && n<=200;
+                if(valid)c.soot_limit_decigrams=(uint16_t)(n*10);
+            }
+            printf("MINIDASH_VAG_CONFIG status=%s\n",valid && md_vehicle_app_vag_configure(&c)?"QUEUED":"REJECTED");
         } else if (strcmp(line, "status") == 0) {
             printf("MINIDASH_BOOT count=%lu reset=%s idf=%s\n",
                    (unsigned long)s_boot_count,

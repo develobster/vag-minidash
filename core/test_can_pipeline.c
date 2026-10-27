@@ -21,11 +21,17 @@ static void *produce(void *unused)
 static void *publish(void *unused)
 {
     (void)unused;
-    md_ui_signal_store_t store;md_ui_signal_store_init(&store);
+    md_dashboard_frame_t frame={0};
+    md_ui_signal_store_t *store=&frame.signals;md_ui_signal_store_init(store);
     for(unsigned i=1;i<=ITERATIONS;i++) {
         for(unsigned id=0;id<MD_SIGNAL_COUNT;id++)
-            CHECK(md_ui_signal_store_publish_id(&store,id,i,MD_UI_SIGNAL_VALID,i,300,false));
-        md_signal_mailbox_publish(&box,&store);
+            CHECK(md_ui_signal_store_publish_id(store,id,i,MD_UI_SIGNAL_VALID,i,300,false));
+        for(unsigned id=0;id<VAG_SIGNAL_COUNT;id++) {
+            frame.vehicle.value[id]=i+id;frame.vehicle.stamp_ms[id]=i;
+        }
+        frame.drag.completed_runs=i;frame.drag.elapsed_s=i^0xdeadbeefU;
+        frame.config.shift_rpm=(uint16_t)(i%11000+1000);
+        md_signal_mailbox_publish_frame(&box,&frame);
         if(i%101==0) sched_yield();
     }
     atomic_store(&done,true);return NULL;
@@ -50,14 +56,20 @@ int main(void)
     md_signal_mailbox_init(&box);
     md_ui_signal_store_t store;CHECK(!md_signal_mailbox_read(&box,&store));
     CHECK(!pthread_create(&thread,NULL,publish,NULL));
+    md_dashboard_frame_t frame;
     unsigned last=0,reads=0;
     while(!atomic_load(&done) || last<ITERATIONS) {
-        if(!md_signal_mailbox_read(&box,&store)) {sched_yield();continue;}
+        if(!md_signal_mailbox_read_frame(&box,&frame)) {sched_yield();continue;}
+        store=frame.signals;
         unsigned current=store.signals[0].updated_ms;CHECK(current>=last && current<=ITERATIONS);
         for(unsigned id=0;id<MD_SIGNAL_COUNT;id++) {
             md_ui_signal_snapshot_t v=md_ui_signal_snapshot(&store,id,current);
             CHECK(v.value==current && v.state==MD_UI_SIGNAL_VALID && v.age_ms==0);
         }
+        for(unsigned id=0;id<VAG_SIGNAL_COUNT;id++)
+            CHECK(frame.vehicle.value[id]==current+id && frame.vehicle.stamp_ms[id]==current);
+        CHECK(frame.drag.completed_runs==current && frame.drag.elapsed_s==(current^0xdeadbeefU));
+        CHECK(frame.config.shift_rpm==(uint16_t)(current%11000+1000));
         last=current;++reads;
     }
     CHECK(!pthread_join(thread,NULL));CHECK(reads>0);

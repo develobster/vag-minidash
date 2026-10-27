@@ -611,6 +611,14 @@ def run_probe(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description="VAG MiniDash read-only PC diagnostic reader")
     commands = parser.add_subparsers(dest="command", required=True)
+    vag_replay = commands.add_parser("replay-vag", help="Offline PQ/MQB candump replay with generated firmware layouts")
+    vag_replay.add_argument("path")
+    vag_replay.add_argument("--platform", choices=("MQB", "PQ35_46"), default="MQB")
+    vag_replay.add_argument("--layout", choices=("sourced", "experimental"), default="sourced")
+    vag_replay.add_argument("--max-frames", type=int, default=100000)
+    vag_replay.add_argument("--output")
+    vag_replay.add_argument("--native-lib")
+    vag_replay.add_argument("--estimate-drag", action="store_true", help="Explicit offline estimate; never vehicle validation")
     doctor = commands.add_parser("doctor", help="Offline PC/config preflight; never opens a VCI")
     doctor.add_argument("--dll", action="append", default=[])
     doctor.add_argument("--config", help="Validate a runtime config without opening its transport")
@@ -705,6 +713,9 @@ def main(argv=None):
             return run_watch(args)
         if args.command == 'replay-can':
             return run_can_replay(args)
+        if args.command == 'replay-vag':
+            from .vag_replay import run
+            return run(args)
         return run_probe(args)
     except (ValueError, KeyError, TypeError, OSError, RuntimeError, json.JSONDecodeError) as exc:
         parser.error(str(exc))

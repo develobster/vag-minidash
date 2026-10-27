@@ -209,7 +209,8 @@ static void test_isotp(void)
     CHECK(r.used==128);
 }
 static void request_rpm(uint32_t now)
-{a.active=false;a.cursor=0;a.due[0]=now;md_acq_tick(&a,now);CHECK(a.active && a.pid==0x0c);}
+{a.active=false;a.cursor=0;a.due[0]=now;for(unsigned j=1;j<MD_ACQ_MAX_BINDINGS;j++)a.due[j]=now+20000;
+ a.last_tx_ms=now-200;md_acq_tick(&a,now);CHECK(a.active && a.pid==0x0c);}
 static void test_pending_and_validation(void)
 {
     init(true,NULL,0);run(0,4000);request_rpm(4100);
@@ -261,7 +262,7 @@ static void prepare_uds(uint32_t now)
     /* Force only the already identity-verified synthetic UDS binding due. */
     a.active=false;a.cursor=12;a.uds_due[0]=now;
     for(unsigned j=0;j<MD_ACQ_MAX_BINDINGS;j++)a.due[j]=now+20000;
-    memset(a.samples,0,sizeof(a.samples));md_acq_tick(&a,now);
+    memset(a.samples,0,sizeof(a.samples));a.last_tx_ms=now-200;md_acq_tick(&a,now);
     CHECK(a.active && a.did_request && a.service==0x22);
 }
 static void test_uds_pending_deadlines(void)

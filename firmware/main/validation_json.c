@@ -88,6 +88,30 @@ cJSON *md_validation_json(const md_vehicle_validation_t *v, const char *version,
     cJSON_AddNumberToObject(errors,"other",v->status.can_errors.other);
     cJSON_AddNumberToObject(root,"bus_offs",v->status.bus_offs);
     cJSON_AddNumberToObject(root,"rx_dropped",v->status.rx_dropped);
+    cJSON *vag=cJSON_AddObjectToObject(root,"vag");
+    cJSON_AddStringToObject(vag,"platform",vag_platform_name(v->status.vag_config.platform));
+    cJSON_AddNumberToObject(vag,"layout",v->status.vag_config.layout);
+    cJSON_AddBoolToObject(vag,"config_saved",v->status.vag_config_saved);
+    cJSON *values=cJSON_AddObjectToObject(vag,"telemetry");
+    static const char *const qualities[]={"unavailable","candidate","valid","stale","error"};
+    for(unsigned i=0;i<VAG_SIGNAL_COUNT;i++) {
+        double value;vag_quality_t q=vag_telemetry_sample(&v->status.telemetry,(vag_signal_t)i,v->timestamp_ms,&value);
+        cJSON *item=cJSON_AddObjectToObject(values,vag_signal_names[i]);
+        cJSON_AddStringToObject(item,"quality",qualities[q]);
+        if(q==VAG_VALID || q==VAG_CANDIDATE) cJSON_AddNumberToObject(item,"value",value);
+        else cJSON_AddNullToObject(item,"value");
+    }
+    cJSON *drag=cJSON_AddObjectToObject(vag,"drag");
+    cJSON_AddStringToObject(drag,"state",drag_state_name(v->status.drag.state));
+    cJSON_AddStringToObject(drag,"reason",drag_reason_name(v->status.drag.reason));
+    cJSON_AddNumberToObject(drag,"elapsed_s",v->status.drag.elapsed_s);
+    cJSON_AddNumberToObject(drag,"sample_interval_ms",v->status.drag.sample_interval_ms);
+    cJSON_AddNumberToObject(drag,"result_mask",v->status.drag.result_mask);
+    static const char *const segments[]={"0_60_s","0_100_s","60_100_s"};
+    for(unsigned i=0;i<3;i++) {
+        if(v->status.drag.result_mask&(1U<<i)) cJSON_AddNumberToObject(drag,segments[i],v->status.drag.seconds[i]);
+        else cJSON_AddNullToObject(drag,segments[i]);
+    }
     cJSON_AddNumberToObject(root,"rx_driver_dropped",v->status.rx_driver_dropped);
     cJSON_AddNumberToObject(root,"rx_ring_dropped",v->status.rx_ring_dropped);
     cJSON_AddNumberToObject(root,"rx_epoch_dropped",v->status.rx_epoch_dropped);

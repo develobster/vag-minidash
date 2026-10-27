@@ -11,7 +11,7 @@ menu "MiniDash display and UI"
         int "CAN silence before deep sleep, seconds"
         depends on MINIDASH_DEEP_SLEEP
         range 15 300
-        default 30
+        default 20
     config MINIDASH_WAKE_GPIO
         int "RTC wake input, -1 for timer only"
         depends on MINIDASH_DEEP_SLEEP

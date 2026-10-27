@@ -26,11 +26,12 @@ static void response(const uint8_t *bytes,unsigned length,uint32_t now) {
 }
 static void emulate(uint32_t now) {
     if(!awaiting)return;
+    if(response_delay_ms>=500 && !acq.active) {awaiting=false;return;} /* ECU missed its deadline. */
     if((uint32_t)(now-acq.last_tx_ms)<response_delay_ms)return;
     md_can_frame_t f=pending;awaiting=false;
     if(f.data[0]==0x30)return;
     CHECK(f.data[1]==1 || f.data[1]==9);
-    if(request_seen)CHECK((uint32_t)(acq.last_tx_ms-last_request_ms)>=100);
+    if(request_seen)CHECK((uint32_t)(acq.last_tx_ms-last_request_ms)>=200);
     request_seen=true;last_request_ms=acq.last_tx_ms;
     uint8_t d[7]={0x41,f.data[2],0,0,0,0,0};
     if(f.data[1]==9) {uint8_t n[]={0x7f,9,0x12};response(n,3,now);return;}
@@ -90,10 +91,16 @@ static void scenario(bool all_visible,unsigned delay) {
     }
     printf("PIPELINE all_visible=%u response_ms=%u speed_max_gap_ms=%u rpm_max_gap_ms=%u requests=%u\n",all_visible,delay,max_gap,rpm_gap,requests);
     md_ui_signal_snapshot_t run=md_ui_signal_snapshot(&canonical,MD_SIGNAL_PERF_0100,20000);
-    if(delay>100) {
-        CHECK(max_gap>1000);
+    if(delay>=500) {
+        CHECK(acq.timeout_count>0 || acq.ecu_count==0);
         CHECK(!run.value_available);
         puts("PIPELINE overload PASS: impossible sampling budget cannot publish a timing result");
+        return;
+    }
+    if(delay>100) {
+        CHECK(max_gap<=1000);
+        CHECK(run.value_available && run.value>8 && run.value<12);
+        puts("PIPELINE slow ECU PASS: critical speed preserved, result remains an interpolated estimate");
         return;
     }
     CHECK(max_gap<=1000);CHECK(rpm_gap<1500);
@@ -113,18 +120,18 @@ static void scenario(bool all_visible,unsigned delay) {
     CHECK(!md_ui_signal_snapshot(&canonical,MD_SIGNAL_PERF_0100,20100).value_available);
     CHECK(!md_ui_signal_snapshot(&canonical,MD_SIGNAL_BOOST_PEAK,20100).value_available);
     md_acq_bus_available(&acq,true,20200);
-    for(unsigned now=20200;now<=25000;now+=10) {
+    for(unsigned now=20200;now<=30000;now+=10) {
         emulate(now);md_acq_tick(&acq,now);if(now%100==0)publish(now);
     }
     CHECK(acq.state==MD_ACQ_RUNNING && !acq.profile_matched);
-    CHECK(md_ui_signal_snapshot(&canonical,MD_SIGNAL_ENGINE_BOOST,25000).state==MD_UI_SIGNAL_VALID);
-    CHECK(!md_ui_signal_snapshot(&canonical,MD_SIGNAL_PERF_0100,25000).value_available);
-    CHECK(md_ui_signal_snapshot(&canonical,MD_SIGNAL_RETARD_WORST,25000).state==MD_UI_SIGNAL_UNSUPPORTED);
-    md_acq_publish_canonical(NULL,&canonical,NULL,25000);
-    md_acq_publish_canonical(&acq,NULL,NULL,25000);
+    CHECK(md_ui_signal_snapshot(&canonical,MD_SIGNAL_ENGINE_BOOST,30000).state==MD_UI_SIGNAL_VALID);
+    CHECK(!md_ui_signal_snapshot(&canonical,MD_SIGNAL_PERF_0100,30000).value_available);
+    CHECK(md_ui_signal_snapshot(&canonical,MD_SIGNAL_RETARD_WORST,30000).state==MD_UI_SIGNAL_UNSUPPORTED);
+    md_acq_publish_canonical(NULL,&canonical,NULL,30000);
+    md_acq_publish_canonical(&acq,NULL,NULL,30000);
 }
 int main(void) {
-    scenario(false,10);scenario(true,10);scenario(true,300);
+    scenario(false,10);scenario(true,10);scenario(true,300);scenario(true,600);
     puts("PIPELINE PASS: supported-PID discovery → codecs → canonical → analytics, loss invalidation");
     return 0;
 }

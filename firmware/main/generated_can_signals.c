@@ -27,15 +27,15 @@ bool md_generated_can_decode(const md_generated_can_signal_t *s,
             s->signed_value,s->scale,s->offset,value);
 }
 const md_generated_can_signal_t md_generated_can_signals[]={
-    {"MQB","engine.rpm","engine","rpm","https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc","MIT",168,250,8,48,16,true,false,0.25,0},
-    {"MQB","vehicle.speed","abs","km/h","https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc","MIT",253,250,8,32,16,true,false,0.01,0},
-    {"MQB","engine.coolant_temperature","engine","degC","https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc","MIT",1600,2000,8,24,8,true,false,0.75,-48},
-    {"MQB","engine.oil_temperature","engine","degC","https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc","MIT",1600,2000,8,16,8,true,false,1,-60},
-    {"MQB","driver.throttle","engine","%","https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc","MIT",289,500,8,12,8,true,false,0.4,0},
-    {"PQ35/PQ46","engine.rpm","engine","rpm","https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_pq.dbc","MIT",640,250,8,16,16,true,false,0.25,0},
-    {"PQ35/PQ46","vehicle.speed","abs","km/h","https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_pq.dbc","MIT",416,250,8,17,15,true,false,0.01,0},
-    {"PQ35/PQ46","engine.coolant_temperature","engine","degC","https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_pq.dbc","MIT",648,2000,8,8,8,true,false,0.75,-48},
+    {"PQ35/PQ46","engine.rpm","engine","rpm","https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_pq.dbc","MIT",640,500,8,16,16,true,false,0.25,0},
     {"PQ35/PQ46","driver.throttle","engine","%","https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_pq.dbc","MIT",896,500,8,16,8,true,false,0.4,0},
+    {"PQ35/PQ46","engine.coolant_temperature","engine","degC","https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_pq.dbc","MIT",648,3000,8,8,8,true,false,0.75,-48},
+    {"PQ35/PQ46","vehicle.speed","abs","km/h","https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_pq.dbc","MIT",416,500,8,17,15,true,false,0.01,0},
+    {"MQB","engine.rpm","engine","rpm","https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc","MIT",168,500,8,48,16,true,false,0.25,0},
+    {"MQB","vehicle.speed","abs","km/h","https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc","MIT",253,500,8,32,16,true,false,0.01,0},
+    {"MQB","driver.throttle","engine","%","https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc","MIT",289,500,8,12,8,true,false,0.4,0},
+    {"MQB","engine.coolant_temperature","engine","degC","https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc","MIT",1600,3000,8,24,8,true,false,0.75,-48},
+    {"MQB","engine.oil_temperature","engine","degC","https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc","MIT",1600,3000,8,16,8,true,false,1,-60},
 };
 const size_t md_generated_can_signal_count=sizeof(md_generated_can_signals)/sizeof(md_generated_can_signals[0]);
 size_t md_generated_can_bindings(const char *platform,md_passive_binding_t *out,size_t capacity)

@@ -243,8 +243,15 @@ typedef enum {
     MD_UI_SCREEN_WIDGET_PICKER,
     MD_UI_SCREEN_CALIBRATION,
     MD_UI_SCREEN_CONFIG_MODE,
+    /* Append-only: existing persisted screen IDs and modal IDs never move. */
+    MD_UI_SCREEN_SPORT_BOOST,
+    MD_UI_SCREEN_THERMALS_HEALTH,
+    MD_UI_SCREEN_DPF_DIESEL,
+    MD_UI_SCREEN_DRAG,
+    MD_UI_SCREEN_NIGHT_MINIMAL,
     MD_UI_SCREEN_COUNT,
 } md_ui_screen_t;
+bool md_ui_screen_is_content(md_ui_screen_t screen);
 
 typedef enum {
     MD_UI_ACTION_NEXT_SCREEN = 0,

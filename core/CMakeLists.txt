@@ -6,6 +6,7 @@ set(MD_CORE_DIR ${CMAKE_CURRENT_LIST_DIR}/../firmware/main)
 add_library(minidash-core STATIC
     ${MD_CORE_DIR}/can_pipeline.c
     ${MD_CORE_DIR}/generated_can_signals.c
+    ${MD_CORE_DIR}/vag_can_db.c ${MD_CORE_DIR}/drag_timer.c
     ${MD_CORE_DIR}/ui_core.c ${MD_CORE_DIR}/ui_theme.c
     ${MD_CORE_DIR}/ui_startup.c ${MD_CORE_DIR}/ui_i18n.c ${MD_CORE_DIR}/ui_model.c
     ${MD_CORE_DIR}/ui_platform.c ${MD_CORE_DIR}/ui_configuration.c
@@ -13,13 +14,37 @@ add_library(minidash-core STATIC
     ${MD_CORE_DIR}/diagnostic_transport.c ${MD_CORE_DIR}/acquisition.c ${MD_CORE_DIR}/ui_instrument_profiles.c
     ${MD_CORE_DIR}/window_statistics.c ${MD_CORE_DIR}/performance_timer.c ${MD_CORE_DIR}/derived_engine.c)
 target_include_directories(minidash-core PUBLIC ${MD_CORE_DIR})
+set_target_properties(minidash-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+add_library(minidash-vag-native SHARED vag_native_api.c)
+target_link_libraries(minidash-vag-native PRIVATE minidash-core)
 if(NOT MSVC)
     target_compile_options(minidash-core PRIVATE -Wall -Wextra -Werror)
     target_link_libraries(minidash-core PUBLIC m)
 endif()
 
 include(CTest)
+set(MD_LVGL_SOURCE_DIR "" CACHE PATH "Optional LVGL 9.5 source for actual software-render acceptance")
+if(MD_LVGL_SOURCE_DIR)
+    set(LV_BUILD_CONF_PATH ${CMAKE_CURRENT_LIST_DIR}/lvgl_stubs/lv_conf.h CACHE PATH "" FORCE)
+    set(CONFIG_LV_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(CONFIG_LV_BUILD_DEMOS OFF CACHE BOOL "" FORCE)
+    set(CONFIG_LV_USE_THORVG_INTERNAL OFF CACHE BOOL "" FORCE)
+    add_subdirectory(${MD_LVGL_SOURCE_DIR} ${CMAKE_BINARY_DIR}/lvgl)
+    add_executable(minidash-auto-ui-tests test_automotive_screens.c ${MD_CORE_DIR}/automotive_screens.c)
+    target_link_libraries(minidash-auto-ui-tests PRIVATE minidash-core lvgl::lvgl)
+    add_test(NAME automotive-lvgl-render COMMAND minidash-auto-ui-tests ${CMAKE_BINARY_DIR}/ui-previews)
+endif()
 if(BUILD_TESTING)
+    add_executable(minidash-vag-nvs-tests test_vag_nvs.c ${MD_CORE_DIR}/vag_can_db_nvs.c)
+    target_include_directories(minidash-vag-nvs-tests PRIVATE nvs_stubs)
+    target_link_libraries(minidash-vag-nvs-tests PRIVATE minidash-core)
+    add_test(NAME vag-config-nvs COMMAND minidash-vag-nvs-tests)
+    add_executable(minidash-vag-db-tests test_vag_can_db.c)
+    target_link_libraries(minidash-vag-db-tests PRIVATE minidash-core)
+    add_test(NAME vag-can-database COMMAND minidash-vag-db-tests)
+    add_executable(minidash-drag-tests test_drag_timer.c)
+    target_link_libraries(minidash-drag-tests PRIVATE minidash-core)
+    add_test(NAME drag-timer COMMAND minidash-drag-tests)
     foreach(power_variant rx ignition timer disabled)
         add_executable(minidash-power-${power_variant}-tests test_power.c ${MD_CORE_DIR}/power_manager.c)
         target_include_directories(minidash-power-${power_variant}-tests PRIVATE power_stubs)

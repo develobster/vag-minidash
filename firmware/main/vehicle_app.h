@@ -2,6 +2,8 @@
 #include "acquisition.h"
 #include "derived_engine.h"
 #include "can_error_probe.h"
+#include "vag_can_db.h"
+#include "drag_timer.h"
 typedef struct {
     bool configured, ready;
     md_acq_state_t state;
@@ -18,6 +20,10 @@ typedef struct {
     uint16_t dtc[MD_ACQ_DTC_MAX];
     md_ui_signal_snapshot_t signals[MD_SIGNAL_COUNT];
     md_source_t sources[MD_SIGNAL_COUNT];
+    vag_db_config_t vag_config;
+    vehicle_telemetry_t telemetry;
+    drag_result_t drag;
+    bool vag_config_saved;
 } md_vehicle_status_t;
 typedef struct {
     md_vehicle_status_t status;
@@ -41,3 +47,6 @@ bool md_vehicle_app_validation(md_vehicle_validation_t *out);
 bool md_vehicle_app_analytics_configure(const md_analytics_config_t *config);
 void md_vehicle_app_analytics_reset(bool session);
 size_t md_vehicle_app_events(md_analytics_event_t *out,size_t capacity);
+bool md_vehicle_app_vag_config(vag_db_config_t *config);
+bool md_vehicle_app_vag_configure(const vag_db_config_t *config);
+void md_vehicle_app_drag_reset(void);

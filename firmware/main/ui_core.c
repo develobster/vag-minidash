@@ -57,6 +57,11 @@ static bool canonical_name_valid(const char *name)
     }
     return !previous_was_dot;
 }
+bool md_ui_screen_is_content(md_ui_screen_t screen)
+{
+    return ((unsigned)screen<=MD_UI_SCREEN_CUSTOM) ||
+        (screen>=MD_UI_SCREEN_SPORT_BOOST && screen<=MD_UI_SCREEN_NIGHT_MINIMAL);
+}
 
 const md_ui_signal_definition_t *md_ui_signal_definition(md_ui_signal_id_t id)
 {
@@ -456,7 +461,8 @@ bool md_ui_settings_validate(const md_ui_settings_t *settings)
         settings->units < 0 || settings->units >= MD_UI_UNITS_COUNT ||
         settings->temperature_unit < 0 || settings->temperature_unit >= MD_UI_TEMP_COUNT ||
         settings->language < 0 || settings->language >= MD_UI_LANGUAGE_COUNT ||
-        settings->rotation > 3 || settings->brightness_pct > 100 || settings->last_screen >= MD_UI_SCREEN_FOCUS ||
+        settings->rotation > 3 || settings->brightness_pct > 100 ||
+        (!md_ui_screen_is_content((md_ui_screen_t)settings->last_screen) && settings->last_screen!=MD_UI_SCREEN_SETTINGS) ||
         settings->widget_count > MD_UI_MAX_WIDGETS) return false;
 
     md_ui_layout_cell_t expected_cells[MD_UI_MAX_WIDGETS];
@@ -709,7 +715,7 @@ void md_ui_state_init(md_ui_state_t *state,
     memset(state, 0, sizeof(*state));
     state->screen = settings && settings->last_screen < MD_UI_SCREEN_COUNT
         ? (md_ui_screen_t)settings->last_screen : MD_UI_SCREEN_DASHBOARD;
-    if (state->screen >= MD_UI_SCREEN_FOCUS) state->screen = MD_UI_SCREEN_DASHBOARD;
+    if (!md_ui_screen_is_content(state->screen) && state->screen!=MD_UI_SCREEN_SETTINGS) state->screen = MD_UI_SCREEN_DASHBOARD;
     state->settings_return_screen = state->screen == MD_UI_SCREEN_SETTINGS
         ? MD_UI_SCREEN_DASHBOARD : state->screen;
     state->focus_return_screen = state->screen;
@@ -746,7 +752,7 @@ static void state_set_screen(md_ui_state_t *state, md_ui_settings_t *settings,
                              md_ui_screen_t screen)
 {
     state->screen = screen;
-    if (settings && screen < MD_UI_SCREEN_FOCUS) settings->last_screen = (uint8_t)screen;
+    if (settings && (md_ui_screen_is_content(screen) || screen==MD_UI_SCREEN_SETTINGS)) settings->last_screen = (uint8_t)screen;
 }
 
 bool md_ui_state_open_details(md_ui_state_t *state,
@@ -754,7 +760,7 @@ bool md_ui_state_open_details(md_ui_state_t *state,
                               md_ui_signal_id_t signal)
 {
     if (!state || !settings || state->sleeping ||
-        state->screen >= MD_UI_SCREEN_SETTINGS ||
+        !md_ui_screen_is_content(state->screen) ||
         signal < 0 || signal >= MD_SIGNAL_COUNT) return false;
     state->focus_return_screen = state->screen;
     state->focused_signal = signal;
@@ -768,7 +774,7 @@ bool md_ui_state_open_widget_picker(md_ui_state_t *state,
 {
     if (!state || !settings || state->sleeping ||
         state->context == MD_UI_CONTEXT_DRIVING ||
-        state->screen >= MD_UI_SCREEN_SETTINGS) return false;
+        !md_ui_screen_is_content(state->screen)) return false;
     const md_ui_card_group_t group =
         md_ui_card_group_for_screen(state->screen, settings);
     int signal = -1;
@@ -824,16 +830,18 @@ bool md_ui_state_set_context(md_ui_state_t *state,
 
 static md_ui_screen_t next_content_screen(md_ui_screen_t screen)
 {
-    return screen >= MD_UI_SCREEN_DASHBOARD && screen < MD_UI_SCREEN_CUSTOM
-        ? (md_ui_screen_t)(screen + 1)
-        : MD_UI_SCREEN_DASHBOARD;
+    if(screen<MD_UI_SCREEN_CUSTOM) return (md_ui_screen_t)(screen+1);
+    if(screen==MD_UI_SCREEN_CUSTOM) return MD_UI_SCREEN_SPORT_BOOST;
+    if(screen>=MD_UI_SCREEN_SPORT_BOOST && screen<MD_UI_SCREEN_NIGHT_MINIMAL) return (md_ui_screen_t)(screen+1);
+    return MD_UI_SCREEN_DASHBOARD;
 }
 
 static md_ui_screen_t previous_content_screen(md_ui_screen_t screen)
 {
-    return screen > MD_UI_SCREEN_DASHBOARD && screen <= MD_UI_SCREEN_CUSTOM
-        ? (md_ui_screen_t)(screen - 1)
-        : MD_UI_SCREEN_CUSTOM;
+    if(screen>MD_UI_SCREEN_DASHBOARD && screen<=MD_UI_SCREEN_CUSTOM) return (md_ui_screen_t)(screen-1);
+    if(screen==MD_UI_SCREEN_SPORT_BOOST) return MD_UI_SCREEN_CUSTOM;
+    if(screen>MD_UI_SCREEN_SPORT_BOOST && screen<=MD_UI_SCREEN_NIGHT_MINIMAL) return (md_ui_screen_t)(screen-1);
+    return MD_UI_SCREEN_NIGHT_MINIMAL;
 }
 
 static bool adjust_setting(md_ui_state_t *state, md_ui_settings_t *settings,
@@ -937,17 +945,17 @@ bool md_ui_state_dispatch(md_ui_state_t *state,
 
     switch (action) {
     case MD_UI_ACTION_NEXT_SCREEN:
-        if (!state->sleeping && state->screen < MD_UI_SCREEN_SETTINGS) {
+        if (!state->sleeping && md_ui_screen_is_content(state->screen)) {
             state_set_screen(state, settings, next_content_screen(state->screen));
         }
         break;
     case MD_UI_ACTION_PREVIOUS_SCREEN:
-        if (!state->sleeping && state->screen < MD_UI_SCREEN_SETTINGS) {
+        if (!state->sleeping && md_ui_screen_is_content(state->screen)) {
             state_set_screen(state, settings, previous_content_screen(state->screen));
         }
         break;
     case MD_UI_ACTION_OPEN_SETTINGS:
-        if (!state->sleeping && state->screen < MD_UI_SCREEN_SETTINGS) {
+        if (!state->sleeping && md_ui_screen_is_content(state->screen)) {
             state->settings_return_screen = state->screen;
             state_set_screen(state, settings, MD_UI_SCREEN_SETTINGS);
             state->selected_setting = 0;

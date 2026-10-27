@@ -1,5 +1,6 @@
 #include "acquisition.h"
 #include "generated_can_signals.h"
+#include "vag_can_db.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -8,7 +9,7 @@
 #define RESPONSE_MS 500U
 #define UDS_PENDING_MS 5000U
 #define UDS_TOTAL_MS 10000U
-#define REQUEST_GAP_MS 100U
+#define REQUEST_GAP_MS 200U
 #define RETRY_LIMIT 3U
 #define IDLE_QUIET_MS 120000U
 
@@ -447,6 +448,23 @@ void md_acq_receive_at(md_acquisition_t *a,const md_can_frame_t *f,uint32_t now,
 }
 void md_acq_receive(md_acquisition_t *a,const md_can_frame_t *f,uint32_t now)
 { md_acq_receive_at(a,f,now,now); }
+void md_acq_receive_with_vag(md_acquisition_t *a,vag_can_db_t *db,
+    const md_can_frame_t *f,uint32_t received,uint32_t processed)
+{
+    (void)vag_can_db_decode(db,f,received);
+    md_acq_receive_at(a,f,received,processed);
+    /* The legacy provisioned scalar decoder does not know VAG quality bits.
+     * Reject a bad passive sample there too, so source arbitration can fall
+     * back to UDS/OBD instead of re-promoting it through the canonical store. */
+    if(db && db->telemetry.layout==VAG_LAYOUT_SOURCED) {
+        static const struct {vag_signal_t vag;md_ui_signal_id_t canonical;} map[]={
+            {VAG_RPM,MD_SIGNAL_ENGINE_RPM},{VAG_SPEED,MD_SIGNAL_VEHICLE_SPEED},
+            {VAG_COOLANT,MD_SIGNAL_ENGINE_COOLANT_TEMPERATURE},{VAG_OIL,MD_SIGNAL_ENGINE_OIL_TEMPERATURE},
+            {VAG_IAT,MD_SIGNAL_IAT},{VAG_GEAR,MD_SIGNAL_TRANSMISSION_GEAR}};
+        for(size_t i=0;i<sizeof(map)/sizeof(map[0]);i++)
+            if(db->telemetry.errors&(UINT32_C(1)<<map[i].vag)) a->samples[map[i].canonical][MD_SOURCE_PASSIVE].valid=false;
+    }
+}
 bool md_acq_request_dtc(md_acquisition_t *a,uint32_t now)
 {
     md_ui_signal_snapshot_t speed=md_acq_snapshot(a,MD_SIGNAL_VEHICLE_SPEED,now,NULL);
@@ -530,7 +548,7 @@ void md_acq_tick(md_acquisition_t *a,uint32_t now)
      * Remaining signals are rescued at 75% TTL. No request bypasses the TX floor. */
     unsigned uds_count=a->profile_matched?(unsigned)a->config.profile->uds_count:0;
     unsigned total=(unsigned)OBD_COUNT+uds_count;
-    unsigned selected=total;bool selected_urgent=false;uint32_t selected_lateness=0;
+    unsigned selected=total,selected_rank=0;bool selected_urgent=false;uint32_t selected_lateness=0;
     for(unsigned n=0;n<total;n++) {
         unsigned i=(a->cursor+n)%total, job=i<OBD_COUNT?i:i-OBD_COUNT;
         bool is_uds=i>=OBD_COUNT;
@@ -546,11 +564,18 @@ void md_acq_tick(md_acquisition_t *a,uint32_t now)
         uint32_t budget=ttl*3/4;
         if(signal==MD_SIGNAL_VEHICLE_SPEED && budget>500)budget=500;
         if(signal==MD_SIGNAL_ENGINE_RPM && budget>1000)budget=1000;
+        if(signal==MD_SIGNAL_ENGINE_MANIFOLD_PRESSURE && budget>1500)budget=1500;
+        if(signal==MD_SIGNAL_ENGINE_AMBIENT_PRESSURE && budget>3000)budget=3000;
         uint32_t age=now-(sample->valid?sample->updated_ms:a->started_ms);
+        /* At an aggregate 5 Hz, equal-priority TTL rescue can starve speed
+         * behind many slow metrics. Reserve freshness headroom for speed/RPM;
+         * other due jobs still use the existing fair round-robin slots. */
+        unsigned rank=signal==MD_SIGNAL_VEHICLE_SPEED && age>=(gap<=250?400:gap*2)?2:
+            signal==MD_SIGNAL_ENGINE_RPM && age>=(gap<=250?800:gap*3)?1:0;
         bool urgent=age>=budget;
         uint32_t lateness=urgent?age-budget:0;
-        if(selected==total || (urgent && (!selected_urgent || lateness>selected_lateness))) {
-            selected=i;selected_urgent=urgent;selected_lateness=lateness;
+        if(selected==total || rank>selected_rank || (rank==selected_rank && urgent && (!selected_urgent || lateness>selected_lateness))) {
+            selected=i;selected_rank=rank;selected_urgent=urgent;selected_lateness=lateness;
         }
     }
     if(selected<total) {

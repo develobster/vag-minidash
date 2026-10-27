@@ -218,6 +218,8 @@ static bool test_navigation_and_console_mapping(void)
         MD_UI_SCREEN_DRIVETRAIN,
         MD_UI_SCREEN_DIAGNOSTICS,
         MD_UI_SCREEN_CUSTOM,
+        MD_UI_SCREEN_SPORT_BOOST, MD_UI_SCREEN_THERMALS_HEALTH,
+        MD_UI_SCREEN_DPF_DIESEL, MD_UI_SCREEN_DRAG, MD_UI_SCREEN_NIGHT_MINIMAL,
         MD_UI_SCREEN_DASHBOARD,
     };
     md_ui_settings_defaults(&settings);
@@ -228,7 +230,7 @@ static bool test_navigation_and_console_mapping(void)
             state.screen != next_screens[i]) return false;
     }
     if (!md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_PREVIOUS_SCREEN) ||
-        state.screen != MD_UI_SCREEN_CUSTOM) return false;
+        state.screen != MD_UI_SCREEN_NIGHT_MINIMAL) return false;
 
     if (!md_ui_input_command("settings", &source, &action) ||
         source != MD_UI_INPUT_CONSOLE || action != MD_UI_ACTION_OPEN_SETTINGS ||
@@ -248,7 +250,7 @@ static bool test_navigation_and_console_mapping(void)
         !md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_SELECT) ||
         settings.brightness_pct != 10U) return false;
     if (!md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_BACK) ||
-        state.screen != MD_UI_SCREEN_CUSTOM) return false;
+        state.screen != MD_UI_SCREEN_NIGHT_MINIMAL) return false;
     if (md_ui_state_select_setting(&state, 0)) return false;
     if (!md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_SLEEP) ||
         !state.sleeping) return false;

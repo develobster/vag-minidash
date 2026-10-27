@@ -41,20 +41,32 @@ bool md_can_ring_pop(md_can_ring_t *r, md_can_sample_t *s)
 }
 void md_signal_mailbox_init(md_signal_mailbox_t *b)
 {
-    for(unsigned i=0;i<3;i++) md_ui_signal_store_init(&b->slots[i]);
+    for(unsigned i=0;i<3;i++) {memset(&b->slots[i],0,sizeof(b->slots[i]));md_ui_signal_store_init(&b->slots[i].signals);}
     b->writer=0; b->reader=1; atomic_init(&b->middle,2);
 }
 void md_signal_mailbox_publish(md_signal_mailbox_t *b, const md_ui_signal_store_t *s)
 {
-    b->slots[b->writer]=*s;
+    memset(&b->slots[b->writer],0,sizeof(b->slots[b->writer]));
+    b->slots[b->writer].signals=*s;
     b->writer=atomic_exchange_explicit(&b->middle,b->writer|READY,memory_order_acq_rel)&3U;
 }
 bool md_signal_mailbox_read(md_signal_mailbox_t *b, md_ui_signal_store_t *s)
 {
     if (!(atomic_load_explicit(&b->middle,memory_order_acquire)&READY)) return false;
     b->reader=atomic_exchange_explicit(&b->middle,b->reader,memory_order_acq_rel)&3U;
-    *s=b->slots[b->reader];
+    *s=b->slots[b->reader].signals;
     return true;
+}
+void md_signal_mailbox_publish_frame(md_signal_mailbox_t *b,const md_dashboard_frame_t *frame)
+{
+    b->slots[b->writer]=*frame;
+    b->writer=atomic_exchange_explicit(&b->middle,b->writer|READY,memory_order_acq_rel)&3U;
+}
+bool md_signal_mailbox_read_frame(md_signal_mailbox_t *b,md_dashboard_frame_t *frame)
+{
+    if(!(atomic_load_explicit(&b->middle,memory_order_acquire)&READY)) return false;
+    b->reader=atomic_exchange_explicit(&b->middle,b->reader,memory_order_acq_rel)&3U;
+    *frame=b->slots[b->reader];return true;
 }
 void md_can_recovery_fault(md_can_recovery_t *r, uint32_t now)
 {

@@ -17,10 +17,12 @@
 #include "can_pipeline.h"
 #include "power_manager.h"
 #include "ui_web.h"
+#include "vag_can_db_nvs.h"
 #include "freertos/queue.h"
 #include "esp_app_desc.h"
 #include "esp_intr_alloc.h"
 #include <stdatomic.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -34,9 +36,25 @@ static md_vehicle_status_t status;
 static atomic_uint visible, background;
 static atomic_bool scan;
 static atomic_bool analytics_dirty;
+static atomic_bool vag_dirty, drag_reset, vag_sleeping;
+static vag_db_config_t pending_vag;
 static atomic_uint analytics_reset;
 static md_analytics_config_t pending_analytics;
 static const char *TAG="md_vehicle";
+bool md_vehicle_app_vag_config(vag_db_config_t *out)
+{
+    if(!out || !lock || xSemaphoreTake(lock,pdMS_TO_TICKS(10))!=pdTRUE) return false;
+    *out=status.vag_config;xSemaphoreGive(lock);return true;
+}
+bool md_vehicle_app_vag_configure(const vag_db_config_t *config)
+{
+    if(!vag_db_config_valid(config) || !lock || xSemaphoreTake(lock,pdMS_TO_TICKS(10))!=pdTRUE) return false;
+    const md_ui_signal_snapshot_t *speed=&status.signals[MD_SIGNAL_VEHICLE_SPEED];
+    bool allowed=status.configured && !atomic_load(&vag_sleeping) && !(speed->state==MD_UI_SIGNAL_VALID && speed->value>0);
+    if(allowed) {pending_vag=*config;atomic_store(&vag_dirty,true);}
+    xSemaphoreGive(lock);return allowed;
+}
+void md_vehicle_app_drag_reset(void) {atomic_store(&drag_reset,true);}
 
 bool md_vehicle_app_status(md_vehicle_status_t *out)
 {
@@ -93,6 +111,9 @@ static bool rx_command_ok;
 static unsigned rx_epoch;
 static uint32_t epoch_dropped;
 static atomic_uint last_valid_rx;
+static vag_can_db_t vag_db;
+static drag_timer_t drag;
+static md_dashboard_frame_t dashboard_frame;
 /* The RX task owns install/uninstall as well as receive. A mode command is
  * acknowledged only after the blocking receive has returned: no stale handle. */
 typedef enum { CAN_LISTEN, CAN_NORMAL, CAN_STOP } can_command_t;
@@ -230,6 +251,31 @@ static void update_status(uint32_t now)
         status.signals[i]=md_ui_signal_snapshot(&canonical,i,now);
         if(md_derived_definition(i))status.sources[i]=MD_SOURCE_COUNT;
     }
+    vag_can_db_merge_canonical(&vag_db,&canonical,now,status.vag_config.soot_limit_decigrams);
+    if(atomic_exchange(&drag_reset,false)) drag_timer_reset(&drag);
+    drag_timer_observe(&drag,&vag_db.telemetry,now);
+    status.telemetry=vag_db.telemetry;status.drag=drag.result;
+}
+static uint32_t validated_vag_bindings(void)
+{
+    static const struct {vag_signal_t vag;md_ui_signal_id_t canonical;} map[]={
+        {VAG_RPM,MD_SIGNAL_ENGINE_RPM},{VAG_SPEED,MD_SIGNAL_VEHICLE_SPEED},
+        {VAG_COOLANT,MD_SIGNAL_ENGINE_COOLANT_TEMPERATURE},{VAG_OIL,MD_SIGNAL_ENGINE_OIL_TEMPERATURE},
+        {VAG_IAT,MD_SIGNAL_IAT},{VAG_GEAR,MD_SIGNAL_TRANSMISSION_GEAR}};
+    if(!engine.profile_matched || !engine.config.profile) return 0;
+    uint32_t mask=0;const md_vehicle_profile_t *profile=engine.config.profile;
+    for(size_t i=0;i<vag_can_definition_count;i++) {
+        const vag_can_definition_t *d=&vag_can_definitions[i];
+        if(d->platform!=status.vag_config.platform || d->layout!=VAG_LAYOUT_SOURCED || !d->little || d->sign_bit>=0) continue;
+        for(size_t j=0;j<profile->passive_count;j++) {
+            const md_passive_binding_t *b=&profile->passive[j];
+            if(b->id!=d->can_id || b->dlc!=d->dlc || b->start_bit!=d->start_bit || b->bit_count!=d->bits ||
+                b->signed_value!=d->signed_value || fabs(b->scale-d->scale)>1e-6 || fabs(b->offset-d->offset)>1e-6) continue;
+            for(size_t k=0;k<sizeof(map)/sizeof(map[0]);k++)
+                if(map[k].vag==d->signal && map[k].canonical==b->signal) mask|=UINT32_C(1)<<d->signal;
+        }
+    }
+    return mask;
 }
 static void vehicle_task(void *unused)
 {
@@ -251,6 +297,7 @@ static void vehicle_task(void *unused)
     md_acq_init(&engine,&config,send_can,NULL,now_ms());
     md_acq_set_tx_ready(&engine,false);
     md_ui_signal_store_init(&canonical);(void)md_derived_init(&analytics,&pending_analytics,now_ms());
+    vag_can_db_init(&vag_db,&status.vag_config);drag_timer_init(&drag);
     xSemaphoreGive(lock);
     uint32_t recovery_at=0,last_publish=0;
     md_can_recovery_t recovery={0};
@@ -259,6 +306,15 @@ static void vehicle_task(void *unused)
     for(;;) {
         uint32_t now=now_ms();
         if(xSemaphoreTake(lock,pdMS_TO_TICKS(10))!=pdTRUE) {vTaskDelay(pdMS_TO_TICKS(10));continue;}
+        if(atomic_exchange(&vag_dirty,false)) {
+            vag_db_config_t requested=pending_vag;
+            xSemaphoreGive(lock);
+            bool saved=vag_db_config_save(&requested);
+            xSemaphoreTake(lock,portMAX_DELAY);
+            status.vag_config_saved=saved;
+            if(saved) {status.vag_config=requested;vag_can_db_init(&vag_db,&requested);drag_timer_reset(&drag);}
+            ESP_LOGI(TAG,"VAG profile %s platform=%s layout=%u",saved?"SAVED":"REJECTED",vag_platform_name(requested.platform),(unsigned)requested.layout);
+        }
         if(atomic_exchange(&analytics_dirty,false))(void)md_derived_configure(&analytics,&pending_analytics,now);
         unsigned reset=atomic_exchange(&analytics_reset,0);
         if(reset==1)md_derived_reset_trip(&analytics,now);
@@ -330,6 +386,7 @@ static void vehicle_task(void *unused)
                 if(!status.ready) {fault=true;recovery_at=now+1000;md_acq_bus_available(&engine,false,now);}
             }
             /* Bounded work and queues: a saturated bus cannot monopolise this task. */
+            vag_can_db_validation(&vag_db,validated_vag_bindings());
             for(unsigned i=0;!fault && i<MD_CAN_RING_CAPACITY;i++) {
                 md_can_sample_t sample;if(!md_can_ring_pop(&rx_ring,&sample))break;
                 if(sample.epoch!=rx_epoch) {++epoch_dropped;continue;}
@@ -339,18 +396,18 @@ static void vehicle_task(void *unused)
                 if(validating && !f->remote && f->dlc<=8 &&
                     (int32_t)(sample.ms-recovery.listen_since)>=0) ++recovery.frames;
                 /* Old queued replies must not revive an expired transaction. */
-                md_acq_receive_at(&engine,f,sample.ms,now_ms());
+                md_acq_receive_with_vag(&engine,&vag_db,f,sample.ms,now_ms());
             }
             now=now_ms();
             /* Standard source background collection maintains observed trip peaks.
              * Performance speed stays at the planner's 200 ms visible priority.
-             * The existing 100 ms global request floor is never bypassed. */
+             * The aggregate 200 ms request floor is never bypassed. */
             uint32_t stats_demand=0;
             for(unsigned id=0;id<MD_SIGNAL_RAW_COUNT;id++) stats_demand|=md_derived_raw_demand(id);
             /* The acquisition core limits validation demand to four sources. */
             md_acq_set_demand(&engine,atomic_load(&visible)|(UINT32_C(1)<<MD_SIGNAL_VEHICLE_SPEED),atomic_load(&background)|stats_demand);
             unsigned queued=atomic_load(&rx_ring.head)-atomic_load(&rx_ring.tail);
-            engine.config.request_gap_ms=md_ui_web_active() || queued>MD_CAN_RING_CAPACITY/2?200U:100U;
+            engine.config.request_gap_ms=md_ui_web_active() || queued>MD_CAN_RING_CAPACITY/2?500U:200U;
             md_acq_set_tx_ready(&engine,normal_mode && !validating);
             if(!fault)md_acq_tick(&engine,now);
         }
@@ -367,7 +424,11 @@ static void vehicle_task(void *unused)
         md_ui_signal_snapshot_t speed=status.signals[MD_SIGNAL_VEHICLE_SPEED];
         if(normal_mode && recovery.attempts && now-recovery.listen_since>=60000U &&
             now-atomic_load(&last_valid_rx)<100U) recovery.attempts=0;
-        if((uint32_t)(now-last_publish)>=100) md_display_app_publish_store(&canonical);
+        if((uint32_t)(now-last_publish)>=100) {
+            dashboard_frame.signals=canonical;dashboard_frame.vehicle=status.telemetry;
+            dashboard_frame.drag=status.drag;dashboard_frame.config=status.vag_config;
+            md_display_app_publish_frame(&dashboard_frame);
+        }
         xSemaphoreGive(lock);
         /* Never call UI under CAN mutex: fixed lock ordering. */
         if((uint32_t)(now-last_publish)>=100) {
@@ -380,7 +441,8 @@ static void vehicle_task(void *unused)
             (void)md_display_app_set_vehicle_context(context,context!=MD_UI_CONTEXT_UNKNOWN);
         }
         if(!fault && !validating && md_power_sleep_due(now_ms(),atomic_load(&last_valid_rx))) {
-            if(md_power_prepare() && md_display_app_prepare_sleep(5000)) {
+            atomic_store(&vag_sleeping,true);
+            if(!atomic_load(&vag_dirty) && md_power_prepare() && md_display_app_prepare_sleep(5000)) {
                 /* Quiesce the sole RX owner; the timer is always a fallback. */
                 xSemaphoreTake(lock,portMAX_DELAY);
                 bool stopped=md_power_sleep_due(now_ms(),atomic_load(&last_valid_rx)) && set_can_mode(CAN_STOP);
@@ -391,6 +453,7 @@ static void vehicle_task(void *unused)
                 xSemaphoreGive(lock);
             }
             md_display_app_cancel_sleep();
+            atomic_store(&vag_sleeping,false);
         }
         vTaskDelay(pdMS_TO_TICKS(10));
     }
@@ -404,6 +467,7 @@ void md_vehicle_app_prepare(void)
         status.signals[i].state=MD_UI_SIGNAL_UNAVAILABLE;status.sources[i]=MD_SOURCE_COUNT;
     }
     md_analytics_config_defaults(&pending_analytics);
+    status.vag_config_saved=vag_db_config_load(&status.vag_config);pending_vag=status.vag_config;
 #if CONFIG_MINIDASH_CAN_ENABLE
     md_can_ring_init(&rx_ring);atomic_init(&last_valid_rx,0);
     rx_commands=xQueueCreate(1,sizeof(can_command_t));rx_command_done=xSemaphoreCreateBinary();

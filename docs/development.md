@@ -308,3 +308,7 @@ The native `analytics-acquisition-pipeline` group uses the same raw/canonical
 bridge as firmware, exercises complete supported-PID collection under normal
 and overloaded latency, and requires loss/reconnect timing invalidation. See
 [pipeline scheduling follow-up](research/analytics-pipeline-scheduling-2026-10-04.md).
+
+## VAG platforms, drag and LVGL pages
+
+[27 October 2026: file map, corrected signal matrix, NVS configuration, host replay and target builds](development/vag-platforms-drag-ui-2026-10-27.md).

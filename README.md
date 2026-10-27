@@ -11,6 +11,7 @@ display/touch bench results are documented, and full vehicle acceptance is pendi
 Licensed under [MIT](LICENSE); bundled third-party materials retain their own notices.
 
 Единая база разработки: **`integration/standalone`**. Продолжать работу в этой ветке.
+Новая база PQ/MQB, замеры разгона и пять LVGL-экранов: [код, происхождение сигналов, сборка и ограничения](docs/development/vag-platforms-drag-ui-2026-10-27.md).
 Приём CAN, атомарные снимки UI, генерация C/Python-сигналов, Wi-Fi и опциональный
 сон: [изменения, сборка и ограничения от 27 октября](docs/development/embedded-modernization-2026-10-27.md).
 Актуальный образ — [canfix19: анализ и исправления CAN](docs/hardware/can-deep-analysis-2026-10-19.md):

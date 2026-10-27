@@ -2,6 +2,7 @@
 #include "ui_instrument_profiles.h"
 #include "ui_startup.h"
 #include "derived_engine.h"
+#include "automotive_screens.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -118,7 +119,7 @@ typedef struct {
 } widget_picker_option_view_t;
 
 static screen_view_t s_dashboards[MD_UI_DASHBOARD_COUNT];
-static screen_view_t s_screens[MD_UI_SCREEN_COUNT];
+static screen_view_t s_screens[MD_UI_SCREEN_SPORT_BOOST];
 static setting_row_view_t s_setting_rows[MD_UI_SETTINGS_ROWS];
 #define MD_PICKER_SLOTS 12U
 static widget_picker_option_view_t s_widget_picker_options[MD_PICKER_SLOTS];
@@ -242,7 +243,7 @@ static void apply_language_fonts(void)
 {
     for (unsigned i = 0; i < MD_UI_DASHBOARD_COUNT; ++i)
         apply_view_fonts(&s_dashboards[i]);
-    for (unsigned i = 0; i < MD_UI_SCREEN_COUNT; ++i)
+    for (unsigned i = 0; i < MD_UI_SCREEN_SPORT_BOOST; ++i)
         apply_view_fonts(&s_screens[i]);
     for (unsigned i = 0; i < MD_UI_SETTINGS_ROWS; ++i) {
         set_ui_font(s_setting_rows[i].title, s_height > s_width ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
@@ -979,7 +980,7 @@ static screen_view_t *view_for(md_ui_screen_t screen,
         return &s_dashboards[dashboard];
     }
     if (screen == MD_UI_SCREEN_CUSTOM) return &s_dashboards[MD_UI_DASHBOARD_CUSTOM];
-    if (screen >= 0 && screen < MD_UI_SCREEN_COUNT) return &s_screens[screen];
+    if (screen >= 0 && screen < MD_UI_SCREEN_SPORT_BOOST) return &s_screens[screen];
     return NULL;
 }
 
@@ -1010,6 +1011,7 @@ bool md_ui_screens_create(uint16_t width, uint16_t height,
     create_focus_screen();
     create_widget_picker_screen();
     create_calibration_screen();
+    if(!md_automotive_create(width,height,palette)) return false;
     screen_view_t *config_view = &s_screens[MD_UI_SCREEN_CONFIG_MODE];
     style_root(config_view, "Wi-Fi configuration", "BACK TO RETURN | AP TIMEOUT 10 MIN");
     s_config_credentials = lv_label_create(config_view->root);
@@ -1037,7 +1039,7 @@ bool md_ui_screens_create(uint16_t width, uint16_t height,
         create_nav_hints(&s_dashboards[i]);
     for (int i = MD_UI_SCREEN_PERFORMANCE; i <= MD_UI_SCREEN_DIAGNOSTICS; ++i)
         create_nav_hints(&s_screens[i]);
-    for (int i = 1; i < MD_UI_SCREEN_COUNT; ++i) {
+    for (int i = 1; i < MD_UI_SCREEN_SPORT_BOOST; ++i) {
         if (i == MD_UI_SCREEN_CUSTOM) continue;
         if (!s_screens[i].root) return false;
     }
@@ -1055,11 +1057,15 @@ bool md_ui_screens_resize(uint16_t width, uint16_t height,
     lv_screen_load(temporary);
     for (unsigned i=0; i<MD_UI_DASHBOARD_COUNT; ++i)
         if (s_dashboards[i].root) lv_obj_delete(s_dashboards[i].root);
-    for (unsigned i=0; i<MD_UI_SCREEN_COUNT; ++i)
+    for (unsigned i=0; i<MD_UI_SCREEN_SPORT_BOOST; ++i)
         if (s_screens[i].root) lv_obj_delete(s_screens[i].root);
 #if CONFIG_MINIDASH_TOUCH_DEBUG_OVERLAY
     lv_obj_clean(lv_layer_top()); s_debug_label=NULL;
 #endif
+    for(int i=MD_UI_SCREEN_SPORT_BOOST;i<=MD_UI_SCREEN_NIGHT_MINIMAL;i++) {
+        lv_obj_t *root=md_automotive_root((md_ui_screen_t)i);
+        if(root) lv_obj_delete(root);
+    }
     s_created=false;
     s_calibration_target=s_calibration_instruction=s_focus_stats=s_config_credentials=NULL;
     s_settings_action=s_settings_action_label=s_settings_page=s_settings_page_label=NULL;
@@ -1343,6 +1349,11 @@ void md_ui_screens_show(md_ui_screen_t screen,
                         const md_ui_settings_t *settings)
 {
     if (!s_created) return;
+    if(md_automotive_screen(screen)) {
+        lv_obj_t *root=md_automotive_root(screen);
+        if(root) lv_screen_load(root);
+        return;
+    }
     screen_view_t *view = view_for(screen, settings);
     if (screen==MD_UI_SCREEN_SETTINGS) {
         for(unsigned i=0;i<MD_UI_SETTINGS_ROWS;++i)
@@ -1386,10 +1397,11 @@ void md_ui_screens_retheme(const md_ui_palette_t *palette, md_ui_theme_id_t them
     s_theme_style = md_ui_theme_style(theme);
     apply_language_fonts();
     for (unsigned i = 0; i < MD_UI_DASHBOARD_COUNT; ++i) retheme_view(&s_dashboards[i]);
-    for (unsigned i = 1; i < MD_UI_SCREEN_COUNT; ++i) {
-        if (i == MD_UI_SCREEN_CUSTOM) continue;
+    for (unsigned i = 1; i < MD_UI_SCREEN_SPORT_BOOST; ++i) {
+        if (i == MD_UI_SCREEN_CUSTOM || md_automotive_screen((md_ui_screen_t)i)) continue;
         retheme_view(&s_screens[i]);
     }
+    md_automotive_retheme(palette);
     for (unsigned i = 0; i < MD_UI_SETTINGS_ROWS; ++i) {
         setting_row_view_t *row = &s_setting_rows[i];
         if (!row->row) continue;
@@ -1801,6 +1813,7 @@ void md_ui_screens_update(md_ui_screen_t screen,
     if (!s_created || !settings || !state || !signals) return;
     for (unsigned i = 0; i < MD_SIGNAL_COUNT; ++i)
         md_ui_history_observe(&s_history[i], &signals->signals[i], now_ms);
+    if(md_automotive_screen(screen)) {md_automotive_update(screen,now_ms);return;}
     s_language = settings->language;
     if (s_font_language != s_language) apply_language_fonts();
     screen_view_t *view = view_for(screen, settings);
@@ -1956,7 +1969,7 @@ void md_ui_screens_instrument_profile(const char *id,uint32_t ttl_ms,uint32_t no
 
 void md_ui_screens_gauge_dump(md_ui_screen_t screen)
 {
-    if(screen>=MD_UI_SCREEN_COUNT) return;
+    if(screen<0 || screen>=MD_UI_SCREEN_SPORT_BOOST) return;
     const screen_view_t *view=&s_screens[screen]; unsigned instruments=0;
     for(unsigned i=0;i<view->field_count;i++) {
         const field_view_t *f=&view->fields[i];

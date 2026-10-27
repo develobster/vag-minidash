@@ -1,6 +1,6 @@
 idf_component_register(
-    SRCS "main.c" "can_pipeline.c" "generated_can_signals.c" "power_manager.c" "backlight_controller.c" "display_manager.c" "st7789_backend.c"
-         "ili9341_backend.c" "xpt2046_touch.c" "display_app.c"
+    SRCS "main.c" "can_pipeline.c" "generated_can_signals.c" "vag_can_db.c" "vag_can_db_nvs.c" "drag_timer.c" "power_manager.c" "backlight_controller.c" "display_manager.c" "st7789_backend.c"
+         "ili9341_backend.c" "xpt2046_touch.c" "display_app.c" "automotive_screens.c"
          "display_serial_protocol.c" "diagnostic_transport.c" "acquisition.c" "vehicle_app.c" "ui_instrument_profiles.c"
          "window_statistics.c" "performance_timer.c" "derived_engine.c" "validation_json.c"
          "ui_core.c" "ui_core_selftest.c" "ui_theme.c" "ui_startup.c" "ui_i18n.c" "ui_screens.c"

@@ -32,6 +32,7 @@
 #include "vehicle_app.h"
 #include "derived_engine.h"
 #include "can_pipeline.h"
+#include "automotive_screens.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -49,6 +50,7 @@
 #endif
 
 typedef enum {
+    UI_EVENT_AUTOMOTIVE_SCREEN = 9,
     UI_EVENT_SET_BRIGHTNESS = 7,
     UI_EVENT_INSTRUMENT_PROFILE = 8,
     UI_EVENT_CONFIG_MODE = 0,
@@ -66,6 +68,7 @@ typedef struct {
     md_ui_action_t action;
     md_ui_touch_gesture_t touch_gesture;
     uint16_t raw_x;
+    md_ui_screen_t screen;
     uint16_t raw_y;
     md_ui_signal_id_t signal_id;
     md_ui_context_t vehicle_context;
@@ -93,6 +96,7 @@ static atomic_bool s_sleep_requested, s_sleep_ack, s_sleep_ok;
 static lv_display_t *s_lv_display;
 static uint8_t s_applied_rotation;
 static uint16_t s_ui_width, s_ui_height;
+static bool s_headlight_seen,s_headlights_on;
 
 bool md_display_configuration_read(md_device_configuration_t *config, uint32_t *revision,
                                    md_target_profile_t *target)
@@ -420,8 +424,18 @@ static bool open_display(md_display_manager_t *manager,
 
 static bool effective_day_mode(const md_ui_settings_t *settings)
 {
-    /* AUTO remains night-safe until an ambient-light/vehicle context provider exists. */
+    if(settings->day_night==MD_UI_DAY_NIGHT_AUTO && s_headlight_seen) return !s_headlights_on;
     return settings->day_night == MD_UI_DAY_NIGHT_DAY;
+}
+
+/* An AUTO night transition must also darken an otherwise custom palette. */
+static md_ui_palette_t visible_palette(const md_ui_settings_t *settings,
+                                       const md_device_configuration_t *configuration)
+{
+    if(configuration->common.custom_theme &&
+       !(settings->day_night==MD_UI_DAY_NIGHT_AUTO && s_headlight_seen && s_headlights_on))
+        return configuration->common.palette;
+    return md_ui_theme_palette(settings->theme,effective_day_mode(settings));
 }
 
 static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms,
@@ -531,7 +545,7 @@ static void apply_event(const ui_event_t *event,
 {
     /* Local interaction takes over an unsaved Web preview; stale Web writes
        then fail revision checking rather than replacing the local change. */
-    if(event->type==UI_EVENT_SET_BRIGHTNESS ||
+    if(event->type==UI_EVENT_SET_BRIGHTNESS || event->type==UI_EVENT_AUTOMOTIVE_SCREEN ||
        (event->type==UI_EVENT_ACTION && (event->action==MD_UI_ACTION_OPEN_SETTINGS ||
         event->action==MD_UI_ACTION_INCREMENT || event->action==MD_UI_ACTION_DECREMENT ||
         event->action==MD_UI_ACTION_SELECT)) ||
@@ -549,6 +563,13 @@ static void apply_event(const ui_event_t *event,
         settings->brightness_pct = event->brightness_pct;
         enqueue_settings_save(settings);
         ESP_LOGI(TAG, "Manual brightness=%u source=console", settings->brightness_pct);
+        return;
+    }
+    if(event->type==UI_EVENT_AUTOMOTIVE_SCREEN) {
+        if(!md_automotive_screen(event->screen) || state->sleeping) return;
+        state->screen=event->screen;settings->last_screen=(uint8_t)state->screen;
+        enqueue_settings_save(settings);
+        if(lvgl_port_lock(20)) {md_ui_screens_show(state->screen,settings);lvgl_port_unlock();}
         return;
     }
 
@@ -587,7 +608,7 @@ static void apply_event(const ui_event_t *event,
                     md_ui_screens_setting_previous_at(x, y));
                 md_ui_screens_debug_touch(x, y);
                 lvgl_port_unlock();
-            } else if (state->screen < MD_UI_SCREEN_SETTINGS && lvgl_port_lock(20)) {
+            } else if (md_ui_screen_is_content(state->screen) && lvgl_port_lock(20)) {
                 const md_touch_hit_t hit = md_touch_hit_zone(x, y,
                                                             s_ui_width, s_ui_height);
                 md_ui_screens_nav_pressed(state->screen, settings,
@@ -741,6 +762,13 @@ static void apply_event(const ui_event_t *event,
             if (hit == MD_TOUCH_HIT_PREVIOUS) action = MD_UI_ACTION_PREVIOUS_SCREEN;
             else if (hit == MD_TOUCH_HIT_NEXT) action = MD_UI_ACTION_NEXT_SCREEN;
             else if (hit == MD_TOUCH_HIT_CONTENT) {
+                if(md_automotive_screen(state->screen)) {
+                    if(state->screen==MD_UI_SCREEN_DRAG && x>=s_ui_width*240/320 &&
+                        y>=s_ui_height*108/240 && y<s_ui_height*132/240) md_vehicle_app_drag_reset();
+                    else action=MD_UI_ACTION_NEXT_SCREEN;
+                    if(state->screen==MD_UI_SCREEN_DRAG && x>=s_ui_width*240/320 &&
+                        y>=s_ui_height*108/240 && y<s_ui_height*132/240) return;
+                } else {
                 if (!lvgl_port_lock(20)) return;
                 details_signal = md_ui_screens_signal_at(state->screen, settings, x, y);
                 const int pressed_signal = md_ui_screens_signal_at(state->screen,
@@ -748,12 +776,13 @@ static void apply_event(const ui_event_t *event,
                 lvgl_port_unlock();
                 if (details_signal < 0 || details_signal != pressed_signal) return;
                 action = MD_UI_ACTION_OPEN_DETAILS;
+                }
             } else return;
             }
         }
     } else if (event->type == UI_EVENT_TOUCH_GESTURE && s_touch_calibrated &&
                event->touch_gesture == MD_UI_TOUCH_LONG_PRESS &&
-               state->screen < MD_UI_SCREEN_SETTINGS) {
+               md_ui_screen_is_content(state->screen)) {
         if (s_last_press_x >= 0 && s_last_press_y >= 0 &&
             lvgl_port_lock(20)) {
             const int slot = md_ui_screens_widget_slot_at(state->screen, settings,
@@ -792,6 +821,7 @@ static void apply_event(const ui_event_t *event,
         return;
     }
     if (!md_ui_input_valid(source, action)) return;
+    if(state->screen==MD_UI_SCREEN_DRAG && action==MD_UI_ACTION_SELECT) {md_vehicle_app_drag_reset();return;}
     if(state->screen==MD_UI_SCREEN_SETTINGS && (action==MD_UI_ACTION_SELECT ||
        action==MD_UI_ACTION_INCREMENT || action==MD_UI_ACTION_DECREMENT))
         (void)end_preview_for_local(settings);
@@ -960,9 +990,10 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
     /* The 92-signal snapshot must not share the 8 KiB controller stack with
      * settings migration and nested rendering. Allocate once, never per frame. */
     md_device_configuration_t *visible_config=malloc(sizeof(*visible_config));
-    md_ui_signal_store_t *signals=malloc(sizeof(*signals));
+    md_dashboard_frame_t *dashboard=calloc(1,sizeof(*dashboard));
+    md_ui_signal_store_t *signals=dashboard?&dashboard->signals:NULL;
     if (!visible_config || !signals) {
-        free(visible_config); free(signals);
+        free(visible_config); free(dashboard);
         ESP_LOGE(TAG, "UI snapshot allocation failed");
         vTaskDelete(NULL); return;
     }
@@ -980,7 +1011,7 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
     md_display_orientation_t orientation;
     if (!md_display_orientation_select(&profile, &orientation)) {
         ESP_LOGE(TAG, "Unsupported display orientation");
-        free(visible_config); free(signals);
+        free(visible_config); free(dashboard);
         vTaskDelete(NULL);
         return;
     }
@@ -992,7 +1023,7 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
     lvgl_config.task_stack_caps = MALLOC_CAP_INTERNAL | MALLOC_CAP_DEFAULT;
     if (lvgl_port_init(&lvgl_config) != ESP_OK) {
         ESP_LOGE(TAG, "LVGL port initialization failed");
-        free(visible_config); free(signals);
+        free(visible_config); free(dashboard);
         vTaskDelete(NULL);
         return;
     }
@@ -1015,13 +1046,13 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
     s_lv_display = lv_display;
     if (!lv_display) {
         ESP_LOGE(TAG, "Could not attach LCD to LVGL");
-        free(visible_config); free(signals);
+        free(visible_config); free(dashboard);
         vTaskDelete(NULL);
         return;
     }
     if (!lvgl_port_lock(0)) {
         ESP_LOGE(TAG, "Could not acquire LVGL during initial screen creation");
-        free(visible_config); free(signals);
+        free(visible_config); free(dashboard);
         vTaskDelete(NULL);
         return;
     }
@@ -1041,7 +1072,7 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
     lvgl_port_unlock();
     if (!screens_ready) {
         ESP_LOGE(TAG, "Could not create LVGL screens");
-        free(visible_config); free(signals);
+        free(visible_config); free(dashboard);
         vTaskDelete(NULL);
         return;
     }
@@ -1108,8 +1139,7 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
                 md_configuration_to_legacy(visible_config,&settings);
                 if (lvgl_port_lock(100)) {
                     md_ui_screens_configuration(visible_config);
-                    palette=visible_config->common.custom_theme ? visible_config->common.palette :
-                        md_ui_theme_palette(settings.theme,effective_day_mode(&settings));
+                    palette=visible_palette(&settings,visible_config);
                     md_ui_screens_retheme(&palette, settings.theme); md_ui_screens_rebuild_custom(&settings);
                     md_ui_lvgl_renderer()->show(NULL,state.screen,&settings); seen_revision=s_config_revision; lvgl_port_unlock();
                 }
@@ -1144,6 +1174,12 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
         if(settings.warnings_enabled) for(unsigned i=0;i<MD_UI_MAX_WARNING_THRESHOLDS;i++) {
             if(settings.warnings[i].enabled)warning_demand|=md_derived_raw_demand(settings.warnings[i].signal_id);
         }
+        if(md_automotive_screen(state.screen)) {
+            demand|=md_derived_raw_demand(MD_SIGNAL_VEHICLE_SPEED)|md_derived_raw_demand(MD_SIGNAL_ENGINE_RPM)|
+                md_derived_raw_demand(MD_SIGNAL_ENGINE_BOOST)|md_derived_raw_demand(MD_SIGNAL_ENGINE_OIL_TEMPERATURE)|
+                md_derived_raw_demand(MD_SIGNAL_ENGINE_COOLANT_TEMPERATURE)|md_derived_raw_demand(MD_SIGNAL_IAT)|
+                md_derived_raw_demand(MD_SIGNAL_TRANSMISSION_OIL_TEMPERATURE)|md_derived_raw_demand(MD_SIGNAL_TRANSMISSION_GEAR);
+        }
         md_vehicle_app_demand(demand,warning_demand);
         (void)apply_rotation(&settings,state.screen,&palette);
         if (applied_brightness != settings.brightness_pct) {
@@ -1165,13 +1201,25 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
         if (state.sleeping || !lvgl_port_lock(20)) continue;
 
 #if CONFIG_MINIDASH_CAN_ENABLE
-        (void)md_signal_mailbox_read(&s_vehicle_mailbox,signals);
+        (void)md_signal_mailbox_read_frame(&s_vehicle_mailbox,dashboard);
 #else
         portENTER_CRITICAL(&s_signal_mux);
         *signals = s_signal_store;
         portEXIT_CRITICAL(&s_signal_mux);
 #endif
         const uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000);
+        md_automotive_frame(dashboard);
+        double headlights;
+        vag_quality_t light=vag_telemetry_sample(&dashboard->vehicle,VAG_HEADLIGHTS,now_ms,&headlights);
+        bool seen=light==VAG_VALID || light==VAG_CANDIDATE;
+        bool on=seen && headlights!=0;
+        if(seen!=s_headlight_seen || (seen && on!=s_headlights_on)) {
+            s_headlight_seen=seen;s_headlights_on=on;
+            if(settings.day_night==MD_UI_DAY_NIGHT_AUTO) {
+                palette=visible_palette(&settings,visible_config);
+                md_ui_screens_retheme(&palette,settings.theme);
+            }
+        }
         const md_ui_diagnostics_t diagnostics = diagnostics_snapshot(now_ms,signals);
         md_ui_lvgl_renderer()->update(NULL,state.screen, &settings, &state, signals,
                              now_ms, &diagnostics);
@@ -1248,6 +1296,20 @@ void md_display_app_publish_store(const md_ui_signal_store_t *store)
 #else
     (void)store;
 #endif
+}
+void md_display_app_publish_frame(const md_dashboard_frame_t *frame)
+{
+#if CONFIG_MINIDASH_DISPLAY_ENABLE
+    if(frame && s_ui_event_queue) md_signal_mailbox_publish_frame(&s_vehicle_mailbox,frame);
+#else
+    (void)frame;
+#endif
+}
+bool md_display_app_show_automotive(md_ui_screen_t screen)
+{
+    if(!s_ui_event_queue || !md_automotive_screen(screen)) return false;
+    const ui_event_t event={.type=UI_EVENT_AUTOMOTIVE_SCREEN,.screen=screen};
+    return xQueueSend(s_ui_event_queue,&event,0)==pdTRUE;
 }
 bool md_display_app_prepare_sleep(uint32_t timeout_ms)
 {

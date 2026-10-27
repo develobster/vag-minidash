@@ -3,8 +3,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "ui_core.h"
+#include "can_pipeline.h"
 /* SPSC handoff: acquisition owns publication, UI owns consumption. */
 void md_display_app_publish_store(const md_ui_signal_store_t *store);
+void md_display_app_publish_frame(const md_dashboard_frame_t *frame);
+bool md_display_app_show_automotive(md_ui_screen_t screen);
 bool md_display_app_prepare_sleep(uint32_t timeout_ms);
 void md_display_app_cancel_sleep(void);
 
