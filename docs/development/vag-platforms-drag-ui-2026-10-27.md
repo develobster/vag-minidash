@@ -281,3 +281,12 @@ Drag RESET hit box now takes precedence over the generic right-edge navigation
 zone; stationary debounce counters saturate instead of growing indefinitely.
 Local clang-tidy on decoder/drag/acquisition/mailbox and six ASan/UBSan groups
 also passed before the local execution environment became unavailable.
+
+### Dirty-update regression found by real LVGL
+
+The second run's diagnostics isolated the unchanged-frame flush to Drag, rather
+than startup layout: it wrote the generic source header and then the drag status
+on every tick. Updating only the page's own source line removes both invalidations.
+The bounded startup-settle check is retained; it also requires quiescence without
+application updates. The new renderer test therefore verifies both text caches
+and the absence of repeated writes to a shared label.

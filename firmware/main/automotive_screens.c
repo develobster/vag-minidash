@@ -150,7 +150,9 @@ void md_automotive_update(md_ui_screen_t screen,uint32_t now)
         frame.config.layout==VAG_LAYOUT_SOURCED?"SOURCED":"EXPERIMENTAL");
     if(screen==MD_UI_SCREEN_SPORT_BOOST)
         snprintf(text,sizeof(text),"%s | SHIFT %u | ~ candidate",vag_platform_name(frame.config.platform),frame.config.shift_rpm?frame.config.shift_rpm:6500);
-    set(&p->source,text,palette.muted);
+    /* Drag owns its source line; writing the generic header first would
+     * invalidate it twice even when the final visible text is unchanged. */
+    if(screen!=MD_UI_SCREEN_DRAG) set(&p->source,text,palette.muted);
     if(screen==MD_UI_SCREEN_SPORT_BOOST) {
         vag_quality_t q=value(p,0,VAG_BOOST,now,"",2);double v=0;
         if(q==VAG_VALID || q==VAG_CANDIDATE) (void)vag_telemetry_sample(&frame.vehicle,VAG_BOOST,now,&v);
