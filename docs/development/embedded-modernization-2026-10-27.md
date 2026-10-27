@@ -27,6 +27,11 @@ it. Publishing a mailbox under this mutex only copies a fixed store and swaps
 an atomic index; it never enters LVGL. Driver install/uninstall is owned by RX
 and acknowledged after its current receive returns, preventing stale handles.
 `CONFIG_TWAI_ISR_IN_IRAM=y` keeps the ISR available during flash cache stalls.
+The ESP-IDF PSRAM atomic workaround is preserved: its compiler-wide
+`ATOMIC_INT_LOCK_FREE` value is conservative, while the SDK dispatches naturally
+aligned internal-RAM 32-bit operations to hardware S32C1I stubs. Ring and mailbox
+metadata are explicitly placed in internal DRAM. The target assertion checks
+hardware CAS support instead of rejecting the required PSRAM workaround.
 
 ## Observable limits and compatibility
 
@@ -169,12 +174,17 @@ Local checks:
   The analyzer found an existing unchecked UDS signed shift; the generated
   checked decoder now replaces that code.
 - Host JavaScript model/unit contracts.
+- Local ASan/UBSan runs passed for transport, concurrent pipeline and acquisition.
 
-The initial full Python run exercised 234 tests: eight localhost HTTP tests
-could not bind sockets because of the host sandbox, and twenty optional/platform
-tests were skipped. New generator tests are additional. These environment
-errors are not reported as passing. CI provides the loopback/ESP-IDF environment;
-record target/CI results separately from hardware or vehicle acceptance.
+The final local Python run exercised 237 tests: 209 passed, eight localhost HTTP
+tests were blocked by the host sandbox, and twenty optional/platform tests were
+skipped. CI run [40506696521](https://github.com/develobster/vag-minidash/actions/runs/40506696521)
+resolved those environment gaps: the host job passed 11 native CTest groups,
+237 Python tests (236 passed, one platform skip), 10 JavaScript contracts,
+clang-tidy, and nine ASan/UBSan groups. The first target matrix correctly rejected
+the overly strict unconditional lock-free assertion; the internal-DRAM/S32C1I
+fix above is included for target revalidation. Record final target results
+separately from bench/vehicle evidence.
 
 Next steps, with acceptance criteria:
 
@@ -198,6 +208,7 @@ Next steps, with acceptance criteria:
 ## Primary sources and licenses
 
 - [ESP-IDF legacy TWAI](https://docs.espressif.com/projects/esp-idf/en/v5.5.5/esp32s3/api-reference/peripherals/twai.html): driver states, ISR affinity, queues/recovery. Retain the existing v2 API rather than mixing node API behavior.
+- [ESP-IDF atomic shim](https://github.com/espressif/esp-idf/blob/v5.5.5/components/newlib/priv_include/esp_stdatomic.h): internal-RAM hardware stubs and PSRAM fallback; do not disable the PSRAM workaround to change a compiler macro.
 - [ESP32-S3 sleep modes](https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32s3/api-reference/system/sleep_modes.html): RTC wake, timer and pad restoration.
 - [Espressif LVGL port](https://github.com/espressif/esp-bsp/tree/master/components/esp_lvgl_port): affinity and partial DMA. Existing lock pins port 2.9.0/LVGL 9.5.0.
 - commaai/opendbc, MIT, pinned revision `c4465696dc2ef0d1340ae188810ac982586999a4`: [MQB DBC](https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_mqb.dbc), [PQ DBC](https://github.com/commaai/opendbc/blob/c4465696dc2ef0d1340ae188810ac982586999a4/opendbc/dbc/vw_pq.dbc). PQ candidate fields are Motordrehzahl, BR1_Rad_kmh, MO2_Kuehlm_T and MO3_Pedalwert. No complete DBC is vendored; existing MQB provenance and third-party attribution are retained.

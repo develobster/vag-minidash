@@ -6,6 +6,7 @@
 static TickType_t ticks;
 static uint32_t stale,events[8];
 static unsigned event_count,event_index,sends,stops;
+static unsigned event_delay=1;
 static bool submitted;
 static esp_err_t queue_result;
 TickType_t xTaskGetTickCount(void){return ticks;}
@@ -16,11 +17,11 @@ esp_err_t twai_read_alerts_v2(twai_handle_t h,uint32_t *out,TickType_t timeout)
 {
     (void)h;
     if(!submitted){*out=stale;stale=0;return *out?ESP_OK:ESP_ERR_TIMEOUT;}
-    if(event_index<event_count){ticks++;*out=events[event_index++];return ESP_OK;}
+    if(event_index<event_count){ticks+=event_delay;*out=events[event_index++];return ESP_OK;}
     ticks+=timeout;*out=0;return ESP_ERR_TIMEOUT;
 }
 static void init(void)
-{ticks=stale=event_count=event_index=sends=stops=0;submitted=false;queue_result=ESP_OK;}
+{ticks=stale=event_count=event_index=sends=stops=0;event_delay=1;submitted=false;queue_result=ESP_OK;}
 int main(void)
 {
     twai_message_t frame={0};uint32_t deferred;
@@ -33,6 +34,8 @@ int main(void)
     CHECK(deferred==TWAI_ALERT_TX_FAILED);
     init();events[0]=TWAI_ALERT_TX_SUCCESS;event_count=1;deferred=0;
     CHECK(md_can_transmit_confirmed(NULL,&frame,&deferred)==ESP_OK && sends==1 && stops==0);
+    init();events[0]=TWAI_ALERT_TX_SUCCESS;event_count=1;event_delay=20;deferred=0;
+    CHECK(md_can_transmit_confirmed(NULL,&frame,&deferred)==ESP_ERR_TIMEOUT && stops==1);
     init();stale=TWAI_ALERT_RX_QUEUE_FULL;events[0]=TWAI_ALERT_BUS_OFF|TWAI_ALERT_TX_SUCCESS;
     event_count=1;deferred=0;
     CHECK(md_can_transmit_confirmed(NULL,&frame,&deferred)==ESP_FAIL);

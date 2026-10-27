@@ -17,6 +17,10 @@ esp_err_t md_can_transmit_confirmed(twai_handle_t can,const twai_message_t *fram
         }
         if(twai_read_alerts_v2(can,&alerts,budget-spent)!=ESP_OK)continue;
         *deferred|=alerts&~TWAI_ALERT_TX_SUCCESS;
+        if(xTaskGetTickCount()-started>=budget) {
+            (void)twai_stop_v2(can);
+            return ESP_ERR_TIMEOUT;
+        }
         if(alerts&(TWAI_ALERT_TX_FAILED|TWAI_ALERT_BUS_OFF))return ESP_FAIL;
         if(alerts&TWAI_ALERT_TX_SUCCESS)return ESP_OK;
     }

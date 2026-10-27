@@ -86,7 +86,7 @@ bool md_vehicle_app_validation(md_vehicle_validation_t *out)
 
 #if CONFIG_MINIDASH_CAN_ENABLE
 static twai_handle_t can;
-static md_can_ring_t rx_ring;
+static DRAM_ATTR md_can_ring_t rx_ring;
 static QueueHandle_t rx_commands;
 static SemaphoreHandle_t rx_command_done;
 static bool rx_command_ok;
@@ -157,6 +157,9 @@ static bool install_can_owned(can_command_t command)
             bus_error_base=status.bus_errors;
         }
         (void)twai_stop_v2(can);
+        /* Account for driver-queued frames deliberately discarded by a mode
+         * change as well as old-epoch frames already in the application ring. */
+        if(twai_get_status_info_v2(can,&info)==ESP_OK) epoch_dropped+=info.msgs_to_rx;
         if(twai_driver_uninstall_v2(can)!=ESP_OK) return false;
         can=NULL;
     }
@@ -333,7 +336,8 @@ static void vehicle_task(void *unused)
                 md_can_frame_t *f=&sample.frame;
                 if(f->extended)rx_extended++;else rx_standard++;
                 last_rx_id=f->id;last_rx_extended=f->extended;
-                if(validating && !f->remote && f->dlc<=8) ++recovery.frames;
+                if(validating && !f->remote && f->dlc<=8 &&
+                    (int32_t)(sample.ms-recovery.listen_since)>=0) ++recovery.frames;
                 /* Old queued replies must not revive an expired transaction. */
                 md_acq_receive_at(&engine,f,sample.ms,now_ms());
             }

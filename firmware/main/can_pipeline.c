@@ -1,7 +1,17 @@
 #include "can_pipeline.h"
 #include <string.h>
 
+#if defined(ESP_PLATFORM) && defined(__XTENSA__)
+#include "xtensa/config/core-isa.h"
+/* IDF's PSRAM workaround deliberately clears the compiler's unconditional
+ * lock-free macro. Its stdatomic shim dispatches internal-RAM words to the
+ * S32C1I hardware stubs. Keep ring/mailbox metadata in internal DRAM rather
+ * than disabling that necessary workaround for the rest of the application. */
+_Static_assert(XCHAL_HAVE_S32C1I == 1, "RX requires hardware 32-bit CAS");
+#else
 _Static_assert(ATOMIC_INT_LOCK_FREE == 2, "RX requires lock-free 32-bit atomics");
+#endif
+_Static_assert(sizeof(atomic_uint)==sizeof(uint32_t), "32-bit handoff metadata");
 _Static_assert((MD_CAN_RING_CAPACITY & (MD_CAN_RING_CAPACITY-1)) == 0, "Power-of-two ring");
 #define READY 4U
 

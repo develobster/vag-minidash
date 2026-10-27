@@ -1451,6 +1451,7 @@ static void update_focus_gauge(field_view_t *field, const md_ui_settings_t *sett
     if(!field->focus) return;
     const bool gauge=s_theme_style.gauge_style!=0;
     if(field->gauge_layout!=gauge) {
+        field->gauge_art_valid=false;
         field->gauge_layout=gauge;
         field->inline_unit=gauge || field->focus_inline_unit;
         lv_obj_set_pos(field->value,xpx(7),gauge ? lv_obj_get_height(field->card)-32 : ypx(27));

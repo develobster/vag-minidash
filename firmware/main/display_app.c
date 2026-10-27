@@ -10,6 +10,7 @@
 #include "display_serial_protocol.h"
 #include "ui_instrument_profiles.h"
 #include "esp_app_desc.h"
+#include "esp_attr.h"
 #include "esp_heap_caps.h"
 #include "esp_lvgl_port.h"
 #include "esp_log.h"
@@ -136,7 +137,7 @@ int md_display_configuration_apply(const md_device_configuration_t *config, uint
     xSemaphoreGive(s_config_mutex); return result;
 }
 static md_ui_signal_store_t s_signal_store;
-static md_signal_mailbox_t s_vehicle_mailbox MD_DISPLAY_TASK_UNUSED;
+static DRAM_ATTR md_signal_mailbox_t s_vehicle_mailbox MD_DISPLAY_TASK_UNUSED;
 static portMUX_TYPE s_signal_mux = portMUX_INITIALIZER_UNLOCKED;
 static volatile bool s_display_ready;
 static volatile bool s_touch_ready;
