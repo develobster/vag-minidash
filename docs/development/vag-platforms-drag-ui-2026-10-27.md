@@ -290,3 +290,7 @@ on every tick. Updating only the page's own source line removes both invalidatio
 The bounded startup-settle check is retained; it also requires quiescence without
 application updates. The new renderer test therefore verifies both text caches
 and the absence of repeated writes to a shared label.
+
+RPM/boost peak tracking also observes trusted updates between speed frames; a
+regression test checks an intermediate peak and rejects a larger candidate.
+This matters when speed comes from slower 2–5 Hz diagnostic polling.

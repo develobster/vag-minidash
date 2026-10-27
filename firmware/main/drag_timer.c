@@ -31,6 +31,19 @@ static void feed_segments(drag_timer_t *t,double speed,uint32_t stamp)
     }
     t->result.elapsed_s=t->segments[1].elapsed_s;
 }
+/* RPM/boost can update between two speed frames; keep those peaks too. */
+static void observe_peaks(drag_timer_t *t,const vehicle_telemetry_t *v,uint32_t now)
+{
+    double value;
+    if(vag_telemetry_sample(v,VAG_RPM,now,&value)==VAG_VALID &&
+        (!(t->result.peak_mask&1) || value>t->result.peak_rpm)) {
+        t->result.peak_rpm=value;t->result.peak_mask|=1;
+    }
+    if(vag_telemetry_sample(v,VAG_BOOST,now,&value)==VAG_VALID &&
+        (!(t->result.peak_mask&2) || value>t->result.peak_boost_bar)) {
+        t->result.peak_boost_bar=value;t->result.peak_mask|=2;
+    }
+}
 void drag_timer_observe(drag_timer_t *t,const vehicle_telemetry_t *v,uint32_t now)
 {
     if(!t || !v) return;
@@ -43,6 +56,7 @@ void drag_timer_observe(drag_timer_t *t,const vehicle_telemetry_t *v,uint32_t no
     if(now-stamp>MAX_GAP_MS) {if(t->result.state!=DRAG_FINISHED) abort_run(t,DRAG_DATA_GAP);return;}
     if(t->seen && stamp==t->stamp_ms) {
         if(t->result.state==DRAG_RUNNING) {
+            observe_peaks(t,v,now);
             double start=t->segments[1].start_ms;
             t->result.elapsed_s=((uint32_t)(now-(uint32_t)start)-(start-floor(start)))/1000.0;
         }
@@ -83,15 +97,7 @@ void drag_timer_observe(drag_timer_t *t,const vehicle_telemetry_t *v,uint32_t no
     } else t->stationary=false;
     if(t->result.state==DRAG_RUNNING) {
         if(dt>t->result.sample_interval_ms) t->result.sample_interval_ms=dt;
-        double value;
-        if(vag_telemetry_sample(v,VAG_RPM,now,&value)==VAG_VALID &&
-            (!(t->result.peak_mask&1) || value>t->result.peak_rpm)) {
-            t->result.peak_rpm=value;t->result.peak_mask|=1;
-        }
-        if(vag_telemetry_sample(v,VAG_BOOST,now,&value)==VAG_VALID &&
-            (!(t->result.peak_mask&2) || value>t->result.peak_boost_bar)) {
-            t->result.peak_boost_bar=value;t->result.peak_mask|=2;
-        }
+        observe_peaks(t,v,now);
         if(t->segments[1].state==MD_RUN_INVALID) abort_run(t,DRAG_STOPPED);
         else if(t->result.result_mask&2) {
             t->result.state=DRAG_FINISHED;++t->result.completed_runs;

@@ -29,6 +29,18 @@ static void run(uint32_t base)
 int main(void)
 {
     init();run(0);init();run(UINT32_MAX-1000U); /* millis wrap */
+    /* Peak samples have their own timestamps, independently of speed. */
+    init();arm(0);sample(700,1,true,true);sample(800,2,true,true);
+    CHECK(vag_can_db_publish(&db,VAG_RPM,6000,850,500,true,true));
+    CHECK(vag_can_db_publish(&db,VAG_BOOST,2.5,850,500,true,true));
+    drag_timer_observe(&drag,&db.telemetry,850);
+    CHECK(drag.result.peak_rpm==6000 && drag.result.peak_boost_bar==2.5);
+    CHECK(vag_can_db_publish(&db,VAG_RPM,9000,860,500,false,true));
+    CHECK(vag_can_db_publish(&db,VAG_BOOST,5,860,500,false,true));
+    drag_timer_observe(&drag,&db.telemetry,860);
+    CHECK(drag.result.peak_rpm==6000 && drag.result.peak_boost_bar==2.5);
+    for(unsigned i=3;i<=100;i++) sample(600+i*100,i,true,true);
+    CHECK(drag.result.state==DRAG_FINISHED && drag.result.peak_rpm==6000 && drag.result.peak_boost_bar==2.5);
     init();for(unsigned i=0;i<20;i++)sample(i*100,0,false,true);CHECK(drag.result.state==DRAG_IDLE);
     init();arm(0);sample(700,.6,true,true);sample(800,0,true,true);CHECK(drag.result.state==DRAG_READY);
     sample(900,1,true,true);sample(1000,2,true,true);CHECK(drag.result.state==DRAG_RUNNING);
