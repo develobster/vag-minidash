@@ -2,6 +2,9 @@
 
 Base: `9397342684ffb36a125be14b001a580f2c1e05ea`, branch
 `integration/standalone`. This extends the [earlier modernization](embedded-modernization-2026-10-27.md).
+Tested implementation commit: `dfc1b53a4dd3aa351570663cb8dbcd62410c72e8`.
+Full remote validation: [CI 40543929493](https://github.com/develobster/vag-minidash/actions/runs/40543929493).
+
 The request floor is now **200 ms (5 Hz aggregate)**, 500 ms under AP/backlog
 pressure; ordinary CAN silence is **20 seconds**. These supersede the earlier
 100 ms/30 second defaults. Sleep remains an explicit hardware-dependent opt-in.
@@ -224,7 +227,7 @@ service boot, and RF shuts down on movement or loss of parked evidence.
 
 ## Validation and remaining acceptance
 
-Local checks and CI results are recorded below after completion. Local runtime
+Local checks and CI results are recorded below. Local runtime
 has Apple Clang and Python 3.11; ESP-IDF/CMake are unavailable and HTTP socket bind
 is sandbox-restricted. Target builds and full HTTP tests therefore run in CI.
 
@@ -267,7 +270,7 @@ Remaining priorities:
   An ECU exceeding its deadline cannot produce a timing result. These are
   bounded simulated workloads, not CAN hardware throughput measurements.
 
-Target/actual LVGL CI results will be added after the remote run completes.
+The final CI table below supersedes the initial failed renderer checks.
 
 ### First remote target pass
 
@@ -276,7 +279,7 @@ built all three ESP-IDF 5.5.5 variants successfully. Eighteen of nineteen native
 CTest groups passed. The new LVGL unchanged-frame assertion failed after the
 first screen-load refresh; startup layout settling and diagnostic output were
 added before measuring application invalidation, with a bounded quiescence
-assertion. A follow-up run must confirm the cause and full host suite. The full
+assertion. The final run documented below confirms the cause and full host suite. The full
 Drag RESET hit box now takes precedence over the generic right-edge navigation
 zone; stationary debounce counters saturate instead of growing indefinitely.
 Local clang-tidy on decoder/drag/acquisition/mailbox and six ASan/UBSan groups
@@ -294,3 +297,36 @@ and the absence of repeated writes to a shared label.
 RPM/boost peak tracking also observes trusted updates between speed frames; a
 regression test checks an intermediate peak and rejects a larger candidate.
 This matters when speed comes from slower 2–5 Hz diagnostic polling.
+
+## Final remote verification
+
+Implementation: `dfc1b53a4dd3aa351570663cb8dbcd62410c72e8`.
+Run [40543929493](https://github.com/develobster/vag-minidash/actions/runs/40543929493)
+completed successfully on Ubuntu 24.04 and ESP-IDF 5.5.5.
+
+| Check | Result |
+|---|---|
+| Generated C/Python catalogue consistency | Both generators passed |
+| Native CTest | 19/19 groups passed, including NVS and actual LVGL |
+| Actual LVGL | Five screens × landscape/portrait; bounds, Night black, unchanged=no extra flush, one changed metric dirties <half screen |
+| Python 3.11 | 241 discovered: 240 passed, one platform skip; all HTTP tests passed in CI |
+| JS contracts | 10/10 passed |
+| clang-tidy | Passed all nine selected critical modules against actual compile commands |
+| ASan/UBSan | 16/16 native groups passed |
+| ESP32-S3 standalone / ST7789 | Build passed |
+| ESP32-S3 Listen-Only / ST7789 | Build passed |
+| ESP32-S3 sleep-enabled / ILI9341 | Build passed |
+
+[Ten synthetic PNGs](https://github.com/develobster/vag-minidash/actions/runs/40543929493/artifacts/12750434564)
+are a CI artifact retained for seven days; recreate them with the documented
+LVGL test afterwards. They contain synthetic values only. Pixel geometry and
+dirty-region checks are automated; manual visual inspection and physical
+display/touch acceptance are still pending.
+
+The final documentation-only commit records these results with `[skip ci]`;
+it changes no tested source or workflow. No device was flashed, no vehicle was
+connected, and no physical CAN loss/current/temperature/acceleration result is
+claimed. The local execution environment disconnected after the first source
+upload: final fixes and this report are saved on the remote branch, while the
+local checkout must be synchronized when that environment returns. Its final
+HEAD/index/clean status could not be verified after disconnection.
