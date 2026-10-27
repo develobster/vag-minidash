@@ -39,6 +39,19 @@ reports are retained for provenance, not proof of current hardware state.
   as the CYD; no serial connection, reset, flash, NVS or eFuse operation occurred.
   An old report of version 0.5.1 does not establish what is installed now.
 
+### Subsequent read-only USB status
+
+After the user confirmed the USB connection, COM6 returned MiniDash CYD status
+at 115200 baud. A passive read and the documented `status` command were used;
+no flash, NVS, eFuse or CAN operation was requested. The device reported IDF
+5.5.5, display and touch ready, calibration present, Wi-Fi off, DEMO off,
+CAN ready, TX not armed, UDS off, GPIO22/27, 500 kbit/s, RX=0 and TX=0.
+Reported heap was 139248 bytes, minimum 138408 and largest block 110592;
+reported `stack_free` was 1972 (the status output does not identify its units
+here). These are readings from the currently installed firmware, not from the
+new branch, and do not establish hardware wiring or CAN functionality. The
+application version was absent from this response and remains unknown.
+
 ## Acceptance sequence still required
 
 1. Integrate board configuration and independent lock/build directories; build
