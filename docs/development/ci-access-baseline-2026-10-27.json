@@ -1,0 +1,1697 @@
+{
+  "schema": 1,
+  "audit_date_local": "2026-10-27",
+  "timezone": "Europe/Minsk",
+  "repository": "develobster/vag-minidash",
+  "branch": "integration/standalone",
+  "snapshot_head": "a720abadab9887958736012f78378e4fda13fc81",
+  "commit_range": {
+    "base": "f73a81a14815e586d8e42fed1675616163795bef",
+    "head": "a720abadab9887958736012f78378e4fda13fc81",
+    "commits": 8,
+    "changed_files": 76
+  },
+  "latest_success": {
+    "run_id": 40543929493,
+    "sha": "dfc1b53a4dd3aa351570663cb8dbcd62410c72e8",
+    "head_difference": "documentation_only_skip_ci"
+  },
+  "runs": [
+    {
+      "id": 40543929493,
+      "sha": "dfc1b53a4dd3aa351570663cb8dbcd62410c72e8",
+      "branch": "integration/standalone",
+      "conclusion": "success",
+      "created_at": "2026-10-27T16:44:49Z",
+      "jobs": [
+        {
+          "id": 122329842750,
+          "name": "host",
+          "conclusion": "success",
+          "duration_seconds": 111,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 2
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Dependencies",
+              "conclusion": "success",
+              "duration_seconds": 16
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Generated source consistency",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 29
+            },
+            {
+              "name": "Portable C (warnings are errors)",
+              "conclusion": "success",
+              "duration_seconds": 19
+            },
+            {
+              "name": "Static C analysis",
+              "conclusion": "success",
+              "duration_seconds": 11
+            },
+            {
+              "name": "Python and web contracts",
+              "conclusion": "success",
+              "duration_seconds": 21
+            },
+            {
+              "name": "Address and undefined behavior sanitizers",
+              "conclusion": "success",
+              "duration_seconds": 4
+            },
+            {
+              "name": "Encode exact UI previews",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Run actions/upload-artifact@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122329843203,
+          "name": "firmware (standalone)",
+          "conclusion": "success",
+          "duration_seconds": 184,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 92
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "success",
+              "duration_seconds": 85
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122329843332,
+          "name": "firmware (listen-only)",
+          "conclusion": "success",
+          "duration_seconds": 210,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 70
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "success",
+              "duration_seconds": 136
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122329843768,
+          "name": "firmware (sleep-ili9341)",
+          "conclusion": "success",
+          "duration_seconds": 186,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 96
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "success",
+              "duration_seconds": 85
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 40543634519,
+      "sha": "4fa90730ca6dd7e1cb636c0a0fd0f6ce716186ce",
+      "branch": "integration/standalone",
+      "conclusion": "cancelled",
+      "created_at": "2026-10-27T16:43:00Z",
+      "jobs": [
+        {
+          "id": 122328931122,
+          "name": "host",
+          "conclusion": "cancelled",
+          "duration_seconds": 92,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 2
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Dependencies",
+              "conclusion": "success",
+              "duration_seconds": 22
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 2
+            },
+            {
+              "name": "Generated source consistency",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 42
+            },
+            {
+              "name": "Portable C (warnings are errors)",
+              "conclusion": "cancelled",
+              "duration_seconds": 17
+            },
+            {
+              "name": "Static C analysis",
+              "conclusion": "skipped",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Python and web contracts",
+              "conclusion": "skipped",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Address and undefined behavior sanitizers",
+              "conclusion": "skipped",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Encode exact UI previews",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Run actions/upload-artifact@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "skipped",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "conclusion": "skipped",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122328931464,
+          "name": "firmware (sleep-ili9341)",
+          "conclusion": "cancelled",
+          "duration_seconds": 77,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 71
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "cancelled",
+              "duration_seconds": 2
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122328931785,
+          "name": "firmware (standalone)",
+          "conclusion": "cancelled",
+          "duration_seconds": 78,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "cancelled",
+              "duration_seconds": 74
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "skipped",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "skipped",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122328931862,
+          "name": "firmware (listen-only)",
+          "conclusion": "cancelled",
+          "duration_seconds": 78,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 70
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "cancelled",
+              "duration_seconds": 3
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 40543389157,
+      "sha": "41853f973b3383faa569107de73ef16f78e7e8cc",
+      "branch": "integration/standalone",
+      "conclusion": "cancelled",
+      "created_at": "2026-10-27T16:41:29Z",
+      "jobs": [
+        {
+          "id": 122327429760,
+          "name": "firmware (standalone)",
+          "conclusion": "cancelled",
+          "duration_seconds": 155,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 73
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "cancelled",
+              "duration_seconds": 75
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122327430386,
+          "name": "firmware (sleep-ili9341)",
+          "conclusion": "cancelled",
+          "duration_seconds": 153,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 99
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 2
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "cancelled",
+              "duration_seconds": 47
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122327430390,
+          "name": "host",
+          "conclusion": "failure",
+          "duration_seconds": 44,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 2
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Dependencies",
+              "conclusion": "success",
+              "duration_seconds": 13
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Generated source consistency",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 11
+            },
+            {
+              "name": "Portable C (warnings are errors)",
+              "conclusion": "failure",
+              "duration_seconds": 12
+            },
+            {
+              "name": "Static C analysis",
+              "conclusion": "skipped",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Python and web contracts",
+              "conclusion": "skipped",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Address and undefined behavior sanitizers",
+              "conclusion": "skipped",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Encode exact UI previews",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Run actions/upload-artifact@v4",
+              "conclusion": "success",
+              "duration_seconds": 2
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "skipped",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "conclusion": "skipped",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122327430403,
+          "name": "firmware (listen-only)",
+          "conclusion": "cancelled",
+          "duration_seconds": 153,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 73
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "cancelled",
+              "duration_seconds": 75
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 40542662692,
+      "sha": "ff5a70bf952b694db7dfa51529e287210dd04c68",
+      "branch": "integration/standalone",
+      "conclusion": "failure",
+      "created_at": "2026-10-27T16:37:02Z",
+      "jobs": [
+        {
+          "id": 122324872768,
+          "name": "firmware (sleep-ili9341)",
+          "conclusion": "success",
+          "duration_seconds": 206,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 93
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "success",
+              "duration_seconds": 107
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122324873303,
+          "name": "firmware (standalone)",
+          "conclusion": "success",
+          "duration_seconds": 208,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 72
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "success",
+              "duration_seconds": 129
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122324873583,
+          "name": "host",
+          "conclusion": "failure",
+          "duration_seconds": 64,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 2
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Dependencies",
+              "conclusion": "success",
+              "duration_seconds": 30
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 3
+            },
+            {
+              "name": "Generated source consistency",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 6
+            },
+            {
+              "name": "Portable C (warnings are errors)",
+              "conclusion": "failure",
+              "duration_seconds": 17
+            },
+            {
+              "name": "Static C analysis",
+              "conclusion": "skipped",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Python and web contracts",
+              "conclusion": "skipped",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Address and undefined behavior sanitizers",
+              "conclusion": "skipped",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Encode exact UI previews",
+              "conclusion": "skipped",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Run actions/upload-artifact@v4",
+              "conclusion": "skipped",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "skipped",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "conclusion": "skipped",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122324873735,
+          "name": "firmware (listen-only)",
+          "conclusion": "success",
+          "duration_seconds": 212,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 71
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "success",
+              "duration_seconds": 137
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 40508391364,
+      "sha": "9397342684ffb36a125be14b001a580f2c1e05ea",
+      "branch": "integration/standalone",
+      "conclusion": "success",
+      "created_at": "2026-10-27T13:00:59Z",
+      "jobs": [
+        {
+          "id": 122203529564,
+          "name": "host",
+          "conclusion": "success",
+          "duration_seconds": 68,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Dependencies",
+              "conclusion": "success",
+              "duration_seconds": 23
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Generated source consistency",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Portable C (warnings are errors)",
+              "conclusion": "success",
+              "duration_seconds": 10
+            },
+            {
+              "name": "Static C analysis",
+              "conclusion": "success",
+              "duration_seconds": 5
+            },
+            {
+              "name": "Python and web contracts",
+              "conclusion": "success",
+              "duration_seconds": 20
+            },
+            {
+              "name": "Address and undefined behavior sanitizers",
+              "conclusion": "success",
+              "duration_seconds": 2
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122203529938,
+          "name": "firmware (sleep-ili9341)",
+          "conclusion": "success",
+          "duration_seconds": 176,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 93
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "success",
+              "duration_seconds": 77
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122203530120,
+          "name": "firmware (listen-only)",
+          "conclusion": "success",
+          "duration_seconds": 212,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 72
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "success",
+              "duration_seconds": 134
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122203530169,
+          "name": "firmware (standalone)",
+          "conclusion": "success",
+          "duration_seconds": 204,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 70
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "success",
+              "duration_seconds": 129
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 40507537836,
+      "sha": "5e7628b107baa194ec12c45b3cb320800079d629",
+      "branch": "integration/standalone",
+      "conclusion": "success",
+      "created_at": "2026-10-27T12:54:46Z",
+      "jobs": [
+        {
+          "id": 122200592469,
+          "name": "host",
+          "conclusion": "success",
+          "duration_seconds": 118,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 2
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Dependencies",
+              "conclusion": "success",
+              "duration_seconds": 24
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Generated source consistency",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Portable C (warnings are errors)",
+              "conclusion": "success",
+              "duration_seconds": 47
+            },
+            {
+              "name": "Static C analysis",
+              "conclusion": "success",
+              "duration_seconds": 14
+            },
+            {
+              "name": "Python and web contracts",
+              "conclusion": "success",
+              "duration_seconds": 23
+            },
+            {
+              "name": "Address and undefined behavior sanitizers",
+              "conclusion": "success",
+              "duration_seconds": 2
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122200592677,
+          "name": "firmware (listen-only)",
+          "conclusion": "success",
+          "duration_seconds": 211,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 70
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "success",
+              "duration_seconds": 137
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122200592757,
+          "name": "firmware (sleep-ili9341)",
+          "conclusion": "success",
+          "duration_seconds": 226,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 105
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "success",
+              "duration_seconds": 115
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122200592818,
+          "name": "firmware (standalone)",
+          "conclusion": "success",
+          "duration_seconds": 223,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 119
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "success",
+              "duration_seconds": 99
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 40506696521,
+      "sha": "0103d66ac4a83a9b27be36746594a2434f852100",
+      "branch": "integration/standalone",
+      "conclusion": "failure",
+      "created_at": "2026-10-27T12:48:31Z",
+      "jobs": [
+        {
+          "id": 122197702094,
+          "name": "firmware (standalone)",
+          "conclusion": "failure",
+          "duration_seconds": 188,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 91
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 2
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "failure",
+              "duration_seconds": 89
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122197702295,
+          "name": "firmware (listen-only)",
+          "conclusion": "failure",
+          "duration_seconds": 184,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 71
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 2
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "failure",
+              "duration_seconds": 107
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122197702442,
+          "name": "firmware (sleep-ili9341)",
+          "conclusion": "failure",
+          "duration_seconds": 181,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Initialize containers",
+              "conclusion": "success",
+              "duration_seconds": 99
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Build ESP32-S3 (never flash)",
+              "conclusion": "failure",
+              "duration_seconds": 75
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Stop containers",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        },
+        {
+          "id": 122197702467,
+          "name": "host",
+          "conclusion": "success",
+          "duration_seconds": 63,
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success",
+              "duration_seconds": 2
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Dependencies",
+              "conclusion": "success",
+              "duration_seconds": 24
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 1
+            },
+            {
+              "name": "Generated source consistency",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Portable C (warnings are errors)",
+              "conclusion": "success",
+              "duration_seconds": 3
+            },
+            {
+              "name": "Static C analysis",
+              "conclusion": "success",
+              "duration_seconds": 5
+            },
+            {
+              "name": "Python and web contracts",
+              "conclusion": "success",
+              "duration_seconds": 20
+            },
+            {
+              "name": "Address and undefined behavior sanitizers",
+              "conclusion": "success",
+              "duration_seconds": 2
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success",
+              "duration_seconds": 0
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success",
+              "duration_seconds": 0
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "controls": {
+    "branch_protected": false,
+    "rulesets": [],
+    "workflow_token_permissions": {
+      "contents": "read",
+      "metadata": "read"
+    },
+    "workflow_ssh_or_secret_setup_steps": false,
+    "actions_runtime_warning": "Node20 actions forced to Node24",
+    "administrative_changes": {
+      "deploy_keys": null,
+      "runtime_ssh_keys": null,
+      "pat_or_app_tokens": null,
+      "collaborator_history": null
+    },
+    "administrative_access": "Not exposed by current GitHub connector; no clean-access conclusion",
+    "annotations_api": "Rejected by connector allowlist (HTTP400); runner error markers read from job logs",
+    "public_events_api": "Rejected by connector allowlist (HTTP400)"
+  }
+}

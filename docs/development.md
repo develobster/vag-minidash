@@ -312,3 +312,7 @@ and overloaded latency, and requires loss/reconnect timing invalidation. See
 ## VAG platforms, drag and LVGL pages
 
 [27 October 2026: file map, corrected signal matrix, NVS configuration, host replay and target builds](development/vag-platforms-drag-ui-2026-10-27.md).
+
+## Аудит CI/CD и доступов
+
+[27 октября 2026: матрица запусков, RCA, доступы и action items](development/ci-access-audit-2026-10-27.md). Машиночитаемый срез сохранён рядом с отчётом.
