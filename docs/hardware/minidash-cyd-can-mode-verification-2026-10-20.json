@@ -1,0 +1,102 @@
+{
+  "date": "2026-10-20",
+  "version": "cyd-0.5.0-can",
+  "status": "PASS",
+  "builds": {
+    "cyd": {
+      "status": "PASS",
+      "app_bytes": 1969184,
+      "app_sha256": "d4a238223dae6e5d0c1fc7da7da19bb329c99b85bac9102dd6814c5886fadc29",
+      "physically_flashed": true
+    },
+    "s3": {
+      "status": "PASS",
+      "app_bytes": 1957216,
+      "app_sha256": "f469b9c3bbe2e32e32ce66dcb265d5a39be90878dbfe20c0786d746655852fec",
+      "physically_flashed": false
+    }
+  },
+  "native": {
+    "passed": 15,
+    "failed": 0,
+    "includes_cyd_acquisition_and_ui": true
+  },
+  "browser": {
+    "passed": 43,
+    "failed": 0,
+    "real_html": true,
+    "real_c_parser": true,
+    "server": "fixture"
+  },
+  "esp32": {
+    "status": "PASS",
+    "version": "cyd-0.5.0-can",
+    "checks": [
+      "boot display touch calibration Wi-Fi OFF",
+      "initial DEMO and no CAN TX",
+      "user settings and AUTO retained",
+      "27 real LVGL/core UI checks",
+      "actual LVGL view regression",
+      "17 themes font fit / EN RU",
+      "menu OFF installs CAN listen only",
+      "demo readings cleared",
+      "DEMO OFF persisted across real reset",
+      "Wi-Fi remains OFF after reset",
+      "user settings and AUTO retained",
+      "cycle 0 DEMO resumes",
+      "cycle 0 CAN stays silent",
+      "cycle 1 DEMO resumes",
+      "cycle 1 CAN stays silent",
+      "cycle 2 DEMO resumes",
+      "cycle 2 CAN stays silent",
+      "cycle 3 DEMO resumes",
+      "cycle 3 CAN stays silent",
+      "cycle 4 DEMO resumes",
+      "cycle 4 CAN stays silent",
+      "mode cycles do not accumulate heap loss",
+      "manual Wi-Fi with CAN listen",
+      "69 real ESP32 HTTP checks",
+      "second consecutive 69 ESP32 HTTP checks",
+      "CAN remains silent during HTTP",
+      "Wi-Fi shutdown leaves CAN running",
+      "user settings and AUTO retained",
+      "no reboot crash watchdog",
+      "vehicle stack reserve during DEMO and listen",
+      "final DEMO OFF and zero TX"
+    ],
+    "duration_seconds": 239.5,
+    "cycle_baseline_heap": 139228,
+    "cycle_final_heap": 138720,
+    "final_ui": "MINIDASH_UI_STATUS display=1 touch=1 calibrated=1 screen=0 wifi=0 heap=125712 minimum=13588 largest=36864 rpm=0.0 rpm_demo=0 speed=0.0 speed_demo=0 rpm_state=2 speed_state=2",
+    "final_source": "MINIDASH_SOURCE demo=0 applied=1 desired=1 can_ready=1 tx_armed=0 rx=0 tx=0 pins=22/27 bitrate=500000 UDS=off stack_free=1980",
+    "external_can_frames": false,
+    "physical_touch": false,
+    "external_phone": false,
+    "can_tx_enabled_during_test": false
+  },
+  "esp32_http": {
+    "runs": 2,
+    "passed_each": 69,
+    "failed": 0
+  },
+  "calibration_blob_compare": "PASS",
+  "minimum_heap_bytes": 13588,
+  "vehicle_task_stack_free_min": 1980,
+  "http_stack_reports": [
+    "MINIDASH_CYD_STACK http_min=2580 selftest_min=2600",
+    "MINIDASH_CYD_STACK http_min=2580 selftest_min=2600"
+  ],
+  "can_electrical_test": false,
+  "car_test": false,
+  "can_tx_authorized": false,
+  "first_interim_test": {
+    "http_passed": 61,
+    "http_failed": 8,
+    "minimum_heap": 16,
+    "fixed_and_retested": true
+  },
+  "original_nerdminer_backup_verified": true,
+  "nvs_before_update_verified": true,
+  "flash_digest_verified": true,
+  "user_configuration_preserved_except_last_screen": true
+}

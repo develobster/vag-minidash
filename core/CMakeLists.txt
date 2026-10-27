@@ -35,6 +35,11 @@ if(MD_LVGL_SOURCE_DIR)
     add_test(NAME automotive-lvgl-render COMMAND minidash-auto-ui-tests ${CMAKE_BINARY_DIR}/ui-previews)
 endif()
 if(BUILD_TESTING)
+    # CYD source-mode policy is staged for integration; it is not yet wired to
+    # the firmware acquisition controller.
+    add_executable(minidash-cyd-mode-tests test_cyd_mode.c ${MD_CORE_DIR}/cyd_mode.c)
+    target_include_directories(minidash-cyd-mode-tests PRIVATE ${MD_CORE_DIR})
+    add_test(NAME cyd-mode-policy COMMAND minidash-cyd-mode-tests)
     add_executable(minidash-vag-nvs-tests test_vag_nvs.c ${MD_CORE_DIR}/vag_can_db_nvs.c)
     target_include_directories(minidash-vag-nvs-tests PRIVATE nvs_stubs)
     target_link_libraries(minidash-vag-nvs-tests PRIVATE minidash-core)
