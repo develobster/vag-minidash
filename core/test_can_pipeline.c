@@ -1,6 +1,27 @@
 #include "can_pipeline.h"
+#ifdef _WIN32
+#include <windows.h>
+typedef HANDLE pthread_t;
+static void *(*win_thread_fn)(void *);
+static DWORD WINAPI win_thread_start(void *arg) { win_thread_fn(arg); return 0; }
+static int pthread_create(pthread_t *thread, void *attr, void *(*fn)(void *), void *arg)
+{
+    (void)attr; win_thread_fn=fn;
+    *thread=CreateThread(NULL,0,win_thread_start,arg,0,NULL);
+    return *thread ? 0 : -1;
+}
+static int pthread_join(pthread_t thread, void *result)
+{
+    (void)result;
+    DWORD wait=WaitForSingleObject(thread,INFINITE);
+    CloseHandle(thread);
+    return wait==WAIT_OBJECT_0 ? 0 : -1;
+}
+static void sched_yield(void) { SwitchToThread(); }
+#else
 #include <pthread.h>
 #include <sched.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #define CHECK(x) do{if(!(x)){fprintf(stderr,"PIPELINE FAIL %d: %s\n",__LINE__,#x);abort();}}while(0)

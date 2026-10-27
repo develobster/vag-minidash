@@ -25,6 +25,14 @@ an automatic merge is not an acceptance result. `cyd_mode.[ch]` and its original
 host test are copied from `30eda5b` as a staged policy only: **they are not
 linked into firmware and do not enforce a live interlock**. Historical hardware
 reports are retained for provenance, not proof of current hardware state.
+The CYD reference simulation and captive DNS modules and their host contract
+test are also staged, but are not wired into firmware. The reference's direct
+TWAI stop/uninstall on a source change must be replaced with commands to the
+new sole RX owner; copying it would race that owner. The reference CYD config
+enables standard OBD at build time, so the runtime arm interlock must be proven
+before it can be used; the integration must fail closed during development.
+The S3 application ring holds 512 samples and its TWAI queue 128 frames; any
+CYD reduction must be documented, tested and verified with real loss counters.
 
 ## Checks performed
 
@@ -32,12 +40,23 @@ reports are retained for provenance, not proof of current hardware state.
 - Python unittest discovery: 237 tests, 21 skipped, no failures.
 - JavaScript frontend tests: 10 passed.
 - CYD mode policy native test: passed with Zig C compiler and CTest.
-- Full native build failed on Windows because `pthread.h` is unavailable for
-  `test_can_pipeline.c`; no full native suite or sanitizers were run.
-- No firmware build, firmware size, RAM budget, CI run or hardware test was
-  performed for this branch. COM6 exposed a CH340 UART but was not identified
+- CYD simulation and captive DNS host contract: passed. These tests exercise
+  the reference modules only, not a running device or integrated firmware.
+- Full native build and all 20 configured CTest cases passed with cJSON on
+  Windows. The original realtime pipeline test initially failed to compile
+  without pthread; a Windows thread adapter was added and its 100,000-frame
+  concurrency test passed. LVGL software rendering and sanitizers were not run.
+- The generated C scalar decoder and Python decoder agreed on 13,000 seeded
+  input vectors across the declared layouts and four boundary layouts, using a
+  locally compiled Windows DLL. This does not validate signal meanings on a car.
+- No firmware build, firmware size, RAM budget, CI run or hardware test had
+  been performed at the time of the preliminary report. COM6 exposed a CH340 UART but was not identified
   as the CYD; no serial connection, reset, flash, NVS or eFuse operation occurred.
   An old report of version 0.5.1 does not establish what is installed now.
+- Subsequently the unchanged S3 standalone firmware baseline built with local
+  ESP-IDF 5.5.5 and locally prepared pinned components, target `esp32s3`.
+  Application size was 1,896,208 bytes in a 3,145,728-byte partition, leaving
+  1,249,520 bytes (40%). This is not a CYD or unified build. No flash was run.
 
 ### Subsequent read-only USB status
 
