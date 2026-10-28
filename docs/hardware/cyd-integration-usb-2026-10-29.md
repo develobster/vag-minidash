@@ -57,8 +57,12 @@ was 79,812 bytes, observed minimum 28,668 and largest block 32,768; after ten
 seconds idle those values remained unchanged. After a software reboot, the
 exported configuration again matched the post-install snapshot; once the UI
 was ready, free heap was 89,940, minimum 58,392 and largest block 57,344 bytes.
-These are observations of this run, not a proven leak or an acceptable operating limit. Investigate repeated AP
-cycles, fragmentation and HTTP workload before any vehicle use. The vehicle task
+Two more AP start/stop cycles reported free heap of 79,776 and 79,780 bytes
+after stopping; the minimum in that run was 32,576 and largest free block after
+stopping was 32,768 bytes. No progressive decrease was observed across these two
+cycles. DEMO, Wi-Fi and the exported settings were restored afterwards. These
+observations neither exclude a leak nor establish an acceptable operating limit.
+Investigate longer AP cycling, fragmentation and HTTP workload before any vehicle use. The vehicle task
 reported stack high-water mark 6,100 in the API's reported units; validate all
 task stacks under combined workload before acceptance.
 
