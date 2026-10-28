@@ -71,6 +71,7 @@ static atomic_uint cyd_generation;
 static md_cyd_mode_t applied_mode = MD_CYD_DEMO;
 static TaskHandle_t vehicle_task_handle;
 bool md_vehicle_app_demo(void) { return atomic_load(&cyd_mode) == MD_CYD_DEMO; }
+unsigned md_vehicle_app_source_generation(void) { return atomic_load(&cyd_generation); }
 bool md_vehicle_app_tx_armed(void) { return md_cyd_mode_tx_allowed(atomic_load(&cyd_mode)); }
 bool md_vehicle_app_set_demo(bool enabled)
 {
@@ -449,6 +450,7 @@ static void vehicle_task(void *unused)
             vag_can_db_init(&vag_db,&status.vag_config); drag_timer_reset(&drag);
             memset(&dashboard_frame,0,sizeof(dashboard_frame));
             dashboard_frame.signals=canonical; dashboard_frame.config=status.vag_config;
+            dashboard_frame.source_generation=generation;
             md_display_app_publish_frame(&dashboard_frame);
             status.configured=desired!=MD_CYD_DEMO; status.ready=false; status.state=MD_ACQ_LISTEN;
             for (unsigned id=0;id<MD_SIGNAL_COUNT;id++) {

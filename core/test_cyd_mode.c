@@ -28,14 +28,18 @@ int main(void)
     md_ui_signal_store_t store={0};
     store.signals[MD_SIGNAL_VEHICLE_SPEED]=(md_ui_signal_record_t){.received=true,.demo=true,.value=70};
     store.signals[MD_SIGNAL_ENGINE_RPM]=(md_ui_signal_record_t){.received=true,.demo=false,.value=800};
-    assert(!md_cyd_filter_store(&store,false));
+    assert(!md_cyd_filter_store(&store,false,4,4));
     assert(!store.signals[MD_SIGNAL_VEHICLE_SPEED].received);
     assert(store.signals[MD_SIGNAL_ENGINE_RPM].received);
-    assert(md_cyd_filter_store(&store,true));
+    assert(md_cyd_filter_store(&store,true,4,4));
     assert(!store.signals[MD_SIGNAL_ENGINE_RPM].received);
     store.signals[MD_SIGNAL_VEHICLE_SPEED]=(md_ui_signal_record_t){.received=true,.demo=true,.value=70};
-    assert(!md_cyd_filter_store(&store,true));
+    assert(!md_cyd_filter_store(&store,true,4,4));
     assert(store.signals[MD_SIGNAL_VEHICLE_SPEED].received);
+    /* A double toggle leaves the same mode but must reject the old snapshot. */
+    store.signals[MD_SIGNAL_ENGINE_RPM]=(md_ui_signal_record_t){.received=true,.demo=false,.value=900};
+    assert(md_cyd_filter_store(&store,false,4,6));
+    assert(!store.signals[MD_SIGNAL_ENGINE_RPM].received && !store.signals[MD_SIGNAL_VEHICLE_SPEED].received);
     for(unsigned state=0;state<4;state++) for(unsigned demo=0;demo<2;demo++)
         assert(md_cyd_demo_wifi_allowed(state,demo)==(state==0 && demo));
     assert(!md_cyd_mode_needs_apply(MD_CYD_MONITOR,4,MD_CYD_MONITOR,4));

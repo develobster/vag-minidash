@@ -40,6 +40,7 @@ void md_vehicle_app_prepare(void);
 void md_vehicle_app_start(void);
 #if CONFIG_MINIDASH_CYD
 bool md_vehicle_app_demo(void);
+unsigned md_vehicle_app_source_generation(void);
 bool md_vehicle_app_tx_armed(void);
 bool md_vehicle_app_set_demo(bool enabled);
 bool md_vehicle_app_confirm_wiring(bool confirmed);

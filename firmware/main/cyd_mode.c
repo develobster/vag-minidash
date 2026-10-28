@@ -21,10 +21,12 @@ bool md_cyd_can_pins_valid(int tx, int rx)
      * LDR and audio pins are excluded. GPIO35 is an input-only alternative. */
     return tx == 22 && (rx == 27 || rx == 35);
 }
-bool md_cyd_filter_store(md_ui_signal_store_t *store,bool desired_demo)
+bool md_cyd_filter_store(md_ui_signal_store_t *store,bool desired_demo,
+                         unsigned frame_generation,unsigned current_generation)
 {
     if(!store) return false;
-    if(desired_demo && !store->signals[MD_SIGNAL_VEHICLE_SPEED].demo) {
+    if(frame_generation!=current_generation ||
+       (desired_demo && !store->signals[MD_SIGNAL_VEHICLE_SPEED].demo)) {
         memset(store,0,sizeof(*store));
         for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) store->signals[i].state=MD_UI_SIGNAL_UNAVAILABLE;
         return true;

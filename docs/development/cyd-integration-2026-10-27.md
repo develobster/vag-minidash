@@ -132,8 +132,8 @@ target builds passed, using the local pinned components:
 
 | Variant | Application bytes | App partition free bytes |
 |---|---:|---:|
-| CYD, guarded OBD | 2,024,192 | 2,104,576 |
-| CYD, listen-only | 2,024,000 | 2,104,768 |
+| CYD, guarded OBD | 2,024,272 | 2,104,496 |
+| CYD, listen-only | 2,024,096 | 2,104,672 |
 | S3 standalone | 2,008,720 | 1,137,008 |
 | S3 listen-only | 2,008,704 | 1,137,024 |
 
@@ -172,6 +172,14 @@ native CTest cases passed; 26 cases passed with UBSan (the latter
 build does not include cJSON). The stubbed legacy loader is not a migration test
 of actual flash, and these tests do not demonstrate persistence across power
 loss, validate the connected board's NVS, or replace a verified backup.
+
+The same-day follow-up adds a source-generation field to the internal dashboard
+mailbox. CYD tags frames with the applied generation; the UI clears history and
+rejects frames from any previous generation, including a quick toggle back to
+the original mode. Host tests exercise the stale-frame filter and check that
+the generation stays consistent in snapshots during 100,000 publications.
+This does not prove a physical TWAI transition: testing the driver owner,
+source switch and loss counters remains necessary.
 
 ### Bench and Tiguan acceptance, after a separate flashing decision
 

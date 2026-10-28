@@ -25,6 +25,7 @@ typedef struct {
     vehicle_telemetry_t vehicle;
     drag_result_t drag;
     vag_db_config_t config;
+    uint32_t source_generation;
 } md_dashboard_frame_t;
 typedef struct {
     md_dashboard_frame_t slots[3];

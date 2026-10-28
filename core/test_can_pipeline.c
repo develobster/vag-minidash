@@ -51,6 +51,7 @@ static void *publish(void *unused)
             frame.vehicle.value[id]=i+id;frame.vehicle.stamp_ms[id]=i;
         }
         frame.drag.completed_runs=i;frame.drag.elapsed_s=i^0xdeadbeefU;
+        frame.source_generation=i;
         frame.config.shift_rpm=(uint16_t)(i%11000+1000);
         md_signal_mailbox_publish_frame(&box,&frame);
         if(i%101==0) sched_yield();
@@ -90,6 +91,7 @@ int main(void)
         for(unsigned id=0;id<VAG_SIGNAL_COUNT;id++)
             CHECK(frame.vehicle.value[id]==current+id && frame.vehicle.stamp_ms[id]==current);
         CHECK(frame.drag.completed_runs==current && frame.drag.elapsed_s==(current^0xdeadbeefU));
+        CHECK(frame.source_generation==current);
         CHECK(frame.config.shift_rpm==(uint16_t)(current%11000+1000));
         last=current;++reads;
     }

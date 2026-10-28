@@ -543,7 +543,8 @@ static void show_populated(md_ui_state_t *state,const md_ui_settings_t *settings
 #else
     /* signals is the first member of the UI task's dashboard allocation. */
     md_dashboard_frame_t *frame=(md_dashboard_frame_t *)signals;
-    if(md_cyd_filter_store(signals,md_vehicle_app_demo())) {
+    if(md_cyd_filter_store(signals,md_vehicle_app_demo(),frame->source_generation,
+                           md_vehicle_app_source_generation())) {
         memset(&frame->vehicle,0,sizeof(frame->vehicle));
         memset(&frame->drag,0,sizeof(frame->drag));
     }
@@ -1444,14 +1445,16 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
         (void)md_signal_mailbox_read_frame(&s_vehicle_mailbox,dashboard);
 #if CONFIG_MINIDASH_CYD
         static bool source_initialized, source_demo;
+        static unsigned source_generation;
         bool desired_demo=md_vehicle_app_demo();
-        if(!source_initialized || source_demo!=desired_demo) {
+        unsigned generation=md_vehicle_app_source_generation();
+        if(!source_initialized || source_demo!=desired_demo || source_generation!=generation) {
             md_ui_screens_clear_history();
-            source_demo=desired_demo; source_initialized=true;
+            source_demo=desired_demo; source_generation=generation; source_initialized=true;
         }
         /* The desired mode can change before acquisition publishes its reset
          * frame. Do not render or re-record a snapshot from the old source. */
-        if(md_cyd_filter_store(signals,desired_demo)) {
+        if(md_cyd_filter_store(signals,desired_demo,dashboard->source_generation,generation)) {
             memset(&dashboard->vehicle,0,sizeof(dashboard->vehicle));
             memset(&dashboard->drag,0,sizeof(dashboard->drag));
         }
