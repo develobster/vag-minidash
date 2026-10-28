@@ -1,4 +1,10 @@
 #include "vehicle_app.h"
+#include "simulation.h"
+#include "cyd_mode.h"
+#if CONFIG_MINIDASH_CYD
+#include "ui_settings_nvs.h"
+#include "nvs.h"
+#endif
 #include "display_app.h"
 #include "derived_engine.h"
 #include "esp_attr.h"
@@ -27,8 +33,12 @@
 #include <string.h>
 
 static SemaphoreHandle_t lock;
+#if CONFIG_MINIDASH_CAN_ENABLE || !CONFIG_MINIDASH_CYD
 static md_acquisition_t engine;
+#endif
+#if !CONFIG_MINIDASH_CYD
 static EXT_RAM_BSS_ATTR md_derived_engine_t analytics;
+#endif
 #if CONFIG_MINIDASH_CAN_ENABLE
 static md_ui_signal_store_t canonical;
 #endif
@@ -55,11 +65,84 @@ bool md_vehicle_app_vag_configure(const vag_db_config_t *config)
     xSemaphoreGive(lock);return allowed;
 }
 void md_vehicle_app_drag_reset(void) {atomic_store(&drag_reset,true);}
+#if CONFIG_MINIDASH_CYD
+static atomic_uint cyd_mode = MD_CYD_DEMO;
+static atomic_uint cyd_generation;
+static md_cyd_mode_t applied_mode = MD_CYD_DEMO;
+static TaskHandle_t vehicle_task_handle;
+bool md_vehicle_app_demo(void) { return atomic_load(&cyd_mode) == MD_CYD_DEMO; }
+bool md_vehicle_app_tx_armed(void) { return md_cyd_mode_tx_allowed(atomic_load(&cyd_mode)); }
+bool md_vehicle_app_set_demo(bool enabled)
+{
+    if (!lock || xSemaphoreTake(lock,pdMS_TO_TICKS(100)) != pdTRUE) return false;
+    nvs_handle_t handle;
+    esp_err_t err = nvs_open("md_cyd",NVS_READWRITE,&handle);
+    if (err == ESP_OK) {
+        err = nvs_set_u8(handle,"demo",enabled ? 1 : 0);
+        if (err == ESP_OK) err = nvs_commit(handle);
+        nvs_close(handle);
+    }
+    if (err == ESP_OK) {
+        atomic_store(&cyd_mode,md_cyd_mode_demo(enabled));
+        atomic_fetch_add(&cyd_generation,1);
+        for(unsigned id=0;id<MD_SIGNAL_COUNT;id++) {
+            status.signals[id]=(md_ui_signal_snapshot_t){.state=MD_UI_SIGNAL_UNAVAILABLE};
+            status.sources[id]=MD_SOURCE_COUNT;
+        }
+        status.ready=false;
+    }
+    xSemaphoreGive(lock);
+    if (err != ESP_OK) ESP_LOGE(TAG,"Source was not saved: %s",esp_err_to_name(err));
+    return err == ESP_OK;
+}
+bool md_vehicle_app_confirm_wiring(bool confirmed)
+{
+#if !CONFIG_MINIDASH_STANDARD_OBD
+    (void)confirmed;
+    return false;
+#else
+    if (!lock || xSemaphoreTake(lock,pdMS_TO_TICKS(100)) != pdTRUE) return false;
+    md_cyd_mode_t next;
+    bool ok = applied_mode == MD_CYD_MONITOR &&
+        md_cyd_mode_arm(atomic_load(&cyd_mode),status.ready,confirmed,&next);
+    if (ok) { atomic_store(&cyd_mode,next); atomic_fetch_add(&cyd_generation,1); }
+    xSemaphoreGive(lock);
+    return ok;
+#endif
+}
+void md_vehicle_app_disarm(void)
+{
+    unsigned expected = MD_CYD_OBD;
+    if(atomic_compare_exchange_strong(&cyd_mode,&expected,MD_CYD_MONITOR))
+        atomic_fetch_add(&cyd_generation,1);
+}
+void md_vehicle_app_mode_dump(void)
+{
+    if (!lock || xSemaphoreTake(lock,pdMS_TO_TICKS(100)) != pdTRUE) return;
+    printf("MINIDASH_SOURCE demo=%u applied=%u desired=%u can_ready=%u tx_armed=%u rx=%lu tx=%lu pins=%d/%d bitrate=500000 UDS=off stack_free=%u\n",
+        md_vehicle_app_demo(),(unsigned)applied_mode,atomic_load(&cyd_mode),status.ready,
+        md_cyd_mode_tx_allowed(atomic_load(&cyd_mode)),(unsigned long)status.rx,(unsigned long)status.tx,
+#if CONFIG_MINIDASH_CAN_ENABLE
+        CONFIG_MINIDASH_CAN_TX_GPIO,CONFIG_MINIDASH_CAN_RX_GPIO,
+#else
+        -1,-1,
+#endif
+        vehicle_task_handle ? (unsigned)uxTaskGetStackHighWaterMark(vehicle_task_handle) : 0);
+    xSemaphoreGive(lock);
+}
+#endif
 
 bool md_vehicle_app_status(md_vehicle_status_t *out)
 {
     if(!out || !lock || xSemaphoreTake(lock,pdMS_TO_TICKS(10))!=pdTRUE) return false;
     *out=status;xSemaphoreGive(lock);return true;
+}
+bool md_vehicle_app_signal_pair(md_ui_signal_snapshot_t *rpm, md_ui_signal_snapshot_t *speed)
+{
+    if(!rpm || !speed || !lock || xSemaphoreTake(lock,pdMS_TO_TICKS(10))!=pdTRUE) return false;
+    *rpm=status.signals[MD_SIGNAL_ENGINE_RPM];
+    *speed=status.signals[MD_SIGNAL_VEHICLE_SPEED];
+    xSemaphoreGive(lock);return true;
 }
 void md_vehicle_app_demand(uint32_t v,uint32_t b)
 { atomic_store(&visible,v);atomic_store(&background,b); }
@@ -73,14 +156,23 @@ void md_vehicle_app_analytics_reset(bool session){atomic_store(&analytics_reset,
 size_t md_vehicle_app_events(md_analytics_event_t *out,size_t capacity)
 {
     if(!out || !lock || xSemaphoreTake(lock,pdMS_TO_TICKS(10))!=pdTRUE)return 0;
-    size_t n=md_derived_events(&analytics,out,capacity);xSemaphoreGive(lock);return n;
+#if CONFIG_MINIDASH_CYD
+    size_t n=0; /* Full 60 s analytics requires the S3 memory profile. */
+#else
+    size_t n=md_derived_events(&analytics,out,capacity);
+#endif
+    xSemaphoreGive(lock);return n;
 }
 size_t md_vehicle_app_trace(md_acq_trace_t *out,size_t capacity)
 {
     if(!out || !lock || xSemaphoreTake(lock,pdMS_TO_TICKS(10))!=pdTRUE) return 0;
+#if !CONFIG_MINIDASH_CAN_ENABLE
+    size_t n=0;
+#else
     size_t n=engine.trace_count;if(n>capacity)n=capacity;
     size_t first=(engine.trace_head+MD_ACQ_TRACE_SIZE-n)%MD_ACQ_TRACE_SIZE;
     for(size_t i=0;i<n;i++) out[i]=engine.trace[(first+i)%MD_ACQ_TRACE_SIZE];
+#endif
     xSemaphoreGive(lock);return n;
 }
 
@@ -89,6 +181,7 @@ bool md_vehicle_app_validation(md_vehicle_validation_t *out)
     if(!out || !lock || xSemaphoreTake(lock,pdMS_TO_TICKS(10))!=pdTRUE)return false;
     memset(out,0,sizeof(*out));out->status=status;
     out->timestamp_ms=(uint32_t)(esp_timer_get_time()/1000);
+#if CONFIG_MINIDASH_CAN_ENABLE
     out->validation_mode=engine.config.car_validation_mode;
     out->standard_obd=engine.config.allow_standard_obd;
     out->trace_sequence=engine.trace_sequence;out->exchange_sequence=engine.exchange_sequence;
@@ -99,6 +192,7 @@ bool md_vehicle_app_validation(md_vehicle_validation_t *out)
     for(size_t i=0;i<out->trace_count;i++)out->trace[i]=engine.trace[(first+i)%MD_ACQ_TRACE_SIZE];
     first=(engine.exchange_head+MD_ACQ_EXCHANGE_SIZE-engine.exchange_count)%MD_ACQ_EXCHANGE_SIZE;
     for(size_t i=0;i<out->exchange_count;i++)out->exchanges[i]=engine.exchanges[(first+i)%MD_ACQ_EXCHANGE_SIZE];
+#endif
     xSemaphoreGive(lock);return true;
 }
 
@@ -142,6 +236,9 @@ static uint32_t now_ms(void) { return (uint32_t)(esp_timer_get_time()/1000); }
 static bool send_can(void *unused,const md_can_frame_t *f)
 {
     (void)unused;
+#if CONFIG_MINIDASH_CYD
+    if (!md_cyd_mode_tx_allowed(atomic_load(&cyd_mode))) return false;
+#endif
     if(!can || !normal_mode || f->extended || f->remote || f->dlc!=8) return false;
     twai_message_t m={.identifier=f->id,.data_length_code=8,.ss=1};
     memcpy(m.data,f->data,8);
@@ -154,6 +251,9 @@ static bool send_can(void *unused,const md_can_frame_t *f)
 static bool pins_valid(void)
 {
     const int tx=CONFIG_MINIDASH_CAN_TX_GPIO,rx=CONFIG_MINIDASH_CAN_RX_GPIO;
+#if CONFIG_MINIDASH_CYD
+    return md_cyd_can_pins_valid(tx,rx);
+#else
     if(tx<0 || rx<0 || tx==rx || !GPIO_IS_VALID_OUTPUT_GPIO(tx) || !GPIO_IS_VALID_GPIO(rx)) return false;
     const int reserved[]={0,3,19,20,26,27,28,29,30,31,32,33,34,35,36,37,45,46,
         CONFIG_MINIDASH_LCD_PIN_SCLK,CONFIG_MINIDASH_LCD_PIN_MOSI,CONFIG_MINIDASH_LCD_PIN_MISO,
@@ -166,9 +266,13 @@ static bool pins_valid(void)
     for(size_t i=0;i<sizeof(reserved)/sizeof(reserved[0]);i++)
         if(tx==reserved[i] || rx==reserved[i])return false;
     return true;
+#endif
 }
 static bool install_can_owned(can_command_t command)
 {
+#if CONFIG_MINIDASH_CYD
+    if(command==CAN_NORMAL && !md_vehicle_app_tx_armed()) return false;
+#endif
     if(can) {
         twai_status_info_t info;
         if(twai_get_status_info_v2(can,&info)==ESP_OK) {
@@ -198,7 +302,11 @@ static bool install_can_owned(can_command_t command)
     twai_timing_config_t timing=md_can_timing_500k();
     twai_filter_config_t filter=TWAI_FILTER_CONFIG_ACCEPT_ALL();
     if(twai_driver_install_v2(&g,&timing,&filter,&can)!=ESP_OK) return false;
-    if(twai_start_v2(can)==ESP_OK){normal_mode=normal;return true;}
+    if(twai_start_v2(can)==ESP_OK){
+        normal_mode=normal;
+        ESP_LOGI(TAG,"TWAI ready: %s",normal ? "NORMAL" : "LISTEN_ONLY (no ACK/TX)");
+        return true;
+    }
     (void)twai_driver_uninstall_v2(can);can=NULL;return false;
 }
 static void can_rx_task(void *unused)
@@ -243,10 +351,12 @@ static void update_status(uint32_t now)
     status.dtc_truncated=engine.dtc_truncated;status.dtc_ms=engine.dtc_ms;
     memcpy(status.dtc,engine.dtc,sizeof(status.dtc));memcpy(status.vin,engine.vin,sizeof(status.vin));
     md_acq_publish_canonical(&engine,&canonical,status.sources,now);
+#if !CONFIG_MINIDASH_CYD
     static uint32_t last_derived;
     if((uint32_t)(now-last_derived)>=100 || engine.state==MD_ACQ_FAULT) {
         last_derived=now;md_derived_tick(&analytics,&canonical,now);
     }
+#endif
     for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) {
         status.signals[i]=md_ui_signal_snapshot(&canonical,i,now);
         if(md_derived_definition(i))status.sources[i]=MD_SOURCE_COUNT;
@@ -296,13 +406,19 @@ static void vehicle_task(void *unused)
     xSemaphoreTake(lock,portMAX_DELAY);
     md_acq_init(&engine,&config,send_can,NULL,now_ms());
     md_acq_set_tx_ready(&engine,false);
-    md_ui_signal_store_init(&canonical);(void)md_derived_init(&analytics,&pending_analytics,now_ms());
+    md_ui_signal_store_init(&canonical);
+#if !CONFIG_MINIDASH_CYD
+    (void)md_derived_init(&analytics,&pending_analytics,now_ms());
+#endif
     vag_can_db_init(&vag_db,&status.vag_config);drag_timer_init(&drag);
     xSemaphoreGive(lock);
     uint32_t recovery_at=0,last_publish=0;
     md_can_recovery_t recovery={0};
     bool recovering=false,validating=false;
     bool fault=false,first=true,was_quiet=false,motion_latched=false,incident_attempted=false;
+#if CONFIG_MINIDASH_CYD
+    unsigned current_mode=UINT32_MAX,current_generation=UINT32_MAX;
+#endif
     for(;;) {
         uint32_t now=now_ms();
         if(xSemaphoreTake(lock,pdMS_TO_TICKS(10))!=pdTRUE) {vTaskDelay(pdMS_TO_TICKS(10));continue;}
@@ -315,10 +431,72 @@ static void vehicle_task(void *unused)
             if(saved) {status.vag_config=requested;vag_can_db_init(&vag_db,&requested);drag_timer_reset(&drag);}
             ESP_LOGI(TAG,"VAG profile %s platform=%s layout=%u",saved?"SAVED":"REJECTED",vag_platform_name(requested.platform),(unsigned)requested.layout);
         }
+#if CONFIG_MINIDASH_CYD
+        const unsigned desired = atomic_load(&cyd_mode);
+        const unsigned generation = atomic_load(&cyd_generation);
+        if (md_cyd_mode_needs_apply(current_mode,current_generation,desired,generation)) {
+            /* One producer owns driver changes and publishing. Never mix demo
+             * samples with the acquisition store or reuse an old ECU identity. */
+            if (!set_can_mode(CAN_STOP)) { xSemaphoreGive(lock); vTaskDelay(pdMS_TO_TICKS(100)); continue; }
+            /* Hold transceiver D recessive while TWAI is absent. Configure
+             * the output latch before enabling the GPIO output. */
+            if (pins_valid()) {
+                gpio_set_level(CONFIG_MINIDASH_CAN_TX_GPIO,1);
+                gpio_set_direction(CONFIG_MINIDASH_CAN_TX_GPIO,GPIO_MODE_OUTPUT);
+            }
+            normal_mode=false;
+            md_ui_signal_store_init(&canonical);
+            vag_can_db_init(&vag_db,&status.vag_config); drag_timer_reset(&drag);
+            memset(&dashboard_frame,0,sizeof(dashboard_frame));
+            dashboard_frame.signals=canonical; dashboard_frame.config=status.vag_config;
+            md_display_app_publish_frame(&dashboard_frame);
+            status.configured=desired!=MD_CYD_DEMO; status.ready=false; status.state=MD_ACQ_LISTEN;
+            for (unsigned id=0;id<MD_SIGNAL_COUNT;id++) {
+                status.signals[id]=(md_ui_signal_snapshot_t){.state=MD_UI_SIGNAL_UNAVAILABLE};
+                status.sources[id]=MD_SOURCE_COUNT;
+            }
+            md_acq_config_t source_config=config;
+            source_config.allow_standard_obd=allow_obd && md_cyd_mode_tx_allowed(desired);
+            md_acq_init(&engine,&source_config,send_can,NULL,now);
+            md_acq_set_tx_ready(&engine,false);
+            atomic_store(&last_valid_rx,0);
+            update_status(now);
+            current_mode=desired; current_generation=generation; applied_mode=desired;
+            atomic_store(&scan,false);
+            fault=false; first=true; was_quiet=false; motion_latched=false;
+            recovery=(md_can_recovery_t){0}; recovery_at=0; recovering=validating=false;
+
+            ESP_LOGI(TAG,"Source=%s TX=%s UDS=off",desired==MD_CYD_DEMO ? "DEMO" : "CAN",
+                source_config.allow_standard_obd ? "read-only OBD armed" : "blocked");
+        }
+        if (current_mode==MD_CYD_DEMO) {
+            if ((uint32_t)(now-last_publish)>=100) {
+                last_publish=now;
+                for (unsigned id=0;id<MD_SIGNAL_COUNT;id++) {
+                    double value;
+                    if (md_simulation_value(id,now,&value))
+                        status.signals[id]=(md_ui_signal_snapshot_t){.value=value,
+                            .state=MD_UI_SIGNAL_VALID,.value_available=true,.demo=true};
+                }
+                for (unsigned id=0;id<MD_SIGNAL_COUNT;id++) {
+                    md_ui_signal_snapshot_t sample=status.signals[id];
+                    md_ui_signal_store_publish_id(&canonical,id,sample.value,sample.state,now,500,true);
+                }
+                dashboard_frame.signals=canonical; dashboard_frame.vehicle=vag_db.telemetry;
+                dashboard_frame.drag=drag.result; dashboard_frame.config=status.vag_config;
+                md_display_app_publish_frame(&dashboard_frame);
+                xSemaphoreGive(lock);
+            } else xSemaphoreGive(lock);
+            vTaskDelay(pdMS_TO_TICKS(10)); continue;
+        }
+#endif
+#if !CONFIG_MINIDASH_CYD
         if(atomic_exchange(&analytics_dirty,false))(void)md_derived_configure(&analytics,&pending_analytics,now);
         unsigned reset=atomic_exchange(&analytics_reset,0);
         if(reset==1)md_derived_reset_trip(&analytics,now);
         if(reset==2)md_derived_reset_session(&analytics,now);
+
+#endif
         if(first) {
             first=false;status.ready=pins_valid() && install_can(false);
             if(!status.ready) {snprintf(status.fault,sizeof(status.fault),"CHECK CAN PINS/DRIVER");
@@ -330,7 +508,11 @@ static void vehicle_task(void *unused)
             (void)twai_read_alerts_v2(can,&alerts,0);alerts|=deferred_alerts;deferred_alerts=0;
             if((alerts&TWAI_ALERT_BUS_OFF) && !fault) {status.bus_offs++;fault=true;
                 recovering=validating=false;md_can_recovery_fault(&recovery,now);recovery_at=recovery.retry_at;
-                status.ready=false;md_acq_bus_available(&engine,false,now);md_derived_can_error(&analytics,&canonical,now,alerts);}
+                status.ready=false;md_acq_bus_available(&engine,false,now);
+#if !CONFIG_MINIDASH_CYD
+                md_derived_can_error(&analytics,&canonical,now,alerts);
+#endif
+            }
         }
         twai_status_info_t info;
         if(can && twai_get_status_info_v2(can,&info)==ESP_OK) {
@@ -403,7 +585,9 @@ static void vehicle_task(void *unused)
              * Performance speed stays at the planner's 200 ms visible priority.
              * The aggregate 200 ms request floor is never bypassed. */
             uint32_t stats_demand=0;
+#if !CONFIG_MINIDASH_CYD
             for(unsigned id=0;id<MD_SIGNAL_RAW_COUNT;id++) stats_demand|=md_derived_raw_demand(id);
+#endif
             /* The acquisition core limits validation demand to four sources. */
             md_acq_set_demand(&engine,atomic_load(&visible)|(UINT32_C(1)<<MD_SIGNAL_VEHICLE_SPEED),atomic_load(&background)|stats_demand);
             unsigned queued=atomic_load(&rx_ring.head)-atomic_load(&rx_ring.tail);
@@ -468,6 +652,15 @@ void md_vehicle_app_prepare(void)
     }
     md_analytics_config_defaults(&pending_analytics);
     status.vag_config_saved=vag_db_config_load(&status.vag_config);pending_vag=status.vag_config;
+#if CONFIG_MINIDASH_CYD
+    uint8_t demo=1;
+    nvs_handle_t handle;
+    if (md_ui_settings_storage_init() && nvs_open("md_cyd",NVS_READONLY,&handle)==ESP_OK) {
+        if (nvs_get_u8(handle,"demo",&demo)!=ESP_OK) demo=1;
+        nvs_close(handle);
+    }
+    atomic_store(&cyd_mode,md_cyd_mode_restore(demo));
+#endif
 #if CONFIG_MINIDASH_CAN_ENABLE
     md_can_ring_init(&rx_ring);atomic_init(&last_valid_rx,0);
     rx_commands=xQueueCreate(1,sizeof(can_command_t));rx_command_done=xSemaphoreCreateBinary();
@@ -480,6 +673,11 @@ void md_vehicle_app_prepare(void)
 }
 void md_vehicle_app_start(void)
 {
+#if CONFIG_MINIDASH_SIMULATION && !CONFIG_MINIDASH_CYD
+    extern void md_simulation_task(void *);
+    static bool sim_started;
+    if (lock && !sim_started) sim_started=xTaskCreate(md_simulation_task,"simulation",3072,NULL,2,NULL)==pdPASS;
+#endif
 #if CONFIG_MINIDASH_CAN_ENABLE
     static bool started;
     if(!lock || started) return;
@@ -487,10 +685,38 @@ void md_vehicle_app_start(void)
     xSemaphoreTake(lock,portMAX_DELAY);
     if(rx_commands && rx_command_done &&
         xTaskCreatePinnedToCore(can_rx_task,"can_rx",4096,NULL,18,NULL,1)==pdPASS)
-        started=xTaskCreatePinnedToCore(vehicle_task,"vehicle",8192,NULL,5,NULL,0)==pdPASS;
+        started=xTaskCreatePinnedToCore(vehicle_task,"vehicle",8192,NULL,5,
+#if CONFIG_MINIDASH_CYD
+            &vehicle_task_handle,
+#else
+            NULL,
+#endif
+            0)==pdPASS;
     if(!started) {
         status.state=MD_ACQ_FAULT;snprintf(status.fault,sizeof(status.fault),"TASK ALLOCATION");
     }
     xSemaphoreGive(lock);
 #endif
 }
+
+#if CONFIG_MINIDASH_SIMULATION && !CONFIG_MINIDASH_CYD
+void md_simulation_task(void *unused)
+{
+    (void)unused;
+    ESP_LOGI(TAG,"SIMULATION active; CAN driver not installed; all samples tagged DEMO");
+    for (;;) {
+        const uint32_t now=(uint32_t)(esp_timer_get_time()/1000);
+        for(unsigned id=0;id<MD_SIGNAL_COUNT;id++) {
+            double value;
+            if(md_simulation_value(id,now,&value)) {
+                md_display_app_publish_signal(md_ui_signal_definitions[id].canonical_name,value,MD_UI_SIGNAL_VALID,500,true);
+                if(xSemaphoreTake(lock,pdMS_TO_TICKS(10))==pdTRUE) {
+                    status.signals[id]=(md_ui_signal_snapshot_t){.value=value,.state=MD_UI_SIGNAL_VALID,.value_available=true,.demo=true};
+                    xSemaphoreGive(lock);
+                }
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+#endif

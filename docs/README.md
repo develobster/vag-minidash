@@ -1,5 +1,8 @@
 # Указатель документации
 
+Последнее обновление CYD: [0.5.1 — производительность тем и отрисовки](hardware/minidash-cyd-performance-2026-10-22.md),
+[измерения и проверки](hardware/minidash-cyd-performance-verification-2026-10-22.json).
+
 Начать с [состояния](status.md), [разработки](development.md) и
 [архитектуры](architecture/overview.md). Даты и количества тестов исторических
 отчётов не являются актуальной приёмкой.
@@ -10,6 +13,9 @@
 
 | Тема | Документы |
 |---|---|
+| CYD DEMO / CAN | [Переключатель, блокировка передачи и подготовка автомобиля](hardware/minidash-cyd-can-mode-2026-10-20.md) |
+| Display Studio: конфигуратор платы | [Редактор, темы, совместимость и проверки](ui/display-studio-2026-10-20.md), [загрузка на CYD и 69 HTTP проверок 20 октября](hardware/minidash-cyd-studio-flash-2026-10-20.md) |
+| Дополнительная платформа MiniDash CYD | [Профиль, GPIO, питание/CAN, сборка и восстановление](hardware/minidash-cyd.md), [фактические проверки 18 октября](hardware/minidash-cyd-2026-10-18.md) |
 | Стендовая загрузка единой версии 14 октября | [Образ 875106b, 27 проверок UI, подтверждённые дисплей/тач и сохранность настроек](hardware/standalone-flash-2026-10-14.md), [машинная сводка](hardware/standalone-flash-verification-2026-10-14.json) |
 | Актуальная интеграция от 14 октября | [Слияние, защита стека, свежие регрессии и оставшаяся работа](development/standalone-realignment-2026-10-14.md) |
 | Дисплей, консоль и ручная прошивка | [Инструкция для единой ветки](hardware/manual-flashing-ru.md), [стендовая приёмка 13 октября](hardware/can-display-acceptance-2026-10-13.md), [исходная диагностика](hardware/can-display-startup-2026-10-13.md) |
@@ -60,3 +66,4 @@ versions into an apparent current specification.
 ## Diagnostic feature branch (2026-10-22)
 
 [Research and validation](research/vag-diagnostics-deep-research.md) | [Architecture](architecture/vag-diagnostic-discovery.md) | [Next car test](validation/vag-diagnostics-car-test-plan.md). P0/P1 fixes and Web connection doctor; experimental gateway helpers are offline-only. No new active UDS queries or vehicle acceptance.
+- [Pixel Pack: оформление, переходы, проверки и ограничения](ui/pixel-pack-2026-10-19.md)

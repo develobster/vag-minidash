@@ -53,7 +53,8 @@ bool md_configuration_storage_load(md_device_configuration_t *config,
                 /* Upgrade fixed-wiring capability without losing saved percent. */
                 if (md_target_has(target, MD_CAP_DIMMING)) {
                     config->platform.present |= MD_CAP_DIMMING;
-                    config->platform.brightness_mode = MD_BRIGHTNESS_MANUAL;
+                    if(config->platform.brightness_mode==MD_BRIGHTNESS_FIXED)
+                        config->platform.brightness_mode = MD_BRIGHTNESS_MANUAL;
                 }
             }
             free(decoded);

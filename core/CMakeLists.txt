@@ -8,6 +8,7 @@ add_library(minidash-core STATIC
     ${MD_CORE_DIR}/generated_can_signals.c
     ${MD_CORE_DIR}/vag_can_db.c ${MD_CORE_DIR}/drag_timer.c
     ${MD_CORE_DIR}/ui_core.c ${MD_CORE_DIR}/ui_theme.c
+    ${MD_CORE_DIR}/ui_pixel_art.c
     ${MD_CORE_DIR}/ui_startup.c ${MD_CORE_DIR}/ui_i18n.c ${MD_CORE_DIR}/ui_model.c
     ${MD_CORE_DIR}/ui_platform.c ${MD_CORE_DIR}/ui_configuration.c
     ${MD_CORE_DIR}/ui_touch_map.c ${MD_CORE_DIR}/display_serial_protocol.c
@@ -35,13 +36,11 @@ if(MD_LVGL_SOURCE_DIR)
     add_test(NAME automotive-lvgl-render COMMAND minidash-auto-ui-tests ${CMAKE_BINARY_DIR}/ui-previews)
 endif()
 if(BUILD_TESTING)
-    # CYD source-mode policy is staged for integration; it is not yet wired to
-    # the firmware acquisition controller.
+    # Exercise CYD's source-mode policy independently of the driver.
     add_executable(minidash-cyd-mode-tests test_cyd_mode.c ${MD_CORE_DIR}/cyd_mode.c)
     target_include_directories(minidash-cyd-mode-tests PRIVATE ${MD_CORE_DIR})
     add_test(NAME cyd-mode-policy COMMAND minidash-cyd-mode-tests)
-    # Standalone reference contracts; these modules are not yet wired into
-    # the integrated firmware's source and Wi-Fi controllers.
+    # Exercise simulation and portal contracts independently of firmware I/O.
     add_executable(minidash-cyd-reference-tests test_cyd.c ${MD_CORE_DIR}/simulation.c ${MD_CORE_DIR}/captive_dns.c)
     target_include_directories(minidash-cyd-reference-tests PRIVATE ${MD_CORE_DIR})
     if(NOT MSVC)
@@ -81,6 +80,37 @@ if(BUILD_TESTING)
     add_executable(minidash-can-link-tests test_can_link.c ${MD_CORE_DIR}/can_link_tx.c)
     target_include_directories(minidash-can-link-tests PRIVATE can_stubs ${MD_CORE_DIR})
     add_test(NAME can-transmit-confirmation COMMAND minidash-can-link-tests)
+    # Exercise the real acquisition/UI sources with the CYD memory limits too.
+    get_target_property(MD_CORE_SOURCES minidash-core SOURCES)
+    add_library(minidash-core-cyd STATIC ${MD_CORE_SOURCES})
+    target_include_directories(minidash-core-cyd PUBLIC ${MD_CORE_DIR})
+    target_compile_definitions(minidash-core-cyd PUBLIC CONFIG_MINIDASH_CYD=1)
+    if(NOT MSVC)
+        target_compile_options(minidash-core-cyd PRIVATE -Wall -Wextra -Werror)
+        target_link_libraries(minidash-core-cyd PUBLIC m)
+    endif()
+    if(MD_LVGL_SOURCE_DIR)
+        add_executable(minidash-cyd-auto-ui-tests test_automotive_screens.c ${MD_CORE_DIR}/automotive_screens.c)
+        target_link_libraries(minidash-cyd-auto-ui-tests PRIVATE minidash-core-cyd lvgl::lvgl)
+        add_test(NAME cyd-automotive-lvgl-render COMMAND minidash-cyd-auto-ui-tests ${CMAKE_BINARY_DIR}/cyd-ui-previews)
+    endif()
+    add_executable(minidash-cyd-acquisition-tests test_acquisition.c)
+    target_link_libraries(minidash-cyd-acquisition-tests PRIVATE minidash-core-cyd)
+    add_test(NAME cyd-acquisition COMMAND minidash-cyd-acquisition-tests)
+    add_executable(minidash-cyd-core-tests tests.c ${MD_CORE_DIR}/ui_platform_selftest.c)
+    target_link_libraries(minidash-cyd-core-tests PRIVATE minidash-core-cyd)
+    add_test(NAME cyd-portable-core COMMAND minidash-cyd-core-tests)
+    add_executable(minidash-pixel-tests test_pixel_art.c)
+    target_link_libraries(minidash-pixel-tests PRIVATE minidash-core)
+    add_test(NAME pixel-art-and-transitions COMMAND minidash-pixel-tests)
+    foreach(BOARD cyd s3)
+        add_executable(minidash-orientation-${BOARD} test_orientation.c ${MD_CORE_DIR}/display_manager.c)
+        target_include_directories(minidash-orientation-${BOARD} PRIVATE display_stubs ${MD_CORE_DIR})
+        if(BOARD STREQUAL "cyd")
+            target_compile_definitions(minidash-orientation-${BOARD} PRIVATE CONFIG_MINIDASH_CYD=1)
+        endif()
+        add_test(NAME orientation-${BOARD} COMMAND minidash-orientation-${BOARD})
+    endforeach()
     add_executable(minidash-analytics-pipeline-tests test_analytics_pipeline.c)
     target_link_libraries(minidash-analytics-pipeline-tests PRIVATE minidash-core)
     add_test(NAME analytics-acquisition-pipeline COMMAND minidash-analytics-pipeline-tests)

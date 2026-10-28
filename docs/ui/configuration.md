@@ -1,5 +1,19 @@
 # Device configuration and local editor
 
+CYD 0.5.0: the device-only Demo mode setting is stored in `md_cyd/demo`
+separately from schema 4. Web appearance previews/imports/resets cannot arm CAN.
+`/api/device.simulation` is now runtime state; `derived_analytics=false` remains
+the CYD feature gate even with DEMO disabled. [Details](../hardware/minidash-cyd-can-mode-2026-10-20.md).
+
+20 October 2026: [Display Studio](display-studio-2026-10-20.md) adds an embedded
+visual grid editor, pointer/keyboard move and resize, history, themed inspector
+and three additive firmware themes (14–16). Schema 4 and write endpoints remain
+compatible. CYD/S3 builds and browser/native tests pass; physical 0.4.0 acceptance
+was pending at initial delivery. After reconnection, [COM4 installation and
+69 HTTP checks passed](../hardware/minidash-cyd-studio-flash-2026-10-20.md),
+with calibration, AUTO and user settings preserved. External phone/LCD acceptance
+for 0.4.0 remains separate.
+
 Current (2026-10-04): schema 4, 92 stable canonical IDs, six analytics presets
 and configurable event/context rules. See [delivery](../research/engine-analytics-delivery-2026-10-04.md).
 Dated update paragraphs below describe prior versions.

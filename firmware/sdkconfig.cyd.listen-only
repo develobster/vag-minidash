@@ -1,0 +1,2 @@
+# No diagnostic TX; the mode interlock remains in effect as an extra guard.
+# CONFIG_MINIDASH_STANDARD_OBD is not set

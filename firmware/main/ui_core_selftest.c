@@ -413,16 +413,15 @@ static bool test_settings_pages_and_warning_toggles(void)
     md_ui_state_t state;
     md_ui_settings_defaults(&settings);
     md_ui_state_init(&state, &settings);
+    const unsigned pages=(MD_UI_SETTINGS_ROWS + MD_UI_SETTINGS_ROWS_PER_PAGE - 1U) / MD_UI_SETTINGS_ROWS_PER_PAGE;
     if (!md_ui_state_dispatch(&state, &settings, MD_UI_ACTION_OPEN_SETTINGS) ||
-        (MD_UI_SETTINGS_ROWS + MD_UI_SETTINGS_ROWS_PER_PAGE - 1U) /
-            MD_UI_SETTINGS_ROWS_PER_PAGE != 6U ||
         md_ui_state_settings_page(&state, -1)) return false;
-    for (uint8_t page = 1U; page < 6U; ++page) {
+    for (uint8_t page = 1U; page < pages; ++page) {
         if (!md_ui_state_settings_page(&state, 1) ||
             state.selected_setting != page * MD_UI_SETTINGS_ROWS_PER_PAGE) return false;
     }
-    if (md_ui_state_settings_page(&state, 1) || state.selected_setting != 20U) return false;
-    for (int page = 4; page >= 0; --page) {
+    if (md_ui_state_settings_page(&state, 1) || state.selected_setting != (pages-1)*MD_UI_SETTINGS_ROWS_PER_PAGE) return false;
+    for (int page = (int)pages-2; page >= 0; --page) {
         if (!md_ui_state_settings_page(&state, -1) ||
             state.selected_setting != (uint8_t)(page * MD_UI_SETTINGS_ROWS_PER_PAGE)) return false;
     }

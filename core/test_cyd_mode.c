@@ -25,6 +25,23 @@ int main(void)
     for (int tx = -1; tx <= 40; ++tx)
         for (int rx = -1; rx <= 40; ++rx)
             assert(md_cyd_can_pins_valid(tx, rx) == (tx == 22 && (rx == 27 || rx == 35)));
+    md_ui_signal_store_t store={0};
+    store.signals[MD_SIGNAL_VEHICLE_SPEED]=(md_ui_signal_record_t){.received=true,.demo=true,.value=70};
+    store.signals[MD_SIGNAL_ENGINE_RPM]=(md_ui_signal_record_t){.received=true,.demo=false,.value=800};
+    assert(!md_cyd_filter_store(&store,false));
+    assert(!store.signals[MD_SIGNAL_VEHICLE_SPEED].received);
+    assert(store.signals[MD_SIGNAL_ENGINE_RPM].received);
+    assert(md_cyd_filter_store(&store,true));
+    assert(!store.signals[MD_SIGNAL_ENGINE_RPM].received);
+    store.signals[MD_SIGNAL_VEHICLE_SPEED]=(md_ui_signal_record_t){.received=true,.demo=true,.value=70};
+    assert(!md_cyd_filter_store(&store,true));
+    assert(store.signals[MD_SIGNAL_VEHICLE_SPEED].received);
+    for(unsigned state=0;state<4;state++) for(unsigned demo=0;demo<2;demo++)
+        assert(md_cyd_demo_wifi_allowed(state,demo)==(state==0 && demo));
+    assert(!md_cyd_mode_needs_apply(MD_CYD_MONITOR,4,MD_CYD_MONITOR,4));
+    assert(md_cyd_mode_needs_apply(MD_CYD_MONITOR,4,MD_CYD_DEMO,5));
+    /* A quick toggle back still forces a driver transition and status reset. */
+    assert(md_cyd_mode_needs_apply(MD_CYD_MONITOR,4,MD_CYD_MONITOR,6));
     puts("CYD source persistence, TX interlocks and GPIO exclusions: PASS");
     return 0;
 }

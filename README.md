@@ -10,6 +10,22 @@ display/touch bench results are documented, and full vehicle acceptance is pendi
 [Publication readiness and Codex application draft](docs/development/open-source-readiness-2026-10-17.md).
 Licensed under [MIT](LICENSE); bundled third-party materials retain their own notices.
 
+22 октября: [CYD 0.5.1: переключение тем и скорость отрисовки](docs/hardware/minidash-cyd-performance-2026-10-22.md).
+Убраны повторная смена стилей и обработка скрытых настроек; на CYD отключены
+размытые свечения/CRT overlay, DMA работает с двумя меньшими буферами при
+прежнем бюджете RAM. Все 17 тем и сохранённые настройки совместимы.
+В галерее конфигуратора теперь видны все три пиксельные темы.
+
+20 октября: [CYD 0.5.0: DEMO из меню и подготовка CAN](docs/hardware/minidash-cyd-can-mode-2026-10-20.md)
+установлен на COM4. 15 native / 43 browser / 27 UI / два прогона 69 HTTP PASS.
+CAN остаётся listen-only до подтверждения проводки; испытания автомобиля впереди.
+
+20 октября: [Display Studio для конфигуратора платы](docs/ui/display-studio-2026-10-20.md)
+— перемещение/размер окон, история и новые темы. CYD 0.4.0
+[установлен на COM4](docs/hardware/minidash-cyd-studio-flash-2026-10-20.md):
+8 hardware / 27 UI / 69 HTTP PASS; внешний телефон и LCD на этой версии требуют
+отдельной физической оценки.
+
 Единая база разработки: **`integration/standalone`**. Продолжать работу в этой ветке.
 Новая база PQ/MQB, замеры разгона и пять LVGL-экранов: [код, происхождение сигналов, сборка и ограничения](docs/development/vag-platforms-drag-ui-2026-10-27.md).
 Приём CAN, атомарные снимки UI, генерация C/Python-сигналов, Wi-Fi и опциональный

@@ -3,12 +3,14 @@
 #include "esp_idf_version.h"
 #include "freertos/FreeRTOS.h"
 #include "hal/twai_hal.h"
-#if ESP_IDF_VERSION != ESP_IDF_VERSION_VAL(5,5,5) || !CONFIG_IDF_TARGET_ESP32S3
+#if ESP_IDF_VERSION != ESP_IDF_VERSION_VAL(5,5,5) || (!CONFIG_IDF_TARGET_ESP32S3 && !CONFIG_IDF_TARGET_ESP32)
 #error "Review the read-only CAN error observer for this SDK/target before enabling it"
 #endif
 
 /* The pinned legacy driver hides error types. Observe the HAL result without
- * reading/rearming registers, changing events, or changing the SDK sources. */
+ * reading/rearming registers, changing events, or changing the SDK sources.
+ * ESP32 and S3 use the same v1 HAL and identical ECC parsing in IDF 5.5.5;
+ * ESP32 errata handling remains entirely inside the original HAL call. */
 static DRAM_ATTR md_can_error_counts_t counts;
 static portMUX_TYPE probe_lock=portMUX_INITIALIZER_UNLOCKED;
 uint32_t __real_twai_hal_get_events(twai_hal_context_t *context);

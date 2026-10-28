@@ -12,6 +12,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "sdkconfig.h"
+#include "esp_log.h"
 
 #define LCD_HOST SPI2_HOST
 #define LINES_PER_TRANSFER 16
@@ -111,7 +112,11 @@ static bool open_panel(md_display_backend_t *backend,
     const esp_lcd_panel_io_spi_config_t io_config = {
         .dc_gpio_num = CONFIG_MINIDASH_LCD_PIN_DC,
         .cs_gpio_num = CONFIG_MINIDASH_LCD_PIN_CS,
+#if CONFIG_MINIDASH_CYD
+        .pclk_hz = 20 * 1000 * 1000,
+#else
         .pclk_hz = 10 * 1000 * 1000,
+#endif
         .lcd_cmd_bits = 8,
         .lcd_param_bits = 8,
         .spi_mode = 0,
@@ -122,9 +127,21 @@ static bool open_panel(md_display_backend_t *backend,
         return false;
     }
 
+#if CONFIG_MINIDASH_CYD
+    /* Read-only probe. A missing/floating MISO is not positive identification. */
+    uint8_t id[4]={0};
+    esp_err_t probe=esp_lcd_panel_io_rx_param(context.io,0xd3,id,sizeof(id));
+    ESP_LOGI("md_cyd","LCD D3 result=%s bytes=%02x %02x %02x %02x controller_profile=ILI9341",
+        esp_err_to_name(probe),id[0],id[1],id[2],id[3]);
+#endif
+
     const esp_lcd_panel_dev_config_t panel_config = {
         .reset_gpio_num = CONFIG_MINIDASH_LCD_PIN_RST,
+#if CONFIG_MINIDASH_CYD
+        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_BGR,
+#else
         .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,
+#endif
         .bits_per_pixel = 16,
     };
     if (esp_lcd_new_panel_ili9341(context.io, &panel_config,

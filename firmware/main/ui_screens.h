@@ -51,6 +51,7 @@ void md_ui_screens_update(md_ui_screen_t screen,
                           const md_ui_signal_store_t *signals,
                           uint32_t now_ms,
                           const md_ui_diagnostics_t *diagnostics);
+void md_ui_screens_clear_history(void);
 
 /* Call under the LVGL lock; overlay objects never receive input. */
 bool md_ui_screens_startup_begin(void);

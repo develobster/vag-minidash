@@ -1,8 +1,12 @@
 #include "ui_screens.h"
 #include "ui_instrument_profiles.h"
 #include "ui_startup.h"
+#include "ui_pixel_art.h"
 #include "derived_engine.h"
 #include "automotive_screens.h"
+#if CONFIG_MINIDASH_CYD
+#include "vehicle_app.h"
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,7 +76,8 @@ typedef struct {
     lv_obj_t *visual;
     lv_chart_series_t *series;
     bool focus, gauge_available, gauge_layout, focus_inline_unit;
-    uint16_t gauge_level;
+    uint16_t gauge_level, pixel_level;
+    bool pixel_available;
     float gauge_minimum, gauge_maximum;
     int gauge_width, gauge_height;
     bool gauge_art_valid, chart_valid;
@@ -89,7 +94,12 @@ typedef struct {
     lv_obj_t *title;
     lv_obj_t *mode;
     lv_obj_t *footer;
+#if CONFIG_MINIDASH_CYD
+    field_view_t *fields;
+    uint8_t field_capacity;
+#else
     field_view_t fields[UI_FIELDS_PER_VIEW];
+#endif
     uint8_t field_count;
     char mode_text[32];
     char title_key[48];
@@ -126,6 +136,14 @@ static widget_picker_option_view_t s_widget_picker_options[MD_PICKER_SLOTS];
 static unsigned s_picker_first;
 static md_ui_palette_t s_palette;
 static md_ui_theme_style_t s_theme_style;
+static md_ui_theme_id_t s_render_theme;
+static lv_timer_t *s_pixel_timer;
+static uint32_t s_pixel_started;
+static unsigned s_pixel_frames;
+static bool s_pixel_active;
+static md_ui_screen_t s_pixel_screen=MD_UI_SCREEN_COUNT;
+static md_ui_dashboard_t s_pixel_dashboard=MD_UI_DASHBOARD_COUNT;
+
 static uint16_t s_width = 320;
 static uint16_t s_height = 240;
 static bool s_created;
@@ -149,10 +167,26 @@ static float s_gauge_ranges[MD_SIGNAL_COUNT][2];
 static bool s_gauge_auto=true;
 static md_instrument_selection_t s_instrument_selection;
 static md_ui_history_t s_history[MD_SIGNAL_COUNT];
+void md_ui_screens_clear_history(void) { memset(s_history,0,sizeof(s_history)); }
 static lv_obj_t *s_focus_stats;
 static char s_focus_stats_text[96];
 static lv_obj_t *s_config_credentials;
+static bool s_auto_brightness;
+#if CONFIG_MINIDASH_CYD
+static lv_obj_t *s_config_qr;
+static char s_qr_payload[128];
+static screen_view_t *s_cyd_current;
+static bool s_cyd_calibrated;
+static unsigned s_cyd_settings_page;
+#endif
 
+extern const lv_font_t md_ui_font_pixel_10;
+extern const lv_font_t md_ui_font_pixel_12;
+extern const lv_font_t md_ui_font_pixel_14;
+extern const lv_font_t md_ui_font_pixel_16;
+extern const lv_font_t md_ui_font_pixel_20;
+extern const lv_font_t md_ui_font_pixel_28;
+extern const lv_font_t md_ui_font_pixel_48;
 extern const lv_font_t md_ui_font_mono_10;
 extern const lv_font_t md_ui_font_mono_12;
 extern const lv_font_t md_ui_font_mono_14;
@@ -184,6 +218,15 @@ static lv_coord_t ypx(int value)
 
 static const lv_font_t *ui_font_for_language(const lv_font_t *font)
 {
+    if(s_theme_style.font_family==3) {
+        if(font==&lv_font_montserrat_10) return &md_ui_font_pixel_10;
+        if(font==&lv_font_montserrat_12) return &md_ui_font_pixel_12;
+        if(font==&lv_font_montserrat_14) return &md_ui_font_pixel_14;
+        if(font==&lv_font_montserrat_16) return &md_ui_font_pixel_16;
+        if(font==&lv_font_montserrat_20) return &md_ui_font_pixel_20;
+        if(font==&lv_font_montserrat_28) return &md_ui_font_pixel_28;
+        if(font==&lv_font_montserrat_48) return &md_ui_font_pixel_48;
+    }
     if(s_theme_style.font_family==1) {
         if(font==&lv_font_montserrat_10) return &md_ui_font_mono_10;
         if(font==&lv_font_montserrat_12) return &md_ui_font_mono_12;
@@ -201,11 +244,22 @@ static const lv_font_t *ui_font_for_language(const lv_font_t *font)
     return font;
 }
 
+static void set_text_font(lv_obj_t *object, const lv_font_t *font,
+                          uint32_t selector)
+{
+    if (!object || !font) return;
+#if CONFIG_MINIDASH_CYD
+    /* LVGL refreshes layout even when the local property has the same value. */
+    if (lv_obj_get_style_text_font(object,selector)==font) return;
+#endif
+    lv_obj_set_style_text_font(object,font,selector);
+}
+
 static void set_ui_font(lv_obj_t *object, const lv_font_t *font,
                         uint32_t selector)
 {
     if (object && font)
-        lv_obj_set_style_text_font(object, ui_font_for_language(font), selector);
+        set_text_font(object, ui_font_for_language(font), selector);
 }
 
 static const lv_font_t *metric_font(const lv_font_t *font)
@@ -218,6 +272,56 @@ static const lv_font_t *metric_font(const lv_font_t *font)
     }
     return font;
 }
+
+static int32_t pixel_text_width(const lv_font_t *font,const char *text)
+{
+    lv_point_t size;
+    lv_text_get_size(&size,text,font,0,0,LV_COORD_MAX,LV_TEXT_FLAG_NONE);
+    return size.x;
+}
+static const lv_font_t *pixel_fit_font(const lv_font_t *preferred,const char *text,int32_t width)
+{
+    if(width<=0 || pixel_text_width(preferred,text)<=width)return preferred;
+    const lv_font_t *choices[]={&md_ui_font_pixel_28,&md_ui_font_pixel_20,&md_ui_font_pixel_16,
+        &md_ui_font_pixel_14,&md_ui_font_pixel_12,&md_ui_font_pixel_10};
+    for(unsigned i=0;i<sizeof(choices)/sizeof(choices[0]);i++)
+        if(choices[i]->line_height<=preferred->line_height && pixel_text_width(choices[i],text)<=width)return choices[i];
+    return &md_ui_font_pixel_10;
+}
+
+#if CONFIG_MINIDASH_CYD
+static int32_t label_text_width(lv_obj_t *label,const lv_font_t *font)
+{
+    lv_point_t size;
+    lv_text_get_size(&size,lv_label_get_text(label),font,
+        lv_obj_get_style_text_letter_space(label,0),0,LV_COORD_MAX,LV_TEXT_FLAG_NONE);
+    return size.x;
+}
+static void fit_label(lv_obj_t *label, const lv_font_t *preferred, int width)
+{
+    if (!label) return;
+    /* These labels have explicit sizes. One scene layout pass is enough;
+     * forcing it here made each fitted label relayout the entire scene. */
+    if(width<=0) width=lv_obj_get_width(label);
+    if(width<=0) return;
+    const bool cyrillic=preferred==&md_ui_font_ru_16 || preferred==&md_ui_font_ru_14 ||
+        preferred==&md_ui_font_ru_12 || preferred==&md_ui_font_ru_10;
+    const lv_font_t *choices[]={preferred,
+        cyrillic ? &md_ui_font_ru_14 : &lv_font_montserrat_14,
+        cyrillic ? &md_ui_font_ru_12 : &lv_font_montserrat_12,
+        cyrillic ? &md_ui_font_ru_10 : &lv_font_montserrat_10};
+    const lv_font_t *font=ui_font_for_language(preferred);
+    for(unsigned i=0;i<sizeof(choices)/sizeof(choices[0]);i++) {
+        const lv_font_t *candidate=ui_font_for_language(choices[i]);
+        if(candidate->line_height>ui_font_for_language(preferred)->line_height) continue;
+        font=candidate;
+        if(label_text_width(label,font)<=width) break;
+    }
+    set_text_font(label,font,0);
+    if(lv_label_get_long_mode(label)!=LV_LABEL_LONG_CLIP)
+        lv_label_set_long_mode(label,LV_LABEL_LONG_CLIP);
+}
+#endif
 
 static void apply_view_fonts(screen_view_t *view)
 {
@@ -245,9 +349,11 @@ static void apply_language_fonts(void)
         apply_view_fonts(&s_dashboards[i]);
     for (unsigned i = 0; i < MD_UI_SCREEN_SPORT_BOOST; ++i)
         apply_view_fonts(&s_screens[i]);
+    const lv_font_t *row_font=(s_height>s_width || s_theme_style.font_family==3)
+        ? &lv_font_montserrat_12 : &lv_font_montserrat_14;
     for (unsigned i = 0; i < MD_UI_SETTINGS_ROWS; ++i) {
-        set_ui_font(s_setting_rows[i].title, s_height > s_width ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
-        set_ui_font(s_setting_rows[i].value, s_height > s_width ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
+        set_ui_font(s_setting_rows[i].title,row_font,0);
+        set_ui_font(s_setting_rows[i].value,row_font,0);
     }
     set_ui_font(s_settings_action_label, &lv_font_montserrat_14, 0);
     set_ui_font(s_settings_previous_label, &lv_font_montserrat_14, 0);
@@ -274,9 +380,75 @@ static void themed_frame(lv_obj_t *object)
     if (!object) return;
     lv_obj_set_style_radius(object, xpx(s_theme_style.radius), 0);
     lv_obj_set_style_border_width(object, s_theme_style.border_width, 0);
+#if CONFIG_MINIDASH_CYD
+    /* Internal SRAM + software SPI rendering: keep the theme's geometry and
+     * palette, use its bright border instead of per-pixel blurred shadows. */
+    lv_obj_set_style_shadow_width(object, 0, 0);
+#else
     lv_obj_set_style_shadow_width(object, xpx(s_theme_style.glow_width), 0);
+#endif
     lv_obj_set_style_shadow_color(object, color(s_palette.accent), 0);
     lv_obj_set_style_shadow_opa(object, s_theme_style.glow_opacity, 0);
+    lv_obj_set_style_bg_grad_color(object, color(s_palette.surface_alt), 0);
+    lv_obj_set_style_bg_grad_dir(object, s_theme_style.frame_kind==9 ?
+        LV_GRAD_DIR_VER : LV_GRAD_DIR_NONE, 0);
+}
+/* These callbacks run under LVGL, allocate no canvas and retain no scene pointer. */
+typedef struct {lv_layer_t *layer;int x,y;} pixel_layer_t;
+static void pixel_lv_rect(void *context,int x,int y,int width,int height,uint32_t rgb)
+{
+    pixel_layer_t *out=context;
+    lv_draw_rect_dsc_t ink;lv_draw_rect_dsc_init(&ink);
+    ink.bg_color=color(rgb);ink.bg_opa=LV_OPA_COVER;
+    lv_area_t area={out->x+x,out->y+y,out->x+x+width-1,out->y+y+height-1};
+    lv_draw_rect(out->layer,&ink,&area);
+}
+static uint32_t pixel_duration(void)
+{ return s_render_theme==MD_UI_THEME_PIXEL_DUNGEON?420:320; }
+static void pixel_timer_tick(lv_timer_t *timer)
+{
+    if(!s_pixel_active || !md_ui_theme_is_pixel(s_render_theme)) {lv_timer_pause(timer);return;}
+    if(lv_tick_elaps(s_pixel_started)>=pixel_duration()) {
+        printf("MINIDASH_PIXEL_COMPLETE theme=%u draw_passes=%u elapsed_ms=%lu\n",(unsigned)s_render_theme,s_pixel_frames,(unsigned long)lv_tick_elaps(s_pixel_started));
+        s_pixel_active=false;lv_timer_pause(timer);
+    }
+    lv_obj_invalidate(lv_screen_active());
+}
+static void pixel_begin(void)
+{
+    s_pixel_active=false;
+#if CONFIG_MINIDASH_CYD
+    /* At 20 MHz a full 320x240 RGB565 transfer alone takes >=61 ms.
+     * Repeated full-screen masks stutter on this no-PSRAM target. */
+    if(s_pixel_timer) lv_timer_pause(s_pixel_timer);
+    return;
+#endif
+    if(!md_ui_theme_is_pixel(s_render_theme) || s_pixel_screen==MD_UI_SCREEN_CALIBRATION ||
+       s_pixel_screen==MD_UI_SCREEN_CONFIG_MODE || s_startup_masks[0])return;
+    if(!s_pixel_timer)s_pixel_timer=lv_timer_create(pixel_timer_tick,32,NULL);
+    if(!s_pixel_timer)return;
+    s_pixel_started=lv_tick_get();s_pixel_frames=0;s_pixel_active=true;lv_timer_resume(s_pixel_timer);
+    lv_obj_invalidate(lv_screen_active());
+    printf("MINIDASH_PIXEL_TRANSITION theme=%u screen=%u duration_ms=%lu\n",
+        (unsigned)s_render_theme,(unsigned)s_pixel_screen,(unsigned long)pixel_duration());
+}
+static void pixel_background_draw(lv_event_t *event)
+{
+    if(!md_ui_theme_is_pixel(s_render_theme))return;
+    lv_obj_t *root=lv_event_get_target(event);lv_area_t area;lv_obj_get_coords(root,&area);
+    pixel_layer_t layer={lv_event_get_layer(event),area.x1,area.y1};
+    md_pixel_background(s_render_theme,&s_palette,lv_area_get_width(&area),lv_area_get_height(&area),pixel_lv_rect,&layer);
+}
+static void pixel_wipe_draw(lv_event_t *event)
+{
+    if(!s_pixel_active || lv_event_get_target(event)!=lv_screen_active())return;
+    uint32_t elapsed=lv_tick_elaps(s_pixel_started);
+    if(elapsed>=pixel_duration())return;
+    ++s_pixel_frames;
+    lv_area_t area;lv_obj_get_coords(lv_event_get_target(event),&area);
+    pixel_layer_t layer={lv_event_get_layer(event),area.x1,area.y1};
+    md_pixel_transition(s_render_theme,&s_palette,lv_area_get_width(&area),lv_area_get_height(&area),
+        elapsed*1000/pixel_duration(),pixel_lv_rect,&layer);
 }
 /* Draw before children: labels stay legible above the instrument artwork. */
 static void metric_frame_draw(lv_event_t *event)
@@ -286,8 +458,27 @@ static void metric_frame_draw(lv_event_t *event)
     lv_layer_t *layer=lv_event_get_layer(event);
     lv_area_t a; lv_obj_get_coords(obj,&a);
     const int w=lv_area_get_width(&a), h=lv_area_get_height(&a);
+    if(md_ui_theme_is_pixel(s_render_theme)) {
+        pixel_layer_t out={layer,a.x1,a.y1};
+        md_pixel_card(s_render_theme,&s_palette,w,h,field?field->pixel_level:0,
+            field && field->pixel_available,pixel_lv_rect,&out);
+        return;
+    }
     lv_draw_line_dsc_t line; lv_draw_line_dsc_init(&line);
     line.color=color(s_palette.accent); line.width=1; line.opa=100;
+    if(s_theme_style.frame_kind==8 || s_theme_style.frame_kind==9) {
+        /* Original desktop bevel / chrome highlight, before labels. No canvas. */
+        const int inset=s_theme_style.frame_kind==9 ? 6 : 2;
+        line.color=color(s_palette.border);line.opa=220;
+        line.p1.x=a.x1+inset;line.p1.y=a.y2-inset;
+        line.p2.x=a.x1+inset;line.p2.y=a.y1+inset;lv_draw_line(layer,&line);
+        line.p1=line.p2;line.p2.x=a.x2-inset;lv_draw_line(layer,&line);
+        line.color=color(s_palette.background);
+        line.p1.x=a.x2-inset;line.p1.y=a.y1+inset;
+        line.p2.x=a.x2-inset;line.p2.y=a.y2-inset;lv_draw_line(layer,&line);
+        line.p1=line.p2;line.p2.x=a.x1+inset;lv_draw_line(layer,&line);
+        return;
+    }
     if(s_theme_style.frame_kind) {
         const int inset=s_theme_style.frame_kind==3 ? 5 : 3;
         line.p1.x=a.x1+inset; line.p1.y=a.y1+inset;
@@ -356,6 +547,12 @@ static void settings_row_select(setting_row_view_t *row, bool selected)
 }
 static void phosphor_scanlines(lv_event_t *event)
 {
+#if CONFIG_MINIDASH_CYD
+    /* A screen-wide post overlay turns small value changes into costly draws. */
+    (void)event;
+    return;
+#endif
+    pixel_wipe_draw(event);
     if (!s_theme_style.scanline_opacity) return;
     lv_obj_t *root = lv_event_get_target(event);
     lv_area_t area; lv_obj_get_coords(root, &area);
@@ -369,28 +566,41 @@ static void phosphor_scanlines(lv_event_t *event)
     }
 }
 
-static void set_static_text(lv_obj_t *label, char *buffer, size_t capacity,
+static bool set_static_text(lv_obj_t *label, char *buffer, size_t capacity,
                             const char *text)
 {
-    if (!label || !buffer || capacity == 0 || !text) return;
+    if (!label || !buffer || capacity == 0 || !text) return false;
     /* Text content alone is insufficient after an object is recreated: its
        label may still contain LVGL's default "Text" instead of this buffer. */
-    if (strncmp(buffer, text, capacity) == 0 && lv_label_get_text(label) == buffer) return;
+    if (strncmp(buffer, text, capacity) == 0 && lv_label_get_text(label) == buffer) return false;
     (void)snprintf(buffer, capacity, "%s", text);
     lv_obj_invalidate(label);
     lv_label_set_text_static(label, buffer);
+    return true;
 }
 
-static void set_ui_text(lv_obj_t *label, char *buffer, size_t capacity,
+static bool set_ui_text(lv_obj_t *label, char *buffer, size_t capacity,
                         const char *english)
 {
-    set_static_text(label, buffer, capacity,
+    return set_static_text(label, buffer, capacity,
                     md_ui_i18n_text(s_language, english));
 }
 
 static void style_root(screen_view_t *view, const char *title,
                        const char *footer)
 {
+#if CONFIG_MINIDASH_CYD
+    unsigned capacity=0;
+    if(view==&s_screens[MD_UI_SCREEN_DIAGNOSTICS]) capacity=14;
+    else if(view==&s_screens[MD_UI_SCREEN_FOCUS]) capacity=1;
+    else if(view==&s_screens[MD_UI_SCREEN_PERFORMANCE] || view==&s_screens[MD_UI_SCREEN_TEMPERATURES] || view==&s_screens[MD_UI_SCREEN_DRIVETRAIN]) capacity=4;
+    else for(unsigned i=0;i<MD_UI_DASHBOARD_COUNT;i++) if(view==&s_dashboards[i]) capacity=MD_UI_MAX_WIDGETS;
+    if(capacity) {
+        view->fields=calloc(capacity,sizeof(*view->fields));
+        if(!view->fields) return;
+        view->field_capacity=capacity;
+    }
+#endif
     view->root = lv_obj_create(NULL);
     if (!view->root) return;
     lv_obj_remove_style_all(view->root);
@@ -399,6 +609,7 @@ static void style_root(screen_view_t *view, const char *title,
     lv_obj_set_style_bg_color(view->root, color(s_palette.background), 0);
     lv_obj_set_style_bg_opa(view->root, LV_OPA_COVER, 0);
     lv_obj_add_event_cb(view->root, phosphor_scanlines, LV_EVENT_DRAW_POST, NULL);
+    lv_obj_add_event_cb(view->root, pixel_background_draw, LV_EVENT_DRAW_MAIN, NULL);
 
     view->title = lv_label_create(view->root);
     view->mode = lv_label_create(view->root);
@@ -475,6 +686,9 @@ static field_view_t *create_field(screen_view_t *view, int x, int y,
                                   const char *canonical_signal, bool primary)
 {
     if (!view || !view->root || view->field_count >= UI_FIELDS_PER_VIEW) return NULL;
+#if CONFIG_MINIDASH_CYD
+    if(!view->fields || view->field_count>=view->field_capacity) return NULL;
+#endif
     field_view_t *field = &view->fields[view->field_count++];
     memset(field, 0, sizeof(*field));
     field->kind = FIELD_SIGNAL;
@@ -591,6 +805,9 @@ static field_view_t *create_diagnostic_field(screen_view_t *view, int x, int y,
                                              diagnostic_key_t key)
 {
     if (!view || !view->root || view->field_count >= UI_FIELDS_PER_VIEW) return NULL;
+#if CONFIG_MINIDASH_CYD
+    if(!view->fields || view->field_count>=view->field_capacity) return NULL;
+#endif
     field_view_t *field = &view->fields[view->field_count++];
     memset(field, 0, sizeof(*field));
     field->kind = FIELD_DIAGNOSTIC;
@@ -622,6 +839,15 @@ static field_view_t *create_diagnostic_field(screen_view_t *view, int x, int y,
     set_ui_font(field->value, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(field->value, color(s_palette.text), 0);
     lv_obj_set_style_text_align(field->value, LV_TEXT_ALIGN_RIGHT, 0);
+#if CONFIG_MINIDASH_CYD
+    lv_obj_set_style_pad_all(field->card,0,0);
+    lv_obj_set_height(field->card,ypx(26));
+    lv_obj_set_pos(field->title,4,0);
+    lv_obj_set_size(field->title,xpx(width)-8,13);
+    lv_obj_set_pos(field->value,4,13);
+    lv_obj_set_size(field->value,xpx(width)-8,13);
+    lv_obj_set_style_text_align(field->value,LV_TEXT_ALIGN_LEFT,0);
+#endif
     return field;
 }
 
@@ -776,16 +1002,24 @@ static void create_diagnostics_screen(screen_view_t *view)
         {"ECUS", DIAG_ECUS}, {"VALID SIGNALS", DIAG_SIGNALS},
         {"ACK / BIT", DIAG_STALE}, {"ARB / BUS", DIAG_ERRORS},
     };
+#if CONFIG_MINIDASH_CYD
+    style_root(view,"SERVICE STATUS","CAN TX LOCKED | UDS OFF");
+#else
     style_root(view, "SERVICE STATUS", "HOLD: READ DTC / RETRY CAN");
+#endif
     for (unsigned i = 0; i < sizeof(rows) / sizeof(rows[0]); ++i) {
         const int column = (int)(i / UI_DIAG_ROWS);
         const int row = (int)(i % UI_DIAG_ROWS);
+#if CONFIG_MINIDASH_CYD
+        (void)create_diagnostic_field(view,10+column*153,34+row*26,147,26,rows[i].title,rows[i].key);
+#else
         (void)create_diagnostic_field(view, 10 + column * 153, 36 + row * 25,
             147, 23, rows[i].title, rows[i].key);
+#endif
     }
 }
 
-static void create_settings_screen(void)
+static void create_settings_rows(unsigned page)
 {
     static const char *const titles[MD_UI_SETTINGS_ROWS] = {
         "Dashboard", "Theme", "Day / night", "Speed units",
@@ -793,10 +1027,28 @@ static void create_settings_screen(void)
         "Coolant warning", "Engine oil warn", "Trans oil warn", "Low voltage warn",
         "Dashboard layout", "Language", "Widget 1 signal", "Widget 2 signal",
         "Widget 3 signal", "Widget 4 signal", "Widget 5 signal", "Widget 6 signal",
-        "Widget 7 signal", "Widget 8 signal", "Wi-Fi configuration", "Screen rotation"};
+        "Widget 7 signal", "Widget 8 signal", "Wi-Fi configuration", "Screen rotation"
+#if CONFIG_MINIDASH_CYD
+        , "Demo mode"
+#endif
+    };
     screen_view_t *view = &s_screens[MD_UI_SCREEN_SETTINGS];
-    style_root(view, "SETTINGS", "TAP ROW TO SELECT");
+#if CONFIG_MINIDASH_CYD
+    /* Free the previous page before allocating its replacement. Hidden LVGL
+     * rows cost SRAM and layout time despite never being drawn. */
+    s_wifi_switch=NULL;
+    for(unsigned i=0;i<MD_UI_SETTINGS_ROWS;i++) {
+        if(s_setting_rows[i].row) lv_obj_delete(s_setting_rows[i].row);
+        memset(&s_setting_rows[i],0,sizeof(s_setting_rows[i]));
+    }
+    s_cyd_settings_page=page;
+#else
+    (void)page;
+#endif
     for (unsigned i = 0; i < MD_UI_SETTINGS_ROWS; ++i) {
+#if CONFIG_MINIDASH_CYD
+        if(i/MD_UI_SETTINGS_ROWS_PER_PAGE!=page) continue;
+#endif
         setting_row_view_t *row = &s_setting_rows[i];
         row->row = lv_obj_create(view->root);
         if (!row->row) continue;
@@ -826,11 +1078,32 @@ static void create_settings_screen(void)
             lv_obj_set_pos(row->value,xpx(8),ypx(18)); lv_obj_set_size(row->value,xpx(284),ypx(15));
             set_ui_font(row->title,&lv_font_montserrat_12,0); set_ui_font(row->value,&lv_font_montserrat_12,0);
         }
+#if CONFIG_MINIDASH_CYD
+        lv_obj_remove_flag(row->row,LV_OBJ_FLAG_HIDDEN);
+        themed_frame(row->row);
+        lv_obj_set_style_text_color(row->title,color(s_palette.text),0);
+        lv_obj_set_style_text_color(row->value,color(s_palette.accent),0);
+        settings_row_reset(row);
+#endif
     }
-    s_wifi_switch=lv_switch_create(s_setting_rows[22].row);
-    lv_obj_set_pos(s_wifi_switch,xpx(250),ypx(7)); lv_obj_set_size(s_wifi_switch,xpx(42),ypx(24));
-    lv_obj_clear_flag(s_wifi_switch,LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_set_width(s_setting_rows[22].value,xpx(s_height>s_width?230:80));
+    if(s_setting_rows[22].row) {
+        s_wifi_switch=lv_switch_create(s_setting_rows[22].row);
+        lv_obj_set_pos(s_wifi_switch,xpx(250),ypx(7)); lv_obj_set_size(s_wifi_switch,xpx(42),ypx(24));
+        lv_obj_clear_flag(s_wifi_switch,LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_set_width(s_setting_rows[22].value,xpx(s_height>s_width?230:80));
+#if CONFIG_MINIDASH_CYD
+        lv_obj_set_style_bg_color(s_wifi_switch,color(s_palette.border),LV_PART_MAIN);
+        lv_obj_set_style_bg_color(s_wifi_switch,color(s_palette.accent),LV_PART_INDICATOR|LV_STATE_CHECKED);
+        lv_obj_set_style_bg_color(s_wifi_switch,color(s_palette.text),LV_PART_KNOB);
+#endif
+    }
+}
+
+static void create_settings_screen(void)
+{
+    screen_view_t *view = &s_screens[MD_UI_SCREEN_SETTINGS];
+    style_root(view, "SETTINGS", "TAP ROW TO SELECT");
+    create_settings_rows(0);
     s_settings_action = lv_obj_create(view->root);
     if (!s_settings_action) return;
     lv_obj_remove_style_all(s_settings_action);
@@ -984,6 +1257,31 @@ static screen_view_t *view_for(md_ui_screen_t screen,
     return NULL;
 }
 
+static void create_config_screen(void)
+{
+    screen_view_t *config_view = &s_screens[MD_UI_SCREEN_CONFIG_MODE];
+    style_root(config_view, "Wi-Fi configuration", "BACK TO RETURN | AP TIMEOUT 10 MIN");
+    s_config_credentials = lv_label_create(config_view->root);
+    lv_obj_set_pos(s_config_credentials, xpx(16), ypx(52));
+    lv_obj_set_size(s_config_credentials, xpx(288), ypx(146));
+    set_ui_font(s_config_credentials, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(s_config_credentials, color(s_palette.text), 0);
+#if CONFIG_MINIDASH_CYD
+    s_config_qr=lv_qrcode_create(config_view->root);
+    lv_qrcode_set_size(s_config_qr,s_width<300 ? 112 : 132);
+    lv_qrcode_set_dark_color(s_config_qr,lv_color_black());
+    lv_qrcode_set_light_color(s_config_qr,lv_color_white());
+    lv_qrcode_set_quiet_zone(s_config_qr,true);
+    lv_obj_set_style_border_width(s_config_qr,6,0);
+    lv_obj_set_style_border_color(s_config_qr,lv_color_white(),0);
+    lv_obj_set_pos(s_config_qr,s_width<300 ? (s_width-112)/2 : 10,42);
+    lv_obj_set_pos(s_config_credentials,s_width<300 ? 8 : 158,s_width<300 ? 172 : 48);
+    lv_obj_set_size(s_config_credentials,s_width<300 ? s_width-16 : s_width-164,s_height-105);
+    lv_obj_add_flag(s_config_qr,LV_OBJ_FLAG_HIDDEN);
+    s_qr_payload[0]=0;
+#endif
+}
+
 bool md_ui_screens_create(uint16_t width, uint16_t height,
                           const md_ui_settings_t *settings,
                           const md_ui_palette_t *palette)
@@ -997,8 +1295,10 @@ bool md_ui_screens_create(uint16_t width, uint16_t height,
     s_height = height;
     s_palette = *palette;
     s_theme_style = md_ui_theme_style(settings->theme);
+    s_render_theme=settings->theme;
     s_language = settings->language;
 
+#if !CONFIG_MINIDASH_CYD
     for (int i = 0; i < MD_UI_DASHBOARD_COUNT; ++i) {
         create_dashboard(&s_dashboards[i], (md_ui_dashboard_t)i, settings);
         if (!s_dashboards[i].root) return false;
@@ -1012,13 +1312,7 @@ bool md_ui_screens_create(uint16_t width, uint16_t height,
     create_widget_picker_screen();
     create_calibration_screen();
     if(!md_automotive_create(width,height,palette)) return false;
-    screen_view_t *config_view = &s_screens[MD_UI_SCREEN_CONFIG_MODE];
-    style_root(config_view, "Wi-Fi configuration", "BACK TO RETURN | AP TIMEOUT 10 MIN");
-    s_config_credentials = lv_label_create(config_view->root);
-    lv_obj_set_pos(s_config_credentials, xpx(16), ypx(52));
-    lv_obj_set_size(s_config_credentials, xpx(288), ypx(146));
-    set_ui_font(s_config_credentials, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_color(s_config_credentials, color(s_palette.text), 0);
+    create_config_screen();
 #if CONFIG_MINIDASH_TOUCH_DEBUG_OVERLAY
     lv_obj_t *top = lv_layer_top();
     for (int side = 0; side < 2; ++side) {
@@ -1043,6 +1337,14 @@ bool md_ui_screens_create(uint16_t width, uint16_t height,
         if (i == MD_UI_SCREEN_CUSTOM) continue;
         if (!s_screens[i].root) return false;
     }
+
+#else
+    s_cyd_current=NULL;
+    if(!md_automotive_create(width,height,palette)) return false;
+    s_settings_action=s_settings_action_label=s_settings_page=s_settings_page_label=NULL;
+    s_settings_previous=s_settings_previous_label=s_wifi_switch=NULL;
+    s_calibration_target=s_calibration_instruction=s_focus_stats=s_config_credentials=s_config_qr=NULL;
+#endif
     s_created = true;
     md_ui_screens_retheme(palette, settings->theme);
     return true;
@@ -1066,6 +1368,11 @@ bool md_ui_screens_resize(uint16_t width, uint16_t height,
         lv_obj_t *root=md_automotive_root((md_ui_screen_t)i);
         if(root) lv_obj_delete(root);
     }
+#if CONFIG_MINIDASH_CYD
+    for(unsigned i=0;i<MD_UI_DASHBOARD_COUNT;i++) free(s_dashboards[i].fields);
+    for(unsigned i=0;i<MD_UI_SCREEN_SPORT_BOOST;i++) free(s_screens[i].fields);
+    s_config_qr=NULL;
+#endif
     s_created=false;
     s_calibration_target=s_calibration_instruction=s_focus_stats=s_config_credentials=NULL;
     s_settings_action=s_settings_action_label=s_settings_page=s_settings_page_label=NULL;
@@ -1080,6 +1387,18 @@ void md_ui_screens_rebuild_custom(const md_ui_settings_t *settings)
 {
     if (!s_created || !settings) return;
     screen_view_t *view=&s_dashboards[MD_UI_DASHBOARD_CUSTOM];
+#if CONFIG_MINIDASH_CYD
+    if(!view->root) return;
+#endif
+#if CONFIG_MINIDASH_CYD
+    /* CYD cannot keep the old and replacement widget trees simultaneously. */
+    lv_obj_t *placeholder=lv_obj_create(NULL);
+    if(!placeholder)return;
+    lv_screen_load(placeholder);
+    lv_obj_delete(view->root);free(view->fields);memset(view,0,sizeof(*view));
+    create_dashboard(view,MD_UI_DASHBOARD_CUSTOM,settings);
+    if(view->root) {create_nav_hints(view);lv_screen_load(view->root);lv_obj_delete(placeholder);}
+#else
     screen_view_t *backup=malloc(sizeof(*backup));
     if (!backup) return;
     *backup=*view;
@@ -1093,7 +1412,11 @@ void md_ui_screens_rebuild_custom(const md_ui_settings_t *settings)
     create_nav_hints(view);
     if (active) lv_screen_load(view->root);
     if (old) lv_obj_delete(old);
+#if CONFIG_MINIDASH_CYD
+    free(backup->fields);
+#endif
     free(backup);
+#endif
 }
 
 void md_ui_screens_focus_signal(md_ui_signal_id_t signal)
@@ -1113,15 +1436,18 @@ void md_ui_screens_focus_signal(md_ui_signal_id_t signal)
 
 void md_ui_screens_set_calibrated(bool calibrated)
 {
+#if CONFIG_MINIDASH_CYD
+    s_cyd_calibrated=calibrated;
+#endif
     if (!s_created) return;
     screen_view_t *settings = &s_screens[MD_UI_SCREEN_SETTINGS];
     (void)snprintf(settings->footer_key, sizeof(settings->footer_key), "%s",
                    "TAP NEXT | DOUBLE CHANGE | HOLD BACK");
     set_ui_text(settings->footer, settings->footer_text,
                 sizeof(settings->footer_text), settings->footer_key);
-    if (calibrated)
+    if (settings->footer && calibrated)
         lv_obj_add_flag(s_screens[MD_UI_SCREEN_SETTINGS].footer, LV_OBJ_FLAG_HIDDEN);
-    else
+    else if (settings->footer)
         lv_obj_remove_flag(s_screens[MD_UI_SCREEN_SETTINGS].footer, LV_OBJ_FLAG_HIDDEN);
     if (s_settings_action) {
         if (calibrated) lv_obj_remove_flag(s_settings_action, LV_OBJ_FLAG_HIDDEN);
@@ -1345,21 +1671,101 @@ void md_ui_screens_debug_touch(int16_t x, int16_t y)
 #endif
 }
 
+#if CONFIG_MINIDASH_CYD
+/* Keep only the visible LVGL scene in internal SRAM. The shared builders,
+ * bindings and renderer remain identical to S3; scene lifetime is target-specific. */
+static bool cyd_load_view(md_ui_screen_t screen,const md_ui_settings_t *settings,screen_view_t *view)
+{
+    if(!view) return false;
+    if(view->root) return true;
+    lv_obj_t *placeholder=lv_obj_create(NULL);
+    if(!placeholder) return false;
+    lv_screen_load(placeholder);
+    md_automotive_release();
+    if(s_cyd_current) {
+        if(s_cyd_current->root) lv_obj_delete(s_cyd_current->root);
+        free(s_cyd_current->fields);
+        memset(s_cyd_current,0,sizeof(*s_cyd_current));
+    }
+    memset(s_setting_rows,0,sizeof(s_setting_rows));
+    memset(s_widget_picker_options,0,sizeof(s_widget_picker_options));
+    s_settings_action=s_settings_action_label=s_settings_page=s_settings_page_label=NULL;
+    s_settings_previous=s_settings_previous_label=s_wifi_switch=NULL;
+    s_calibration_target=s_calibration_instruction=s_focus_stats=s_config_credentials=s_config_qr=NULL;
+    s_font_language=MD_UI_LANGUAGE_COUNT;
+    s_cyd_current=view;
+    switch(screen) {
+    case MD_UI_SCREEN_DASHBOARD: create_dashboard(view,settings->dashboard,settings);break;
+    case MD_UI_SCREEN_CUSTOM: create_dashboard(view,MD_UI_DASHBOARD_CUSTOM,settings);break;
+    case MD_UI_SCREEN_PERFORMANCE:create_performance_screen(view);break;
+    case MD_UI_SCREEN_TEMPERATURES:create_temperature_screen(view);break;
+    case MD_UI_SCREEN_DRIVETRAIN:create_drivetrain_screen(view);break;
+    case MD_UI_SCREEN_DIAGNOSTICS:create_diagnostics_screen(view);break;
+    case MD_UI_SCREEN_SETTINGS:create_settings_screen();break;
+    case MD_UI_SCREEN_FOCUS:create_focus_screen();break;
+    case MD_UI_SCREEN_WIDGET_PICKER:create_widget_picker_screen();break;
+    case MD_UI_SCREEN_CALIBRATION:create_calibration_screen();break;
+    case MD_UI_SCREEN_CONFIG_MODE:create_config_screen();break;
+    default:break;
+    }
+    if(!view->root) {
+        printf("MINIDASH_CYD_VIEW allocation_failed screen=%d\n",(int)screen);
+        return false; /* Keep the placeholder as a valid active scene. */
+    }
+    if(screen<=MD_UI_SCREEN_CUSTOM) create_nav_hints(view);
+    md_ui_screens_retheme(&s_palette,settings->theme);
+    md_ui_screens_set_calibrated(s_cyd_calibrated);
+    lv_screen_load(view->root);
+    lv_obj_delete(placeholder);
+    return true;
+}
+#endif
+
 void md_ui_screens_show(md_ui_screen_t screen,
                         const md_ui_settings_t *settings)
 {
     if (!s_created) return;
     if(md_automotive_screen(screen)) {
+#if CONFIG_MINIDASH_CYD
+        if(!md_automotive_root(screen)) {
+            lv_obj_t *placeholder=lv_obj_create(NULL);
+            if(!placeholder) return;
+            lv_screen_load(placeholder);
+            md_automotive_release();
+            if(s_cyd_current) {
+                if(s_cyd_current->root) lv_obj_delete(s_cyd_current->root);
+                free(s_cyd_current->fields);
+                memset(s_cyd_current,0,sizeof(*s_cyd_current));
+                s_cyd_current=NULL;
+            }
+            memset(s_setting_rows,0,sizeof(s_setting_rows));
+            memset(s_widget_picker_options,0,sizeof(s_widget_picker_options));
+            s_settings_action=s_settings_action_label=s_settings_page=s_settings_page_label=NULL;
+            s_settings_previous=s_settings_previous_label=s_wifi_switch=NULL;
+            s_calibration_target=s_calibration_instruction=s_focus_stats=s_config_credentials=s_config_qr=NULL;
+            if(!md_automotive_open(screen)) return;
+            lv_screen_load(md_automotive_root(screen));
+            lv_obj_delete(placeholder);
+            return;
+        }
+#endif
         lv_obj_t *root=md_automotive_root(screen);
         if(root) lv_screen_load(root);
         return;
     }
     screen_view_t *view = view_for(screen, settings);
+#if CONFIG_MINIDASH_CYD
+    if(!cyd_load_view(screen,settings,view)) return;
+#endif
     if (screen==MD_UI_SCREEN_SETTINGS) {
         for(unsigned i=0;i<MD_UI_SETTINGS_ROWS;++i)
             if(s_setting_rows[i].row) settings_row_reset(&s_setting_rows[i]);
     }
     if (view && view->root) lv_screen_load(view->root);
+    bool changed=s_pixel_screen!=screen || s_pixel_dashboard!=settings->dashboard;
+    bool first=s_pixel_screen==MD_UI_SCREEN_COUNT;
+    s_pixel_screen=screen;s_pixel_dashboard=settings->dashboard;
+    if(changed && !first)pixel_begin();
 }
 
 static void retheme_view(screen_view_t *view)
@@ -1393,8 +1799,16 @@ static void retheme_view(screen_view_t *view)
 void md_ui_screens_retheme(const md_ui_palette_t *palette, md_ui_theme_id_t theme)
 {
     if (!palette || !s_created) return;
+#if CONFIG_MINIDASH_CYD
+    /* Change all local properties atomically under the caller's LVGL lock,
+     * then refresh inheritance/layout once, including the newly built scene. */
+    lv_obj_enable_style_refresh(false);
+#endif
     s_palette = *palette;
+    bool pixel_theme_changed=s_render_theme!=theme;
+    s_render_theme=theme;
     s_theme_style = md_ui_theme_style(theme);
+    if(!md_ui_theme_is_pixel(theme))s_pixel_active=false;
     apply_language_fonts();
     for (unsigned i = 0; i < MD_UI_DASHBOARD_COUNT; ++i) retheme_view(&s_dashboards[i]);
     for (unsigned i = 1; i < MD_UI_SCREEN_SPORT_BOOST; ++i) {
@@ -1441,6 +1855,12 @@ void md_ui_screens_retheme(const md_ui_palette_t *palette, md_ui_theme_id_t them
         lv_obj_set_style_border_color(s_settings_previous, color(s_palette.accent), 0);
         lv_obj_set_style_text_color(s_settings_previous_label, color(s_palette.text), 0);
     }
+    if(pixel_theme_changed && s_pixel_screen!=MD_UI_SCREEN_COUNT)pixel_begin();
+#if CONFIG_MINIDASH_CYD
+    lv_obj_enable_style_refresh(true);
+    if(s_cyd_current && s_cyd_current->root)
+        lv_obj_refresh_style(s_cyd_current->root,LV_PART_ANY,LV_STYLE_PROP_ANY);
+#endif
 }
 
 static void invalidate_needle(field_view_t *field,uint16_t level)
@@ -1597,11 +2017,23 @@ static void update_metric_field(field_view_t *field,
             }
         }
     }
+    if(md_ui_theme_is_pixel(s_render_theme)) {
+        float low=0,high=1;
+        if(id>=0)md_ui_focus_gauge_range((md_ui_signal_id_t)id,&low,&high);
+        if(spec && field->visual && spec->maximum>spec->minimum) {low=spec->minimum;high=spec->maximum;}
+        uint16_t level=snapshot.value_available && high>low ?
+            (uint16_t)(fmax(0,fmin(1,(snapshot.value-low)/(high-low)))*1000):0;
+        if(level!=field->pixel_level || field->pixel_available!=snapshot.value_available)lv_obj_invalidate(field->card);
+        field->pixel_level=level;field->pixel_available=snapshot.value_available;
+    }
     update_focus_gauge(field,settings,signals,now_ms);
+    const bool pixel_separate_units=md_ui_theme_is_pixel(s_render_theme) &&
+        field->widget_type==MD_UI_WIDGET_VALUE && !field->visual && !field->focus &&
+        field->inline_unit && lv_obj_get_width(field->card)>=110 && lv_obj_get_height(field->card)>=70;
     if (!snapshot.value_available && field->widget_type != MD_UI_WIDGET_STATUS) {
         (void)snprintf(formatted_value, sizeof(formatted_value), "--");
         formatted_unit[0] = '\0';
-    } else if (field->inline_unit && formatted_unit[0]) {
+    } else if (field->inline_unit && !pixel_separate_units && formatted_unit[0]) {
         char combined[sizeof(formatted_value)];
         (void)snprintf(combined, sizeof(combined), "%.20s %.10s",
                        formatted_value, formatted_unit);
@@ -1611,6 +2043,10 @@ static void update_metric_field(field_view_t *field,
     const char *state_label = snapshot.demo && snapshot.value_available
         ? "DEMO" : md_ui_signal_state_label(snapshot.state);
     set_static_text(field->value, field->value_text, sizeof(field->value_text), formatted_value);
+    if(md_ui_theme_is_pixel(s_render_theme)) {
+        const lv_font_t *preferred=ui_font_for_language(metric_font(pixel_separate_units ? &lv_font_montserrat_28 : field->value_font));
+        set_text_font(field->value,pixel_fit_font(preferred,formatted_value,lv_obj_get_width(field->value)),0);
+    }
     set_static_text(field->unit, field->unit_text, sizeof(field->unit_text), formatted_unit);
     set_ui_text(field->status, field->status_text,
                 sizeof(field->status_text), state_label);
@@ -1654,7 +2090,7 @@ static void refresh_metric_binding(field_view_t *field,
         s_page_model.widgets[field->widget_slot].signal == signal && s_page_model.widgets[field->widget_slot].label[0])
         label = s_page_model.widgets[field->widget_slot].label;
     if (field->card_group==MD_UI_CARD_GROUP_CUSTOM)
-        lv_obj_set_style_text_font(field->title,s_theme_style.font_family==1 ? ui_font_for_language(field->title_font) : (field->title_font==&lv_font_montserrat_10 ? &md_ui_font_ru_10 : &md_ui_font_ru_12),0);
+        set_text_font(field->title,(s_theme_style.font_family==1 || s_theme_style.font_family==3) ? ui_font_for_language(field->title_font) : (field->title_font==&lv_font_montserrat_10 ? &md_ui_font_ru_10 : &md_ui_font_ru_12),0);
     set_static_text(field->title, field->title_text,
                     sizeof(field->title_text), label);
 }
@@ -1720,7 +2156,13 @@ static void update_diagnostic_field(field_view_t *field,
     case DIAG_CAN_TX: snprintf(text,sizeof(text),"%lu/%lu",(unsigned long)diag->can_tx,(unsigned long)diag->can_tx_failed);break;
     case DIAG_CAN_TIMEOUTS: snprintf(text,sizeof(text),"%lu",(unsigned long)diag->can_timeouts);break;
     case DIAG_CAN_DROPS: snprintf(text,sizeof(text),"%lu",(unsigned long)diag->can_dropped);break;
-    case DIAG_DTC: snprintf(text,sizeof(text),"%s",diag->dtc_text);break;
+    case DIAG_DTC:
+#if CONFIG_MINIDASH_CYD
+        snprintf(text,sizeof(text),"%s","DISABLED");
+#else
+        snprintf(text,sizeof(text),"%s",diag->dtc_text);
+#endif
+        break;
     case DIAG_SIGNALS:
         (void)snprintf(text, sizeof(text), "%u / %u", diag->signal_summary.valid_count,
                        MD_SIGNAL_COUNT);
@@ -1735,6 +2177,10 @@ static void update_diagnostic_field(field_view_t *field,
     }
     set_ui_text(field->value, field->value_text,
                 sizeof(field->value_text), text);
+#if CONFIG_MINIDASH_CYD
+    fit_label(field->title,&lv_font_montserrat_10,lv_obj_get_width(field->title));
+    fit_label(field->value,&lv_font_montserrat_10,lv_obj_get_width(field->value));
+#endif
 }
 
 static void settings_value(uint8_t index, const md_ui_settings_t *settings,
@@ -1753,7 +2199,7 @@ static void settings_value(uint8_t index, const md_ui_settings_t *settings,
     case 4: value = temperature[settings->temperature_unit]; break;
     case 5:
         if (brightness_control) {
-            (void)snprintf(output, capacity, "%u%%", settings->brightness_pct);
+            (void)snprintf(output, capacity, s_auto_brightness ? "AUTO" : "%u%%", settings->brightness_pct);
             return;
         }
         value = "FIXED";
@@ -1778,6 +2224,9 @@ static void settings_value(uint8_t index, const md_ui_settings_t *settings,
         value = layout[settings->layout];
         break;
     }
+#if CONFIG_MINIDASH_CYD
+    case 24: value=md_vehicle_app_demo() ? "ON" : "OFF"; break;
+#endif
     case 23: snprintf(output, capacity, "%u°", settings->rotation * 90U); return;
     case 22: value = wifi_active ? "ON" : "OFF"; break;
     case 13:
@@ -1818,11 +2267,22 @@ void md_ui_screens_update(md_ui_screen_t screen,
     if (s_font_language != s_language) apply_language_fonts();
     screen_view_t *view = view_for(screen, settings);
     if (!view || !view->root) return;
+#if CONFIG_MINIDASH_CYD
+    if(screen==MD_UI_SCREEN_SETTINGS && s_cyd_settings_page!=state->selected_setting/MD_UI_SETTINGS_ROWS_PER_PAGE)
+        create_settings_rows(state->selected_setting/MD_UI_SETTINGS_ROWS_PER_PAGE);
+    lv_obj_update_layout(view->root);
+#endif
     if(screen==MD_UI_SCREEN_FOCUS) md_ui_screens_focus_signal(state->focused_signal);
-    set_ui_text(view->title, view->title_text, sizeof(view->title_text),
-                view->title_key);
-    set_ui_text(view->footer, view->footer_text, sizeof(view->footer_text),
-                view->footer_key);
+    const bool named_custom=(screen==MD_UI_SCREEN_CUSTOM ||
+        (screen==MD_UI_SCREEN_DASHBOARD && settings->dashboard==MD_UI_DASHBOARD_CUSTOM)) && s_page_model.title[0];
+    if(!named_custom && !(screen==MD_UI_SCREEN_FOCUS && s_theme_style.gauge_style))
+        set_ui_text(view->title, view->title_text, sizeof(view->title_text),view->title_key);
+    const char *footer=view->footer_key;
+#if CONFIG_MINIDASH_CYD
+    if(screen==MD_UI_SCREEN_DIAGNOSTICS) footer=md_vehicle_app_demo() ? "DEMO | CAN STOPPED" :
+        md_vehicle_app_tx_armed() ? "OBD READ ONLY | UDS OFF" : "CAN TX LOCKED | UDS OFF";
+#endif
+    set_ui_text(view->footer,view->footer_text,sizeof(view->footer_text),footer);
     const md_ui_signal_summary_t summary = md_ui_signal_summary(signals, now_ms);
     char mode[32];
     if (screen == MD_UI_SCREEN_SETTINGS) {
@@ -1905,11 +2365,14 @@ void md_ui_screens_update(md_ui_screen_t screen,
             md_ui_i18n_text(s_language,"MIN"),low,md_ui_i18n_text(s_language,"MAX"),high,
             md_ui_i18n_text(s_language,source),h->demo && h->valid ? " " : "",
             h->demo && h->valid ? md_ui_i18n_text(s_language,"DEMO") : "");
-        lv_label_set_text(s_focus_stats, s_focus_stats_text);
+        if(strcmp(lv_label_get_text(s_focus_stats),s_focus_stats_text))
+            lv_label_set_text(s_focus_stats, s_focus_stats_text);
     }
     if ((screen == MD_UI_SCREEN_CUSTOM || (screen == MD_UI_SCREEN_DASHBOARD && settings->dashboard == MD_UI_DASHBOARD_CUSTOM)) && s_page_model.title[0])
     {
-        lv_obj_set_style_text_font(view->title,s_theme_style.font_family==1 ? &md_ui_font_mono_16 : &md_ui_font_ru_16,0);
+#if !CONFIG_MINIDASH_CYD
+        set_text_font(view->title,s_theme_style.font_family==3 ? &md_ui_font_pixel_16 : s_theme_style.font_family==1 ? &md_ui_font_mono_16 : &md_ui_font_ru_16,0);
+#endif
         set_ui_text(view->title, view->title_text, sizeof(view->title_text), s_page_model.title);
     }
     if (screen == MD_UI_SCREEN_SETTINGS) {
@@ -1919,20 +2382,26 @@ void md_ui_screens_update(md_ui_screen_t screen,
         }
         if (s_settings_action_label) {
             const char *action_label = state->selected_setting == 7 ? "START" : "CHANGE";
+#if CONFIG_MINIDASH_CYD
+            if(state->selected_setting==24)
+                action_label=md_vehicle_app_demo() ? "DISABLE" : "ENABLE";
+            if(state->selected_setting==22)
+                action_label=diagnostics && diagnostics->wifi_active ? "DISABLE" : "ENABLE";
+#endif
             if (state->selected_setting == 5 &&
                 !(diagnostics && diagnostics->brightness_control)) action_label = "FIXED";
             if (state->selected_setting >= 14U && state->selected_setting < 22U &&
                 state->selected_setting - 14U >= settings->widget_count)
                 action_label = "INACTIVE";
-            set_ui_text(s_settings_action_label, s_settings_action_text,
-                        sizeof(s_settings_action_text), action_label);
-            lv_obj_center(s_settings_action_label);
+            if(set_ui_text(s_settings_action_label, s_settings_action_text,
+                        sizeof(s_settings_action_text), action_label))
+                lv_obj_center(s_settings_action_label);
         }
         if (s_settings_page_label) {
             const unsigned page = state->selected_setting / MD_UI_SETTINGS_ROWS_PER_PAGE;
-            set_ui_text(s_settings_page_label, s_settings_page_text,
-                        sizeof(s_settings_page_text), "MORE");
-            lv_obj_center(s_settings_page_label);
+            if(set_ui_text(s_settings_page_label, s_settings_page_text,
+                        sizeof(s_settings_page_text), "MORE"))
+                lv_obj_center(s_settings_page_label);
             if (page + 1U < UI_SETTINGS_PAGE_COUNT)
                 lv_obj_remove_flag(s_settings_page, LV_OBJ_FLAG_HIDDEN);
             else
@@ -1943,16 +2412,32 @@ void md_ui_screens_update(md_ui_screen_t screen,
             if (page > 0U) lv_obj_remove_flag(s_settings_previous, LV_OBJ_FLAG_HIDDEN);
             else lv_obj_add_flag(s_settings_previous, LV_OBJ_FLAG_HIDDEN);
         }
+#if CONFIG_MINIDASH_CYD
+        /* Reveal the new page before resolving its fixed label geometry. */
+        for(unsigned i=0;i<MD_UI_SETTINGS_ROWS;i++) {
+            lv_obj_t *row=s_setting_rows[i].row;
+            if(!row) continue;
+            if(i/MD_UI_SETTINGS_ROWS_PER_PAGE==state->selected_setting/MD_UI_SETTINGS_ROWS_PER_PAGE)
+                lv_obj_remove_flag(row,LV_OBJ_FLAG_HIDDEN);
+            else lv_obj_add_flag(row,LV_OBJ_FLAG_HIDDEN);
+        }
+        lv_obj_update_layout(view->root);
+#endif
         for (unsigned i = 0; i < MD_UI_SETTINGS_ROWS; ++i) {
             setting_row_view_t *row = &s_setting_rows[i];
             if (!row->row) continue;
-            set_ui_text(row->title, row->title_text,
-                        sizeof(row->title_text), row->title_key);
+#if !CONFIG_MINIDASH_CYD
             if (i / MD_UI_SETTINGS_ROWS_PER_PAGE ==
                 state->selected_setting / MD_UI_SETTINGS_ROWS_PER_PAGE)
                 lv_obj_remove_flag(row->row, LV_OBJ_FLAG_HIDDEN);
             else
                 lv_obj_add_flag(row->row, LV_OBJ_FLAG_HIDDEN);
+#endif
+#if CONFIG_MINIDASH_CYD
+            if(lv_obj_has_flag(row->row,LV_OBJ_FLAG_HIDDEN)) continue;
+#endif
+            set_ui_text(row->title, row->title_text,
+                        sizeof(row->title_text), row->title_key);
             char value[32];
             settings_value((uint8_t)i, settings,
                            diagnostics && diagnostics->brightness_control, diagnostics && diagnostics->wifi_active,
@@ -1960,8 +2445,20 @@ void md_ui_screens_update(md_ui_screen_t screen,
             set_static_text(row->value, row->value_text, sizeof(row->value_text), value);
             const bool selected = i == state->selected_setting;
             settings_row_select(row,selected);
+#if CONFIG_MINIDASH_CYD
+            fit_label(row->title,&lv_font_montserrat_12,lv_obj_get_width(row->title));
+            fit_label(row->value,&lv_font_montserrat_12,lv_obj_get_width(row->value));
+#endif
         }
     }
+#if CONFIG_MINIDASH_CYD
+    /* User page titles may be Cyrillic even in an English UI. Select and fit
+     * the final font once; do not alternate the generic and custom fonts. */
+    const lv_font_t *title_font=named_custom && s_theme_style.font_family!=1 && s_theme_style.font_family!=3
+        ? &md_ui_font_ru_16 : &lv_font_montserrat_16;
+    fit_label(view->title,title_font,lv_obj_get_width(view->title));
+    fit_label(view->footer,&lv_font_montserrat_10,lv_obj_get_width(view->footer));
+#endif
 }
 
 void md_ui_screens_instrument_profile(const char *id,uint32_t ttl_ms,uint32_t now_ms)
@@ -1988,7 +2485,7 @@ void md_ui_screens_gauge_dump(md_ui_screen_t screen)
 
 void md_ui_screens_configuration(const md_device_configuration_t *config)
 {
-    if(config) s_gauge_auto=config->common.gauge_auto;
+    if(config) { s_gauge_auto=config->common.gauge_auto; s_auto_brightness=config->platform.brightness_mode==MD_BRIGHTNESS_AUTO; }
     if(config) for(unsigned i=0;i<MD_SIGNAL_COUNT;i++) {
         s_gauge_ranges[i][0]=config->common.gauge_ranges[i].minimum;
         s_gauge_ranges[i][1]=config->common.gauge_ranges[i].maximum;
@@ -2010,8 +2507,33 @@ void md_ui_screens_config_credentials(const char *ssid, const char *password)
     const char *format = s_language == MD_UI_LANGUAGE_RUSSIAN
         ? "Сеть: %s\nПароль: %s\n\nhttp://192.168.4.1\nОткл.: Настройки > Wi-Fi"
         : "SSID: %s\nPassword: %s\n\nhttp://192.168.4.1\nSettings > Wi-Fi to stop";
+#if CONFIG_MINIDASH_CYD
+    (void)format;
+    snprintf(text,sizeof(text),"%s\n%s\n\n192.168.4.1",ssid,password);
+#else
     snprintf(text, sizeof(text), format, ssid, password);
-    lv_label_set_text(s_config_credentials, text);
+#endif
+#if CONFIG_MINIDASH_CYD
+    if(strcmp(lv_label_get_text(s_config_credentials),text))
+#endif
+        lv_label_set_text(s_config_credentials, text);
+#if CONFIG_MINIDASH_CYD
+    lv_obj_update_layout(s_config_credentials);
+    fit_label(s_config_credentials,&lv_font_montserrat_14,lv_obj_get_width(s_config_credentials));
+    if(lv_obj_get_style_text_line_space(s_config_credentials,0)!=5)
+        lv_obj_set_style_text_line_space(s_config_credentials,5,0);
+#endif
+#if CONFIG_MINIDASH_CYD
+    char payload[128];
+    snprintf(payload,sizeof(payload),"WIFI:T:WPA;S:%s;P:%s;;",ssid,password);
+    if(s_config_qr && strcmp(payload,s_qr_payload)) {
+        if(lv_qrcode_update(s_config_qr,payload,strlen(payload))==LV_RESULT_OK) {
+            snprintf(s_qr_payload,sizeof(s_qr_payload),"%s",payload);
+            lv_obj_remove_flag(s_config_qr,LV_OBJ_FLAG_HIDDEN);
+            printf("MINIDASH_CYD_QR status=READY wifi_payload_bytes=%u\n",(unsigned)strlen(payload));
+        }
+    }
+#endif
 }
 static void renderer_show(void *context, md_ui_screen_t screen, const md_ui_settings_t *settings)
 { (void)context; md_ui_screens_show(screen, settings); }
@@ -2088,7 +2610,21 @@ void md_ui_screens_startup_frame(uint32_t elapsed)
 /* Isolated actual-LVGL regression test; never loads or changes the owner's scene. */
 bool md_ui_screens_selftest(void)
 {
-    lv_obj_t *root=lv_obj_create(NULL); if(!root) return false;
+#if CONFIG_MINIDASH_CYD
+    /* The full signal fixture is too large for the console task's stack. */
+    md_ui_signal_store_t *store=malloc(sizeof(*store));
+    if(!store) return false;
+#else
+    md_ui_signal_store_t stack_store;
+    md_ui_signal_store_t *store=&stack_store;
+#endif
+    lv_obj_t *root=lv_obj_create(NULL);
+    if(!root) {
+#if CONFIG_MINIDASH_CYD
+        free(store);
+#endif
+        return false;
+    }
     bool ok=true; char cached[24]="PREV";
     const lv_font_t *mono[]={&md_ui_font_mono_10,&md_ui_font_mono_12,&md_ui_font_mono_14,&md_ui_font_mono_16};
     const uint32_t glyphs[]={0x410,0x42f,0x430,0x44f,0x401,0x451,'0','9',0xb0};
@@ -2135,27 +2671,118 @@ bool md_ui_screens_selftest(void)
     field.gauge_scale=lv_label_create(field.card);
     for(unsigned i=0;i<5;i++) field.gauge_ticks[i]=lv_label_create(field.card);
     md_ui_settings_t settings; md_ui_settings_defaults(&settings);
-    md_ui_signal_store_t store; md_ui_signal_store_init(&store);
+    md_ui_signal_store_init(store);
     for(unsigned theme=MD_UI_THEME_VOLKSWAGEN;theme<=MD_UI_THEME_PORSCHE;theme++) {
         s_theme_style=md_ui_theme_style(theme);
         for(unsigned portrait=0;portrait<2;portrait++) {
             lv_obj_set_size(field.card,portrait?159:212,portrait?208:156);
-            md_ui_signal_store_publish_id(&store,MD_SIGNAL_ENGINE_RPM,4000,MD_UI_SIGNAL_VALID,100,100,true);
-            field.gauge_layout=false; update_focus_gauge(&field,&settings,&store,100);
+            md_ui_signal_store_publish_id(store,MD_SIGNAL_ENGINE_RPM,4000,MD_UI_SIGNAL_VALID,100,100,true);
+            field.gauge_layout=false; update_focus_gauge(&field,&settings,store,100);
             ok=ok && field.gauge_available && field.gauge_level==500 &&
                 lv_obj_has_flag(field.visual,LV_OBJ_FLAG_HIDDEN) &&
                 lv_obj_get_style_text_font(field.value,0)==&md_ui_font_cluster_20 &&
                 !strcmp(lv_label_get_text(field.gauge_ticks[4]),"8");
-            update_focus_gauge(&field,&settings,&store,200);
+            update_focus_gauge(&field,&settings,store,200);
             ok=ok && !field.gauge_available;
             s_gauge_ranges[MD_SIGNAL_ENGINE_RPM][1]=10000;
-            update_focus_gauge(&field,&settings,&store,100);
+            update_focus_gauge(&field,&settings,store,100);
             ok=ok && field.gauge_level==400 && !strcmp(lv_label_get_text(field.gauge_ticks[4]),"10");
             s_gauge_ranges[MD_SIGNAL_ENGINE_RPM][1]=0;
         }
     }
-    s_theme_style=md_ui_theme_style(MD_UI_THEME_OEM); update_focus_gauge(&field,&settings,&store,100);
+    s_theme_style=md_ui_theme_style(MD_UI_THEME_OEM); update_focus_gauge(&field,&settings,store,100);
     ok=ok && !field.gauge_layout && lv_obj_has_flag(field.gauge_scale,LV_OBJ_FLAG_HIDDEN);
     s_gauge_auto=saved_auto; s_theme_style=saved_style; memcpy(s_gauge_ranges,saved_ranges,sizeof(saved_ranges));
+    const lv_font_t *pixel_fonts[]={&md_ui_font_pixel_10,&md_ui_font_pixel_12,&md_ui_font_pixel_14,
+        &md_ui_font_pixel_16,&md_ui_font_pixel_20,&md_ui_font_pixel_28,&md_ui_font_pixel_48};
+    bool font_ok=true;
+    for(unsigned n=0;n<7;n++)for(uint32_t cp=32;cp<127;cp++) {
+        lv_font_glyph_dsc_t glyph={0};
+        font_ok=lv_font_get_glyph_dsc(pixel_fonts[n],&glyph,cp,0) && !glyph.is_placeholder && font_ok;
+    }
+    lv_font_glyph_dsc_t fallback={0};
+    font_ok=lv_font_get_glyph_dsc(&md_ui_font_pixel_16,&fallback,0x0416,0) && !fallback.is_placeholder && font_ok;
+    printf("MINIDASH_PIXEL_FONT ascii=95 sizes=7 cyrillic_fallback=%s\n",font_ok?"PASS":"FAIL");
+    font_ok=font_ok && pixel_fit_font(&md_ui_font_pixel_48,"3850",160)==&md_ui_font_pixel_48 &&
+        pixel_fit_font(&md_ui_font_pixel_16,"5123 rpm",74)==&md_ui_font_pixel_12 &&
+        pixel_fit_font(&md_ui_font_pixel_20,"12.4 V",90)==&md_ui_font_pixel_20 &&
+        pixel_text_width(&md_ui_font_pixel_12,"Wi-Fi configuration")<=145 &&
+        pixel_text_width(&md_ui_font_pixel_12,"Pixel Handheld")<=135;
+    printf("MINIDASH_PIXEL_FONT_FIT wide/compact/units=%s\n",font_ok?"PASS":"FAIL");
+    ok=ok && font_ok;
+#if CONFIG_MINIDASH_CYD
+    const md_ui_language_t saved_language=s_language;
+    const md_ui_theme_style_t fit_style=s_theme_style;
+    screen_view_t *fit_view=calloc(1,sizeof(*fit_view));
+    bool service_ok=fit_view!=NULL;
+    if(fit_view) {
+        fit_view->root=root;
+        fit_view->fields=calloc(1,sizeof(*fit_view->fields)); fit_view->field_capacity=1;
+        service_ok=fit_view->fields!=NULL;
+        md_ui_diagnostics_t diag={.display_ready=true,.touch_ready=true,.transport_available=true};
+        snprintf(diag.firmware_version,sizeof(diag.firmware_version),"cyd-0.3.0-light");
+        snprintf(diag.transport_state,sizeof(diag.transport_state),"SIMULATION");
+        snprintf(diag.dtc_text,sizeof(diag.dtc_text),"DISABLED ON CYD");
+        for(unsigned theme=0;service_ok && theme<MD_UI_THEME_COUNT;theme++)
+        for(unsigned language=0;language<2;language++) {
+            s_theme_style=md_ui_theme_style(theme); s_language=language;
+            fit_view->field_count=0;
+            field_view_t *f=create_diagnostic_field(fit_view,10,36,147,23,"FIRMWARE",DIAG_FIRMWARE);
+            if(!f) { service_ok=false; break; }
+            static const char *titles[]={"FIRMWARE","UPTIME","HEAP FREE","HEAP MIN","REFRESH","RENDER","DISPLAY","TOUCH","BRIGHTNESS","TRANSPORT","ECUS","VALID SIGNALS","STALE","ARB / BUS","CAN RX","TX / ERRORS","TIMEOUTS","RX DROPS","STORED DTC"};
+            lv_obj_update_layout(root);
+            for(unsigned key=0;key<=DIAG_DTC;key++) {
+                set_ui_text(f->title,f->title_text,sizeof(f->title_text),titles[key]);
+                f->diagnostic_key=key; update_diagnostic_field(f,&diag);
+                const lv_font_t *font=lv_obj_get_style_text_font(f->value,0);
+                bool fits=pixel_text_width(font,lv_label_get_text(f->value))<=lv_obj_get_width(f->value)
+                    && font->line_height<=lv_obj_get_height(f->value)
+                    && pixel_text_width(lv_obj_get_style_text_font(f->title,0),lv_label_get_text(f->title))<=lv_obj_get_width(f->title);
+                if(!fits) printf("MINIDASH_TEXT_FIT_FAIL theme=%u language=%u key=%u value=%s text_width=%ld box=%ldx%ld line=%ld title_width=%ld title_box=%ld\n",theme,language,key,lv_label_get_text(f->value),
+                    (long)pixel_text_width(font,lv_label_get_text(f->value)),(long)lv_obj_get_width(f->value),(long)lv_obj_get_height(f->value),(long)font->line_height,
+                    (long)pixel_text_width(lv_obj_get_style_text_font(f->title,0),lv_label_get_text(f->title)),(long)lv_obj_get_width(f->title));
+                service_ok=service_ok && fits;
+            }
+            lv_obj_delete(f->card);
+        }
+        free(fit_view->fields); free(fit_view);
+    }
+    lv_obj_t *credentials=lv_label_create(root);
+    lv_obj_set_size(credentials,156,135);
+    lv_label_set_text(credentials,"MiniDash-ABCDEF\n12345678\n\n192.168.4.1");
+    for(unsigned theme=0;theme<MD_UI_THEME_COUNT;theme++) {
+        s_theme_style=md_ui_theme_style(theme);
+        fit_label(credentials,&lv_font_montserrat_14,156);
+        lv_obj_update_layout(credentials);
+        const lv_font_t *font=lv_obj_get_style_text_font(credentials,0);
+        service_ok=service_ok && pixel_text_width(font,lv_label_get_text(credentials))<=156
+            && 4*font->line_height+15<=135;
+    }
+    lv_obj_delete(credentials);
+    lv_obj_t *page_title=lv_label_create(root);
+    lv_obj_set_size(page_title,205,20);
+    lv_label_set_text(page_title,"Температура двигателя");
+    s_language=MD_UI_LANGUAGE_ENGLISH;
+    s_theme_style=md_ui_theme_style(MD_UI_THEME_OEM);
+    fit_label(page_title,&md_ui_font_ru_16,205);
+    const lv_font_t *page_font=lv_obj_get_style_text_font(page_title,0);
+    lv_font_glyph_dsc_t title_glyph={0};
+    service_ok=service_ok && pixel_text_width(page_font,lv_label_get_text(page_title))<=205 &&
+        lv_font_get_glyph_dsc(page_font,&title_glyph,0x0422,0) && !title_glyph.is_placeholder;
+    fit_label(page_title,&md_ui_font_ru_16,205);
+    service_ok=service_ok && lv_obj_get_style_text_font(page_title,0)==page_font;
+    printf("MINIDASH_CYD_CUSTOM_TITLE cyrillic_in_english_ui/stable_font=%s\n",service_ok?"PASS":"FAIL");
+    lv_obj_delete(page_title);
+    s_language=saved_language; s_theme_style=fit_style;
+    pixel_begin();
+    const bool cut_ok=!s_pixel_active && !s_pixel_timer;
+    printf("MINIDASH_CYD_NAV animation=off timer_absent=%s\n",cut_ok?"PASS":"FAIL");
+    service_ok=service_ok && cut_ok;
+    printf("MINIDASH_CYD_TEXT_FIT diagnostics/credentials/all_themes/en_ru=%s\n",service_ok?"PASS":"FAIL");
+    ok=ok && service_ok;
+#endif
+#if CONFIG_MINIDASH_CYD
+    free(store);
+#endif
     lv_obj_delete(root); return ok;
 }

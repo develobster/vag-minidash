@@ -164,6 +164,19 @@ bool md_ui_test_brightness(void)
     if (!md_brightness_set(&b,20) || md_brightness_mode(&b,MD_BRIGHTNESS_AUTO) ||
         !md_brightness_tick(&b,20,&value) || value!=79 || md_brightness_tick(&b,25,&value)) return false;
     if (md_brightness_set(&b,1) || md_brightness_set(&b,0)) return false;
+    md_brightness_t ambient;
+    target.hardware|=MD_CAP_AMBIENT_SOURCE;
+    md_brightness_init(&ambient,&target,70);
+    if(!md_brightness_mode(&ambient,MD_BRIGHTNESS_AUTO) ||
+       !md_brightness_ambient_sample(&ambient,4095) || ambient.target!=15 ||
+       md_brightness_ambient_sample(&ambient,4096)) return false;
+    for(unsigned i=0;i<80;i++) md_brightness_ambient_sample(&ambient,0);
+    if(ambient.target<97 || ambient.target>100) return false;
+    const uint8_t before=ambient.target;
+    md_brightness_ambient_sample(&ambient,8);
+    if(ambient.target!=before || !md_brightness_tick(&ambient,20,&value) || value!=71) return false;
+    ambient.screen_on=false;
+    if(!md_brightness_tick(&ambient,40,&value) || value!=70) return false;
     b.screen_on=false;
     return md_brightness_tick(&b,40,&value) && value==78 && !md_brightness_set(&b,101);
 }

@@ -1,4 +1,7 @@
 #include "automotive_screens.h"
+#ifdef ESP_PLATFORM
+#include "sdkconfig.h"
+#endif
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -51,10 +54,30 @@ static void set(cached_label_t *c,const char *text,uint32_t color)
     if(strcmp(c->text,text)) {snprintf(c->text,sizeof(c->text),"%s",text);lv_label_set_text(c->label,c->text);}
     if(c->color!=color) {lv_obj_set_style_text_color(c->label,lv_color_hex(color),0);c->color=color;}
 }
+/* Demo remains a rendering-only fallback: it is never inserted into the
+ * vehicle database and therefore cannot become a trusted Drag input. */
+static vag_quality_t display_sample(vag_signal_t signal,uint32_t now,double *out)
+{
+    vag_quality_t quality=vag_telemetry_sample(&frame.vehicle,signal,now,out);
+    if(quality!=VAG_UNAVAILABLE) return quality;
+    static const struct {vag_signal_t vag;md_ui_signal_id_t id;double scale;} map[]={
+        {VAG_RPM,MD_SIGNAL_ENGINE_RPM,1},{VAG_SPEED,MD_SIGNAL_VEHICLE_SPEED,1},
+        {VAG_COOLANT,MD_SIGNAL_ENGINE_COOLANT_TEMPERATURE,1},{VAG_OIL,MD_SIGNAL_ENGINE_OIL_TEMPERATURE,1},
+        {VAG_IAT,MD_SIGNAL_IAT,1},{VAG_DSG_TEMP,MD_SIGNAL_TRANSMISSION_OIL_TEMPERATURE,1},
+        {VAG_GEAR,MD_SIGNAL_TRANSMISSION_GEAR,1},{VAG_BOOST,MD_SIGNAL_ENGINE_BOOST,.001}};
+    for(unsigned i=0;i<sizeof(map)/sizeof(map[0]);i++) if(map[i].vag==signal) {
+        md_ui_signal_snapshot_t s=md_ui_signal_snapshot(&frame.signals,map[i].id,now);
+        if(s.demo && s.state==MD_UI_SIGNAL_VALID) {
+            if(out) *out=s.value*map[i].scale;
+            return VAG_CANDIDATE;
+        }
+    }
+    return quality;
+}
 static vag_quality_t value(auto_page_t *p,unsigned index,vag_signal_t signal,uint32_t now,const char *unit,unsigned decimals)
 {
     double number;char text[64];
-    vag_quality_t q=vag_telemetry_sample(&frame.vehicle,signal,now,&number);
+    vag_quality_t q=display_sample(signal,now,&number);
     if(q!=VAG_VALID && q!=VAG_CANDIDATE) snprintf(text,sizeof(text),"-- %s",unit);
     else snprintf(text,sizeof(text),"%s%.*f%s%s",q==VAG_CANDIDATE?"~":"",(int)decimals,number,unit[0]?" ":"",unit);
     uint32_t color=q==VAG_VALID?(p==&pages[4]?0xffffff:palette.text):q==VAG_CANDIDATE?palette.warning:palette.unavailable;
@@ -63,14 +86,13 @@ static vag_quality_t value(auto_page_t *p,unsigned index,vag_signal_t signal,uin
     if(index<p->used) set(&p->cell[index],text,color);
     return q;
 }
-bool md_automotive_create(uint16_t w,uint16_t h,const md_ui_palette_t *colors)
+static bool build_pages(int selected)
 {
-    if(!colors || !w || !h) return false;
-    width=w;height=h;palette=*colors;memset(pages,0,sizeof(pages));
     for(unsigned i=0;i<PAGE_COUNT;i++) {
+        if(selected>=0 && i!=(unsigned)selected) continue;
         auto_page_t *p=&pages[i];p->bar_value=-1;p->shift_mask=UINT32_MAX;
         p->root=lv_obj_create(NULL);if(!p->root) return false;
-        lv_obj_remove_style_all(p->root);lv_obj_set_size(p->root,w,h);
+        lv_obj_remove_style_all(p->root);lv_obj_set_size(p->root,width,height);
         lv_obj_set_style_bg_opa(p->root,LV_OPA_COVER,0);
         lv_obj_set_style_bg_color(p->root,lv_color_hex(i==4?0:palette.background),0);
         lv_obj_remove_flag(p->root,LV_OBJ_FLAG_SCROLLABLE);
@@ -79,7 +101,9 @@ bool md_automotive_create(uint16_t w,uint16_t h,const md_ui_palette_t *colors)
         p->source.color=UINT32_MAX;
         (void)label(p,"< PREV      TAP NEXT       NEXT >",8,221,304,17,&lv_font_montserrat_10,palette.muted);
     }
-    auto_page_t *p=&pages[0];
+    auto_page_t *p;
+    if(selected<0 || selected==0) {
+    p=&pages[0];
     for(unsigned i=0;i<8;i++) {
         p->segments[i]=lv_obj_create(p->root);if(!p->segments[i]) return false;
         lv_obj_remove_style_all(p->segments[i]);lv_obj_set_pos(p->segments[i],xp(8+i*38),yp(46));
@@ -92,16 +116,22 @@ bool md_automotive_create(uint16_t w,uint16_t h,const md_ui_palette_t *colors)
     field(p,"GEAR",90,162,62,50,&lv_font_montserrat_20);
     field(p,"RPM",156,162,78,50,&lv_font_montserrat_20);
     field(p,"OIL C",238,162,74,50,&lv_font_montserrat_20);
+    }
+    if(selected<0 || selected==1) {
     p=&pages[1];
     field(p,"COOLANT C",10,49,144,72,&lv_font_montserrat_28);
     field(p,"ENGINE OIL C",166,49,144,72,&lv_font_montserrat_28);
     field(p,"DSG OIL C",10,132,144,72,&lv_font_montserrat_28);
     field(p,"INTAKE AIR C",166,132,144,72,&lv_font_montserrat_28);
+    }
+    if(selected<0 || selected==2) {
     p=&pages[2];
     field(p,"REGENERATION",10,49,300,66,&lv_font_montserrat_28);
     field(p,"SOOT g",10,125,140,76,&lv_font_montserrat_20);
     field(p,"DP hPa",166,125,144,44,&lv_font_montserrat_20);
     field(p,"HEADROOM %",166,171,144,44,&lv_font_montserrat_20);
+    }
+    if(selected<0 || selected==3) {
     p=&pages[3];
     field(p,"0-100 km/h",10,48,225,73,&lv_font_montserrat_48);
     p->bar=lv_bar_create(p->root);if(!p->bar) return false;
@@ -112,11 +142,48 @@ bool md_automotive_create(uint16_t w,uint16_t h,const md_ui_palette_t *colors)
     field(p,"PEAK RPM",10,177,130,39,&lv_font_montserrat_16);
     field(p,"PEAK BAR",166,177,144,39,&lv_font_montserrat_16);
     (void)label(p,"RESET",245,110,65,18,&lv_font_montserrat_12,palette.accent);
+    }
+    if(selected<0 || selected==4) {
     p=&pages[4];
     field(p,"SPEED km/h",12,52,292,88,&lv_font_montserrat_48);
     field(p,"GEAR",12,157,112,55,&lv_font_montserrat_28);
     field(p,"BOOST bar",166,157,144,55,&lv_font_montserrat_28);
-    md_automotive_retheme(colors);return true;
+    }
+    md_automotive_retheme(&palette);return true;
+}
+bool md_automotive_create(uint16_t w,uint16_t h,const md_ui_palette_t *colors)
+{
+    if(!colors || !w || !h) return false;
+    width=w;height=h;palette=*colors;memset(pages,0,sizeof(pages));
+#if CONFIG_MINIDASH_CYD
+    return true;
+#else
+    return build_pages(-1);
+#endif
+}
+void md_automotive_release(void)
+{
+#if CONFIG_MINIDASH_CYD
+    for(unsigned i=0;i<PAGE_COUNT;i++) {
+        if(pages[i].root) lv_obj_delete(pages[i].root);
+        memset(&pages[i],0,sizeof(pages[i]));
+    }
+#endif
+}
+bool md_automotive_open(md_ui_screen_t screen)
+{
+    auto_page_t *p=page(screen);
+    if(!p) return false;
+    if(p->root) return true;
+#if CONFIG_MINIDASH_CYD
+    if(!build_pages((int)(screen-MD_UI_SCREEN_SPORT_BOOST))) {
+        md_automotive_release();
+        return false;
+    }
+    return true;
+#else
+    return false;
+#endif
 }
 void md_automotive_retheme(const md_ui_palette_t *colors)
 {
@@ -150,12 +217,14 @@ void md_automotive_update(md_ui_screen_t screen,uint32_t now)
         frame.config.layout==VAG_LAYOUT_SOURCED?"SOURCED":"EXPERIMENTAL");
     if(screen==MD_UI_SCREEN_SPORT_BOOST)
         snprintf(text,sizeof(text),"%s | SHIFT %u | ~ candidate",vag_platform_name(frame.config.platform),frame.config.shift_rpm?frame.config.shift_rpm:6500);
+    if(md_ui_signal_snapshot(&frame.signals,MD_SIGNAL_VEHICLE_SPEED,now).demo)
+        snprintf(text,sizeof(text),"DEMO | SYNTHETIC DATA");
     /* Drag owns its source line; writing the generic header first would
      * invalidate it twice even when the final visible text is unchanged. */
     if(screen!=MD_UI_SCREEN_DRAG) set(&p->source,text,palette.muted);
     if(screen==MD_UI_SCREEN_SPORT_BOOST) {
         vag_quality_t q=value(p,0,VAG_BOOST,now,"",2);double v=0;
-        if(q==VAG_VALID || q==VAG_CANDIDATE) (void)vag_telemetry_sample(&frame.vehicle,VAG_BOOST,now,&v);
+        if(q==VAG_VALID || q==VAG_CANDIDATE) (void)display_sample(VAG_BOOST,now,&v);
         int bar=(int)(fmax(0,fmin(3,v))*100);
         if(bar!=p->bar_value) {lv_bar_set_value(p->bar,bar,LV_ANIM_OFF);p->bar_value=bar;}
         value(p,1,VAG_SPEED,now,"",0);value(p,2,VAG_GEAR,now,"",0);

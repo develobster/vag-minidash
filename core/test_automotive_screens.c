@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#ifdef _WIN32
+#include <direct.h>
+#endif
 #define CHECK(x) do{if(!(x)){fprintf(stderr,"AUTO UI FAIL %d: %s\n",__LINE__,#x);abort();}}while(0)
 static uint16_t pixels[320*320];
 static uint8_t buffer1[320*16*2],buffer2[320*16*2];
@@ -44,7 +47,15 @@ static void canvas(unsigned w,unsigned h,const char *dir)
         .sample_interval_ms=20,.readiness_per_mille=1000};
     for(unsigned i=0;i<5;i++) {
         md_ui_screen_t s=(md_ui_screen_t)(MD_UI_SCREEN_SPORT_BOOST+i);
+#if CONFIG_MINIDASH_CYD
+        lv_obj_t *placeholder=lv_obj_create(NULL);CHECK(placeholder);
+        lv_screen_load(placeholder);md_automotive_release();
+        CHECK(md_automotive_open(s));
+#endif
         md_automotive_frame(&f);md_automotive_update(s,100);lv_screen_load(md_automotive_root(s));
+#if CONFIG_MINIDASH_CYD
+        lv_obj_delete(placeholder);
+#endif
         CHECK(md_automotive_geometry_valid(s));dirty_pixels=0;flushes=0;lv_refr_now(display);
         CHECK(flushes && dirty_pixels);if(i==4) CHECK(pixels[0]==0);
         /* Screen-load/layout events may invalidate during the first refresh.
@@ -65,12 +76,33 @@ static void canvas(unsigned w,unsigned h,const char *dir)
         else {changed.drag.seconds[1]+=.01;changed.drag.elapsed_s+=.01;}
         md_automotive_frame(&changed);dirty_pixels=0;flushes=0;md_automotive_update(s,110);lv_refr_now(display);
         CHECK(flushes && dirty_pixels<w*h/2);
+        if(i==4) {
+            md_dashboard_frame_t demo={0};vag_db_config_defaults(&demo.config);
+            md_ui_signal_store_init(&demo.signals);
+            CHECK(md_ui_signal_store_publish_id(&demo.signals,MD_SIGNAL_VEHICLE_SPEED,55,MD_UI_SIGNAL_VALID,100,500,true));
+            md_automotive_frame(&demo);md_automotive_update(s,100);
+            lv_obj_t *root=md_automotive_root(s);bool marked=false,shown=false;
+            for(unsigned j=0;j<lv_obj_get_child_count(root);j++) {
+                lv_obj_t *child=lv_obj_get_child(root,j);
+                if(!lv_obj_check_type(child,&lv_label_class)) continue;
+                const char *text=lv_label_get_text(child);
+                if(strstr(text,"DEMO")) marked=true;
+                if(strstr(text,"55")) shown=true;
+            }
+            CHECK(marked && shown && demo.vehicle.observed==0 && demo.drag.result_mask==0);
+        }
     }
     lv_display_delete(display);
 }
 int main(int argc,char **argv)
 {
-    CHECK(argc==2);(void)mkdir(argv[1],0700);lv_init();lv_tick_set_cb(clock_ms);
+    CHECK(argc==2);
+#ifdef _WIN32
+    (void)_mkdir(argv[1]);
+#else
+    (void)mkdir(argv[1],0700);
+#endif
+    lv_init();lv_tick_set_cb(clock_ms);
     canvas(320,240,argv[1]);canvas(240,320,argv[1]);
     puts("AUTO UI PASS: 5 real LVGL screens, landscape/portrait bounds, unchanged=no flush, dirty regions under half screen");
     return 0;

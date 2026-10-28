@@ -73,14 +73,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [standalone, listen-only, sleep-ili9341]
+        variant: [standalone, listen-only, sleep-ili9341, cyd, cyd-listen-only]
     steps:
       - uses: actions/checkout@v4
-      - name: Build ESP32-S3 (never flash)
+      - name: Build target firmware (never flash)
         shell: bash
         working-directory: firmware
         run: |
           . "$IDF_PATH/export.sh"
+          if [ '${{ matrix.variant }}' = cyd ]; then
+            python ../tools/build_firmware.py minidash_cyd
+            grep -qx 'CONFIG_IDF_TARGET="esp32"' sdkconfig.cyd.generated
+            grep -qx 'CONFIG_MINIDASH_CYD=y' sdkconfig.cyd.generated
+            exit 0
+          fi
+          if [ '${{ matrix.variant }}' = cyd-listen-only ]; then
+            python ../tools/build_firmware.py minidash_cyd --listen-only
+            grep -qx 'CONFIG_IDF_TARGET="esp32"' sdkconfig.cyd-listen.generated
+            grep -qx '# CONFIG_MINIDASH_STANDARD_OBD is not set' sdkconfig.cyd-listen.generated
+            exit 0
+          fi
           preset=sdkconfig.standalone
           if [ '${{ matrix.variant }}' = listen-only ]; then preset=sdkconfig.listen-only; fi
           cat > sdkconfig.ci.generated <<'CONFIG'
@@ -97,3 +109,4 @@ jobs:
           CONFIG
           fi
           idf.py -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;$preset;sdkconfig.ci.generated" build
+          grep -qx 'CONFIG_IDF_TARGET="esp32s3"' sdkconfig

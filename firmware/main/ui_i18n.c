@@ -8,6 +8,20 @@ typedef struct {
 } translation_t;
 
 static const translation_t s_translations[] = {
+    {"Pixel Arcade", "Аркада"},
+    {"Pixel Dungeon", "Подземелье"},
+    {"Pixel Handheld", "Портативная"},
+    {"Desktop 98", "Десктоп 98"},
+    {"Neon Arcade", "Неон"},
+    {"Techno 2000", "Техно 2000"},
+    {"OBD READ ONLY | UDS OFF", "OBD ЧТЕНИЕ | UDS ВЫКЛ"},
+    {"CAN LISTEN", "CAN ПРИЁМ"},
+    {"TX LOCKED", "ПЕР. ЗАПРЕЩЕНА"},
+    {"Demo mode", "Демо-режим"},
+    {"DEMO | CAN STOPPED", "ДЕМО | CAN ОСТАНОВЛЕН"},
+    {"CAN TX LOCKED | UDS OFF", "CAN ПЕР. ЗАПРЕЩЕНА | UDS ВЫКЛ"},
+    {"ENABLE", "ВКЛЮЧИТЬ"},
+    {"DISABLE", "ОТКЛЮЧИТЬ"},
     {"DRIVE", "ДОРОГА"},
     {"SPORT", "СПОРТ"},
     {"MINIMAL", "МИНИМУМ"},

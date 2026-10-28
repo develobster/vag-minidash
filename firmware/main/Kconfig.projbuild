@@ -1,7 +1,7 @@
 menu "MiniDash display and UI"
     config MINIDASH_DEEP_SLEEP
         bool "Deep sleep on CAN silence (requires reviewed wake/power wiring)"
-        depends on MINIDASH_CAN_ENABLE && !FREERTOS_UNICORE
+        depends on MINIDASH_CAN_ENABLE && !FREERTOS_UNICORE && !MINIDASH_CYD
         default n
         help
             CAN silence is not ignition evidence on a filtered OBD gateway.
@@ -33,9 +33,18 @@ menu "MiniDash display and UI"
         help
             For a disconnected bench or stationary service only. An observed
             positive speed stops Wi-Fi even in this mode. AP is never automatic.
+    config MINIDASH_CYD
+        bool "MiniDash CYD (ESP32-2432S028R, no PSRAM)"
+        depends on IDF_TARGET_ESP32
+        default n
+    config MINIDASH_SIMULATION
+        bool "Include clearly marked synthetic telemetry"
+        depends on !MINIDASH_CAN_ENABLE || MINIDASH_CYD
+        default y if MINIDASH_CYD
     config MINIDASH_CAN_ENABLE
         bool "Standalone CAN acquisition (review wiring first)"
         depends on !FREERTOS_UNICORE
+        default y if MINIDASH_CYD
         default n
     config MINIDASH_CAN_TX_GPIO
         int "CAN TX GPIO"
@@ -147,6 +156,22 @@ menu "MiniDash display and UI"
         range -1 48
         depends on MINIDASH_TOUCH_ENABLE
         default -1
+    config MINIDASH_TOUCH_SEPARATE_SPI
+        bool "Touch uses separate SPI3 bus"
+        depends on MINIDASH_TOUCH_ENABLE
+        default y if MINIDASH_CYD
+    config MINIDASH_TOUCH_PIN_SCLK
+        int "Separate touch SPI clock GPIO"
+        depends on MINIDASH_TOUCH_SEPARATE_SPI
+        default 25
+    config MINIDASH_TOUCH_PIN_MOSI
+        int "Separate touch SPI MOSI GPIO"
+        depends on MINIDASH_TOUCH_SEPARATE_SPI
+        default 32
+    config MINIDASH_TOUCH_PIN_MISO
+        int "Separate touch SPI MISO GPIO"
+        depends on MINIDASH_TOUCH_SEPARATE_SPI
+        default 39
     config MINIDASH_TOUCH_DEBUG_OVERLAY
         bool "Show touch zones and mapped coordinates (development only)"
         depends on MINIDASH_TOUCH_ENABLE

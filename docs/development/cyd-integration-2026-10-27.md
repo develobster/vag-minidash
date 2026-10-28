@@ -1,6 +1,7 @@
 # CYD integration: preliminary work, 2026-10-27
 
-**Incomplete: do not flash or use this branch on CYD.** The checked-out baseline
+**Historical preliminary report: see the 28 October update below. Do not flash
+or use this branch on CYD until the remaining acceptance gates pass.** The baseline
 is `origin/integration/standalone` at `c10b76b`; the CYD reference is
 `origin/feature/hardware-cyd-esp32` at `30eda5b`; merge base is `b599fbc`.
 Both remote refs were fetched. No branch was merged, pushed or rewritten.
@@ -95,3 +96,149 @@ application version was absent from this response and remains unknown.
    candidate signals remain unconfirmed until independently evidenced.
    Active diagnostics requires a separate decision after wiring, bus behavior,
    interlocks and bench results are verified. No car operations were performed.
+
+## Integration work in progress, 28 October
+
+The CYD branch was merged for review into the isolated integration worktree;
+conflicts were resolved across display, settings, Web, CAN and build files.
+The CYD profile uses the reference 4 MB partition layout and ILI9341/XPT2046
+pin map. CAN source changes are routed through the RX owner's stop command,
+reinitialize acquisition, clear the canonical store and publish an empty UI
+frame. TX still requires the CYD arm interlock. The separate
+`minidash_cyd --listen-only` preset disables standard OBD at build time and
+rejects arming. Deep sleep is disabled for CYD pending board-specific review.
+The serial arm confirmation must match the configured RX pin: the historical
+GPIO27 confirmation is rejected for GPIO35 and vice versa. This software
+comparison does not verify the actual wiring.
+
+The five automotive screens are allocated one at a time on CYD. Demo rendering
+is labelled and remains outside the trusted vehicle database; Drag does not
+consume demo speed. CYD retains its previous explicit limitation: minute/trip
+derived analytics are unavailable without the large S3 analytics buffer.
+The RX ring remains 512 entries (12,304 bytes in the ESP32 object), the TWAI
+driver queue 128 entries, and the triple mailbox 10,144 bytes. The CAN RX and
+vehicle task stacks are 4,096 and 8,192 bytes respectively; UI controller is
+8,192 bytes, touch task 4,096 bytes. The additional allocations and concurrent
+Wi-Fi need actual heap/stack measurements on a flashed board before acceptance.
+
+Preliminary host verification: all 25 configured CTest tests passed, including
+CYD core, acquisition, orientation, mode policy and the concurrent pipeline;
+both S3 and CYD automotive software-render tests passed at 320x240 and 240x320.
+239 Python tests passed with 21 skipped, frontend JS 10/10, and the Web editor
+logic test passed. The Chromium mocked-device test passed 45 checks, and 23
+native tests passed with undefined-behavior sanitizer (without cJSON tests in
+that configuration). These are synthetic tests. Four local ESP-IDF 5.5.5
+target builds passed, using the local pinned components:
+
+| Variant | Application bytes | App partition free bytes |
+|---|---:|---:|
+| CYD, guarded OBD | 2,024,192 | 2,104,576 |
+| CYD, listen-only | 2,024,000 | 2,104,768 |
+| S3 standalone | 2,008,720 | 1,137,008 |
+| S3 listen-only | 2,008,704 | 1,137,024 |
+
+The CYD guarded image reports 132,980 bytes static DRAM and 113,519 bytes
+static IRAM. Linker-reported remaining static-region space is not runtime heap.
+The S3 sleep-enabled variant was not rebuilt locally. CI has not been run.
+
+Outstanding: test integrated mode changes and loss counters rather than only
+the policy; complete all target build variants and current size reports; test
+touch/navigation, historical NVS migration and Web with concurrent CAN under
+memory pressure; run address sanitizer, static analysis and CI; independently review
+the changed HAL observer on real ESP32. Do not use for vehicle operation or
+flash until these gates and backup/partition verification are complete. The
+current USB status belongs to the previously installed firmware, not this code.
+The attempted Windows ASan configuration failed at the compiler check because
+the available Zig toolchain did not supply `__asan_init` and
+`__asan_version_mismatch_check_v8`; no ASan result is claimed.
+The installed clang-tidy could not analyze the ESP32 build database: it rejected
+GCC-only flags and could not resolve the target `stdio.h`; no static-analysis
+pass is claimed. The CI Linux job retains its native clang-tidy check.
+
+### Bench and Tiguan acceptance, after a separate flashing decision
+
+1. Before wiring CAN, photograph and identify the board and transceiver, check
+   GPIO22/27 continuity and absence of conflicting loads, supply voltage, RS
+   state and any onboard terminator. Verify protected power and common reference.
+   The documented pin map is a candidate for this board, not a measurement.
+2. On USB alone, record boot version, free/minimum/largest heap and task stack
+   watermarks. Verify all screen orientations, touch calibration and saved NVS,
+   themes, backlight and Wi-Fi. Repeat while exercising Web and switching pages;
+   compare heap and stack minima and check for resets or allocation failures.
+3. With an isolated terminated CAN generator, use the listen-only image. Verify
+   traffic at 500 kbit/s, no transmission or ACK from the device, RX and drop
+   counters under measured load and mailbox responsiveness. A controlled
+   bus-off/recovery test requires a separately authorized isolated active-mode
+   setup; do not assume listen-only can induce it. Test DEMO -> CAN -> DEMO,
+   invalid/stale data, screen history clearing and rejection of arming in the
+   listen-only image. Record generator counts and device counters separately.
+4. Only with a reviewed automotive power and passive CAN wiring plan, perform a
+   separate Tiguan passive RX session. Record bus rate, counters, freshness and
+   candidates; compare time-aligned speed, RPM and temperatures with ODIS and
+   distinguish gateway filtering from absence of a signal. Keep VIN and traces
+   private. Candidate layouts are not confirmed merely because numbers appear.
+5. Permit active OBD diagnostics only after the power, transceiver, wiring,
+   bus load, listen-only behavior and interlocks have passed bench and passive
+   checks, with explicit separate authorization and a reviewed request scope.
+   Do not infer safe sleep current, losslessness, or measurement accuracy from
+   synthetic tests; measure these on the actual installation.
+
+### Build and future recovery preparation (not executed on the board)
+
+In an exported ESP-IDF 5.5.5 environment, from the repository root:
+
+```powershell
+python tools/build_firmware.py minidash_cyd
+python tools/build_firmware.py minidash_cyd --listen-only
+python tools/build_firmware.py esp32_s3
+```
+
+For local hash-verified components, pass `--components <absolute-path>` with
+`IDF_COMPONENT_MANAGER=0`. Separate build and generated config paths prevent
+the profiles from inheriting one another. Inspect the generated sdkconfig and
+app partition headroom before considering a board update.
+
+Only after the outstanding tests and a separate decision to flash: disconnect
+CAN and external supply, confirm COM6 and board identity, and save the **current
+full flash** privately. The following reads may reset into the ROM bootloader;
+do not commit these files, which can contain credentials and private settings:
+
+```powershell
+$idfPython = Join-Path $env:IDF_PYTHON_ENV_PATH 'Scripts\python.exe'
+& $idfPython -m serial.tools.list_ports -v
+& $idfPython -m esptool --chip esp32 --port COM6 read_mac
+& $idfPython -m esptool --chip esp32 --port COM6 --baud 115200 --after no_reset read_flash 0 0x400000 cyd-before-update.bin
+& $idfPython -m esptool --chip esp32 --port COM6 --baud 115200 --before no_reset --after no_reset verify_flash 0 cyd-before-update.bin
+Get-Item cyd-before-update.bin | Select-Object Length
+Get-FileHash cyd-before-update.bin -Algorithm SHA256
+```
+
+Require a 4,194,304-byte file, successful device comparison and a separately
+stored hash. Keep a second private copy. Read the current partition table from
+the backup and compare its NVS offset/size and factory app offset/capacity with
+`firmware/partitions.cyd.csv`; verify compatibility of the existing bootloader
+and new application as well, including whether secure boot or flash encryption
+is enabled. Do not change eFuse, and do not proceed on a mismatch or an unknown
+security state. After those checks,
+the app-only operation (which does not write the NVS address range) is:
+
+```powershell
+& $idfPython -c "from pathlib import Path; p=Path('cyd-before-update.bin').read_bytes(); Path('cyd-partition-table.bin').write_bytes(p[0x8000:0x9000])"
+& $idfPython "$env:IDF_PATH/components/partition_table/gen_esp32part.py" cyd-partition-table.bin
+```
+
+The following commands are for a later separately authorized update:
+
+```powershell
+& $idfPython -m esptool --chip esp32 --port COM6 --baud 115200 --before no_reset --after no_reset write_flash 0x10000 build-minidash_cyd-listen/vag_minidash.bin
+& $idfPython -m esptool --chip esp32 --port COM6 --baud 115200 --before no_reset --after hard_reset verify_flash 0x10000 build-minidash_cyd-listen/vag_minidash.bin
+```
+
+This is conditional preparation, not a claim that the prerequisites have
+passed. If recovery is separately authorized and needed, verify the backup hash
+again and restore it with `& $idfPython -m esptool --chip esp32 --port COM6 --baud
+115200 --after no_reset write_flash 0 cyd-before-update.bin`, followed by
+`& $idfPython -m esptool --chip esp32 --port COM6 --baud 115200 --before no_reset
+--after hard_reset verify_flash 0 cyd-before-update.bin`. Full restoration
+overwrites all current flash contents including NVS. Neither operation changes
+eFuse. No write, erase, CAN connection or diagnostic request was performed here.

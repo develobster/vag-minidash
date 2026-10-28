@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "display_manager.h"
+#include "cyd_ambient.h"
 #include "backlight_controller.h"
 #include "display_serial_protocol.h"
 #include "ui_instrument_profiles.h"
@@ -30,6 +31,7 @@
 #include "ui_startup.h"
 #include "xpt2046_touch.h"
 #include "vehicle_app.h"
+#include "cyd_mode.h"
 #include "derived_engine.h"
 #include "can_pipeline.h"
 #include "automotive_screens.h"
@@ -37,7 +39,11 @@
 #include "freertos/queue.h"
 #include "freertos/task.h"
 
-#define UI_UPDATE_PERIOD_MS 100U
+#if CONFIG_MINIDASH_CYD
+#define UI_UPDATE_PERIOD_MS 200
+#else
+#define UI_UPDATE_PERIOD_MS 100
+#endif
 #define UI_SETTINGS_DEBOUNCE_MS 1500U
 #define UI_EVENT_QUEUE_LENGTH 16U
 #define UI_TOUCH_SAMPLE_PERIOD_MS 25U
@@ -146,6 +152,14 @@ static portMUX_TYPE s_signal_mux = portMUX_INITIALIZER_UNLOCKED;
 static volatile bool s_display_ready;
 static volatile bool s_touch_ready;
 static volatile bool s_touch_calibrated;
+#if CONFIG_MINIDASH_CYD
+static md_brightness_t s_auto_light;
+static bool s_light_ready;
+static atomic_int s_light_raw=-1;
+static atomic_uint s_light_output;
+static atomic_uint s_light_mode;
+static atomic_uint s_light_target;
+#endif
 static volatile bool s_touch_calibrating;
 static md_touch_map_t s_touch_map;
 static md_touch_cal_point_t s_calibration_points[MD_TOUCH_CAL_POINTS];
@@ -189,6 +203,11 @@ static const char *configured_driver_name(void)
 #endif
 }
 
+#if CONFIG_MINIDASH_CYD
+static int64_t s_scene_pending_us;
+static int64_t s_theme_pending_us;
+static unsigned s_theme_pending_id;
+#endif
 static void render_event_cb(lv_event_t *event)
 {
     const lv_event_code_t code = lv_event_get_code(event);
@@ -205,7 +224,18 @@ static void render_event_cb(lv_event_t *event)
     ++s_render_window_count;
     s_render_window_total_us += elapsed_us;
     s_render_seen = true;
+#if CONFIG_MINIDASH_CYD
+    const int64_t scene_started=s_scene_pending_us;
+    s_scene_pending_us=0;
+    const int64_t theme_started=s_theme_pending_us;
+    const unsigned theme_id=s_theme_pending_id;
+    s_theme_pending_us=0;
+#endif
     portEXIT_CRITICAL(&s_perf_mux);
+#if CONFIG_MINIDASH_CYD
+    if(scene_started) printf("MINIDASH_CYD_FIRST_RENDER elapsed_ms=%lu\n",(unsigned long)((now_us-scene_started)/1000));
+    if(theme_started) printf("MINIDASH_CYD_THEME_READY id=%u elapsed_ms=%lu\n",theme_id,(unsigned long)((now_us-theme_started)/1000));
+#endif
 }
 
 static void render_metrics_read(uint32_t *renders_per_second,
@@ -273,6 +303,9 @@ static void enqueue_touch_gesture(md_ui_touch_gesture_t gesture)
 
 static void enqueue_touch_raw(ui_event_type_t type, uint16_t x, uint16_t y)
 {
+#if CONFIG_MINIDASH_CYD
+    if(type==UI_EVENT_TOUCH_RELEASE) ESP_LOGI("md_cyd","TOUCH raw=%u,%u",x,y);
+#endif
     if (!s_ui_event_queue) return;
     const ui_event_t event = {.type = type, .source = MD_UI_INPUT_TOUCH,
                               .raw_x = x, .raw_y = y};
@@ -458,6 +491,14 @@ static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms,
     if (md_vehicle_app_status(&vehicle)) {
         diagnostics.transport_available=true;
         snprintf(diagnostics.transport_state,sizeof(diagnostics.transport_state),"%s",md_acq_state_name(vehicle.state));
+#if CONFIG_MINIDASH_SIMULATION
+#if CONFIG_MINIDASH_CYD
+        if(md_vehicle_app_demo()) snprintf(diagnostics.transport_state,sizeof(diagnostics.transport_state),"SIMULATION");
+        else if(vehicle.ready && !md_vehicle_app_tx_armed()) snprintf(diagnostics.transport_state,sizeof(diagnostics.transport_state),"CAN LISTEN");
+#else
+        snprintf(diagnostics.transport_state,sizeof(diagnostics.transport_state),"SIMULATION");
+#endif
+#endif
         diagnostics.ecu_count_available=vehicle.configured;
         diagnostics.ecu_count=vehicle.ecu_count;diagnostics.selected_ecu=vehicle.ecu_id;
         diagnostics.can_rx=vehicle.rx;diagnostics.can_tx=vehicle.tx;
@@ -472,6 +513,10 @@ static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms,
             snprintf(diagnostics.dtc_text,sizeof(diagnostics.dtc_text),"%s (%u%s)",code,vehicle.dtc_count,vehicle.dtc_truncated?"+":"");
         } else snprintf(diagnostics.dtc_text,sizeof(diagnostics.dtc_text),"%s",vehicle.dtc_valid?"0 STORED":"HOLD TO READ");
     }
+#if CONFIG_MINIDASH_CYD
+    if(md_vehicle_app_demo() || !md_vehicle_app_tx_armed())
+        snprintf(diagnostics.dtc_text,sizeof(diagnostics.dtc_text),"%s",md_vehicle_app_demo() ? "DISABLED" : "TX LOCKED");
+#endif
     diagnostics.wifi_active = md_ui_web_active();
     render_metrics_read(&diagnostics.refreshes_per_second,
                         &diagnostics.average_render_ms,
@@ -479,6 +524,41 @@ static md_ui_diagnostics_t diagnostics_snapshot(uint32_t now_ms,
 
     diagnostics.signal_summary = md_ui_signal_summary(signals, now_ms);
     return diagnostics;
+}
+
+/* Caller holds LVGL lock. Populate the new scene before LVGL can draw its
+ * default labels; reuse the UI task's existing heap signal snapshot. */
+static void show_populated(md_ui_state_t *state,const md_ui_settings_t *settings,
+                           md_ui_signal_store_t *signals)
+{
+#if CONFIG_MINIDASH_CYD
+    const bool changed=atomic_load(&s_visible_screen)!=(int)state->screen;
+    const int64_t started=esp_timer_get_time();
+    if(changed) {portENTER_CRITICAL(&s_perf_mux);s_scene_pending_us=started;portEXIT_CRITICAL(&s_perf_mux);}
+#endif
+    md_ui_screens_show(state->screen,settings);
+#if CONFIG_MINIDASH_CYD
+#if !CONFIG_MINIDASH_CAN_ENABLE
+    portENTER_CRITICAL(&s_signal_mux); *signals=s_signal_store; portEXIT_CRITICAL(&s_signal_mux);
+#else
+    /* signals is the first member of the UI task's dashboard allocation. */
+    md_dashboard_frame_t *frame=(md_dashboard_frame_t *)signals;
+    if(md_cyd_filter_store(signals,md_vehicle_app_demo())) {
+        memset(&frame->vehicle,0,sizeof(frame->vehicle));
+        memset(&frame->drag,0,sizeof(frame->drag));
+    }
+    md_automotive_frame(frame);
+#endif
+    const uint32_t now_ms=(uint32_t)(esp_timer_get_time()/1000);
+    static md_ui_diagnostics_t diagnostics;
+    diagnostics=diagnostics_snapshot(now_ms,signals);
+    md_ui_screens_update(state->screen,settings,state,signals,now_ms,&diagnostics);
+    atomic_store(&s_visible_screen,state->screen);
+    if(changed) printf("MINIDASH_CYD_SCENE screen=%u populated=1 build_ms=%lu animation=off\n",
+        (unsigned)state->screen,(unsigned long)((esp_timer_get_time()-started)/1000));
+#else
+    (void)signals;
+#endif
 }
 
 static void enqueue_settings_save(const md_ui_settings_t *settings)
@@ -541,7 +621,8 @@ static void apply_event(const ui_event_t *event,
                         md_ui_settings_t *settings,
                         md_display_manager_t *display,
                         const md_display_profile_t *profile,
-                        md_ui_palette_t *palette)
+                        md_ui_palette_t *palette,
+                        md_ui_signal_store_t *signals)
 {
     /* Local interaction takes over an unsaved Web preview; stale Web writes
        then fail revision checking rather than replacing the local change. */
@@ -560,6 +641,12 @@ static void apply_event(const ui_event_t *event,
     }
     if (event->type == UI_EVENT_SET_BRIGHTNESS) {
         if (!md_target_has(&s_target, MD_CAP_DIMMING)) return;
+#if CONFIG_MINIDASH_CYD
+        if(xSemaphoreTake(s_config_mutex,portMAX_DELAY)==pdTRUE) {
+            s_configuration.platform.brightness_mode=MD_BRIGHTNESS_MANUAL;
+            xSemaphoreGive(s_config_mutex);
+        }
+#endif
         settings->brightness_pct = event->brightness_pct;
         enqueue_settings_save(settings);
         ESP_LOGI(TAG, "Manual brightness=%u source=console", settings->brightness_pct);
@@ -586,7 +673,7 @@ static void apply_event(const ui_event_t *event,
         if (old_screen != state->screen) {
             s_touch_calibrating = false;
             if (lvgl_port_lock(20)) {
-                md_ui_screens_show(state->screen, settings);
+                show_populated(state,settings,signals);
                 lvgl_port_unlock();
             }
         }
@@ -661,7 +748,7 @@ static void apply_event(const ui_event_t *event,
                 s_touch_calibrating = false;
                 if (lvgl_port_lock(20)) {
                     md_ui_screens_set_calibrated(true);
-                    md_ui_screens_show(state->screen, settings);
+                    show_populated(state,settings,signals);
                     lvgl_port_unlock();
                 }
             } else {
@@ -795,7 +882,7 @@ static void apply_event(const ui_event_t *event,
             if (slot >= 0 && md_ui_state_open_widget_picker(state, settings,
                     (uint8_t)slot)) {
                 if (lvgl_port_lock(20)) {
-                    md_ui_screens_show(state->screen, settings);
+                    show_populated(state,settings,signals);
                     lvgl_port_unlock();
                 }
                 return;
@@ -835,6 +922,32 @@ static void apply_event(const ui_event_t *event,
         else if (md_ui_web_start()) { state->screen=MD_UI_SCREEN_CONFIG_MODE; }
         return;
     }
+#if CONFIG_MINIDASH_CYD
+    if(state->screen==MD_UI_SCREEN_SETTINGS && state->selected_setting==24 &&
+       !state->sleeping && state->context!=MD_UI_CONTEXT_DRIVING &&
+       (action==MD_UI_ACTION_SELECT || action==MD_UI_ACTION_INCREMENT || action==MD_UI_ACTION_DECREMENT)) {
+        (void)md_vehicle_app_set_demo(!md_vehicle_app_demo());
+        md_vehicle_app_mode_dump();
+        return;
+    }
+    if(state->screen==MD_UI_SCREEN_SETTINGS && state->selected_setting==5 &&
+       !state->sleeping && state->context!=MD_UI_CONTEXT_DRIVING &&
+       (action==MD_UI_ACTION_SELECT || action==MD_UI_ACTION_INCREMENT || action==MD_UI_ACTION_DECREMENT)) {
+        if(xSemaphoreTake(s_config_mutex,portMAX_DELAY)==pdTRUE) {
+            const int step=action==MD_UI_ACTION_DECREMENT ? -10 : 10;
+            if(s_configuration.platform.brightness_mode==MD_BRIGHTNESS_AUTO) {
+                s_configuration.platform.brightness_mode=MD_BRIGHTNESS_MANUAL;
+                settings->brightness_pct=step>0 ? 10 : 100;
+            } else if((step>0 && settings->brightness_pct>=100) || (step<0 && settings->brightness_pct<=10)) {
+                s_configuration.platform.brightness_mode=MD_BRIGHTNESS_AUTO;
+            } else settings->brightness_pct+=step;
+            md_configuration_update_legacy(&s_configuration,settings);
+            ++s_config_revision; xQueueOverwrite(s_settings_save_queue,&s_config_revision);
+            xSemaphoreGive(s_config_mutex);
+        }
+        return;
+    }
+#endif
     if ((state->screen==MD_UI_SCREEN_CUSTOM || (state->screen==MD_UI_SCREEN_DASHBOARD && settings->dashboard==MD_UI_DASHBOARD_CUSTOM)) && !state->sleeping &&
         (action==MD_UI_ACTION_NEXT_SCREEN || action==MD_UI_ACTION_PREVIOUS_SCREEN)) {
         if (xSemaphoreTake(s_config_mutex,portMAX_DELAY)==pdTRUE) {
@@ -887,10 +1000,14 @@ static void apply_event(const ui_event_t *event,
     }
     if (previous_theme != settings->theme || previous_day_night != settings->day_night) {
         *palette = md_ui_theme_palette(settings->theme, effective_day_mode(settings));
+#if !CONFIG_MINIDASH_CYD
         if (lvgl_port_lock(100)) {
             md_ui_screens_retheme(palette, settings->theme);
             lvgl_port_unlock();
         }
+#endif
+        /* CYD applies the saved revision once below, after queued input has
+         * settled. Retheming here too produced two full repaints per tap. */
     }
     if (previous_settings.layout != settings->layout ||
         memcmp(previous_settings.widgets, settings->widgets,
@@ -914,7 +1031,7 @@ static void apply_event(const ui_event_t *event,
         if (!state->sleeping && lvgl_port_lock(100)) {
             if (state->screen == MD_UI_SCREEN_FOCUS)
                 md_ui_screens_focus_signal(state->focused_signal);
-            md_ui_screens_show(state->screen, settings);
+            show_populated(state,settings,signals);
             lvgl_port_unlock();
         }
     }
@@ -981,11 +1098,23 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
             (1U<<MD_FEATURE_FOCUS)|(1U<<MD_FEATURE_CONFIG_IO)|(1U<<MD_FEATURE_WEB_CONFIG),
         .display_width=profile.width,.display_height=profile.height,.flash_bytes=16777216,.ram_bytes=524288,
         .visible_widgets=MD_UI_MAX_WIDGETS,.verified=true};
+#if CONFIG_MINIDASH_CYD
+    s_target.name="minidash_cyd";
+    s_target.hardware=MD_CAP_COLOR|MD_CAP_WIFI;
+    s_target.flash_bytes=4194304;
+    s_target.ram_bytes=327680; /* Data SRAM; instruction SRAM is not a heap budget. */
+    s_target.verified=false; /* Physical touch/orientation acceptance is separate. */
+#endif
 #if CONFIG_MINIDASH_TOUCH_ENABLE
     s_target.hardware |= MD_CAP_TOUCH;
 #endif
 #if CONFIG_MINIDASH_LCD_PIN_BL >= 0
     s_target.hardware |= MD_CAP_DIMMING;
+#endif
+#if CONFIG_MINIDASH_CYD
+    s_target.hardware |= MD_CAP_AMBIENT_SOURCE;
+    s_light_ready=md_cyd_ambient_init();
+    ESP_LOGI(TAG,"CYD LDR GPIO34 ADC1_CH6 ready=%u",s_light_ready);
 #endif
     (void)md_configuration_storage_load(&s_configuration,&s_target);
     /* platform.rotation is now relative to the verified board orientation. */
@@ -1035,8 +1164,15 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
     const lvgl_port_display_cfg_t display_config = {
         .io_handle = md_display_io(&display),
         .panel_handle = md_display_panel(&display),
+#if CONFIG_MINIDASH_CYD
+        /* Two 8-line DMA buffers use the same 10 KiB as the former single
+         * 16-line buffer. Draw the next stripe while SPI sends the previous. */
+        .buffer_size = (uint32_t)profile.width * 8U,
+        .double_buffer = true,
+#else
         .buffer_size = (uint32_t)profile.width * 16U,
         .double_buffer = true,
+#endif
         .hres = profile.width,
         .vres = profile.height,
         .monochrome = false,
@@ -1081,7 +1217,16 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
         return;
     }
 
+#if CONFIG_MINIDASH_CYD
+    /* Start an AUTO boot dim, then ramp to the first real sensor sample. */
+    applied_brightness=visible_config->platform.brightness_mode==MD_BRIGHTNESS_AUTO ? 15 : settings.brightness_pct;
+    startup_effect(&display,lv_display,applied_brightness);
+    md_brightness_init(&s_auto_light,&s_target,applied_brightness);
+    uint32_t light_sample_ms=0,light_success_ms=0;
+    atomic_store(&s_light_output,applied_brightness);
+#else
     startup_effect(&display,lv_display,settings.brightness_pct);
+#endif
     s_display_ready = true;
     ESP_LOGI(TAG, "UI ready with %u x %u partial buffers and %u ms model refresh",
              profile.width, profile.height, UI_UPDATE_PERIOD_MS);
@@ -1131,9 +1276,26 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
             }
             atomic_store(&s_sleep_ack,false);
         }
+#if CONFIG_MINIDASH_CYD
+        /* HTTP JSON guards use LVGL -> configuration. Keep the same order:
+         * waiting for LVGL while owning configuration can starve HTTP writes. */
+        const bool config_render_guard=lvgl_port_lock(20);
+        if(config_render_guard) {
+#endif
         if (xSemaphoreTake(s_config_mutex,0)==pdTRUE) {
             s_config_driving=state.context==MD_UI_CONTEXT_DRIVING;
             if (seen_revision!=s_config_revision) {
+#if CONFIG_MINIDASH_CYD
+                const bool page_changed=visible_config->common.dashboard!=s_configuration.common.dashboard ||
+                    visible_config->common.active_page!=s_configuration.common.active_page ||
+                    memcmp(&visible_config->common.pages[visible_config->common.active_page],
+                           &s_configuration.common.pages[s_configuration.common.active_page],sizeof(md_ui_dashboard_page_t));
+                const bool theme_changed=visible_config->common.theme!=s_configuration.common.theme ||
+                    visible_config->common.day_night!=s_configuration.common.day_night ||
+                    visible_config->common.language!=s_configuration.common.language ||
+                    visible_config->common.custom_theme!=s_configuration.common.custom_theme ||
+                    memcmp(&visible_config->common.palette,&s_configuration.common.palette,sizeof(md_ui_palette_t));
+#endif
                 *visible_config=s_configuration;
                 if (s_config_preview && !was_preview) preview_return_screen=state.screen;
                 if (s_config_preview) state.screen=MD_UI_SCREEN_CUSTOM;
@@ -1144,12 +1306,37 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
                 if (lvgl_port_lock(100)) {
                     md_ui_screens_configuration(visible_config);
                     palette=visible_palette(&settings,visible_config);
-                    md_ui_screens_retheme(&palette, settings.theme); md_ui_screens_rebuild_custom(&settings);
-                    md_ui_lvgl_renderer()->show(NULL,state.screen,&settings); seen_revision=s_config_revision; lvgl_port_unlock();
+#if CONFIG_MINIDASH_CYD
+                    if(theme_changed) {
+                        const int64_t theme_started=esp_timer_get_time();
+                        portENTER_CRITICAL(&s_perf_mux);
+                        s_theme_pending_us=theme_started;
+                        s_theme_pending_id=settings.theme;
+                        portEXIT_CRITICAL(&s_perf_mux);
+                        md_ui_screens_retheme(&palette,settings.theme);
+                        printf("MINIDASH_CYD_THEME_APPLY id=%u elapsed_us=%lu\n",(unsigned)settings.theme,
+                            (unsigned long)(esp_timer_get_time()-theme_started));
+                    }
+                    if(page_changed) md_ui_screens_rebuild_custom(&settings);
+#else
+                    md_ui_screens_retheme(&palette,settings.theme); md_ui_screens_rebuild_custom(&settings);
+#endif
+#if CONFIG_MINIDASH_CYD
+                    /* A saved last_screen/revision is not a visual change. */
+                    if(page_changed || theme_changed || atomic_load(&s_visible_screen)!=(int)state.screen)
+                        show_populated(&state,&settings,signals);
+#else
+                    show_populated(&state,&settings,signals);
+#endif
+                    seen_revision=s_config_revision; lvgl_port_unlock();
                 }
             }
             xSemaphoreGive(s_config_mutex);
         }
+#if CONFIG_MINIDASH_CYD
+            lvgl_port_unlock();
+        }
+#endif
         if (state.context==MD_UI_CONTEXT_DRIVING && md_ui_web_active()) md_ui_web_stop();
         if(memcmp(&applied_analytics,&visible_config->common.analytics,sizeof(applied_analytics)) && md_vehicle_app_analytics_configure(&visible_config->common.analytics))applied_analytics=visible_config->common.analytics;
         if (state.screen==MD_UI_SCREEN_CONFIG_MODE) {
@@ -1186,26 +1373,89 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
         }
         md_vehicle_app_demand(demand,warning_demand);
         (void)apply_rotation(&settings,state.screen,&palette);
+#if CONFIG_MINIDASH_CYD
+        const uint32_t light_now=(uint32_t)(esp_timer_get_time()/1000);
+        const md_brightness_mode_t light_mode=visible_config->platform.brightness_mode;
+        if(s_auto_light.mode!=light_mode) {
+            md_brightness_mode(&s_auto_light,light_mode);
+            s_auto_light.ambient_sampled=false;
+        }
+        if(light_now-light_sample_ms>=250) {
+            uint16_t raw;
+            light_sample_ms=light_now;
+            if(s_light_ready && md_cyd_ambient_read(&raw)) {
+                light_success_ms=light_now;
+                atomic_store(&s_light_raw,raw);
+                md_brightness_ambient_sample(&s_auto_light,raw);
+            } else atomic_store(&s_light_raw,-1);
+        }
+        if(light_mode!=MD_BRIGHTNESS_AUTO || !s_light_ready || light_now-light_success_ms>2000)
+            md_brightness_set(&s_auto_light,settings.brightness_pct);
+        s_auto_light.screen_on=!state.sleeping;
+        uint8_t output;
+        if(state.sleeping) s_auto_light.current=0;
+        else if(md_brightness_tick(&s_auto_light,light_now,&output) && md_display_set_brightness(&display,output))
+            applied_brightness=output;
+        atomic_store(&s_light_output,state.sleeping ? 0 : applied_brightness);
+        atomic_store(&s_light_mode,light_mode);
+        atomic_store(&s_light_target,s_auto_light.target);
+#else
         if (applied_brightness != settings.brightness_pct) {
             if (md_display_set_brightness(&display, settings.brightness_pct))
                 applied_brightness = settings.brightness_pct;
             else ESP_LOGE(TAG, "Backlight update failed");
         }
+#endif
         ui_event_t event;
+        bool input_changed=false;
         if (xQueueReceive(s_ui_event_queue, &event, pdMS_TO_TICKS(20)) == pdTRUE) {
-            apply_event(&event, &state, &settings, &display, &profile, &palette);
+            input_changed=true;
+            apply_event(&event, &state, &settings, &display, &profile, &palette,signals);
             while (xQueueReceive(s_ui_event_queue, &event, 0) == pdTRUE) {
-                apply_event(&event, &state, &settings, &display, &profile, &palette);
+                apply_event(&event, &state, &settings, &display, &profile, &palette,signals);
             }
         }
 
+#if CONFIG_MINIDASH_CYD
+        if(input_changed) {
+            /* Do not paint new values using the old theme/page. Apply the
+             * pending configuration at the top of the next iteration first. */
+            bool pending=true;
+            if(xSemaphoreTake(s_config_mutex,0)==pdTRUE) {
+                pending=seen_revision!=s_config_revision;
+                xSemaphoreGive(s_config_mutex);
+            }
+            if(pending) continue;
+        }
+#endif
         const TickType_t now_ticks = xTaskGetTickCount();
-        if ((now_ticks - last_update) < pdMS_TO_TICKS(UI_UPDATE_PERIOD_MS)) continue;
+        if ((now_ticks - last_update) < pdMS_TO_TICKS(UI_UPDATE_PERIOD_MS)
+#if CONFIG_MINIDASH_CYD
+            && !input_changed
+#endif
+        ) continue;
+#if !CONFIG_MINIDASH_CYD
+        (void)input_changed;
+#endif
         last_update = now_ticks;
         if (state.sleeping || !lvgl_port_lock(20)) continue;
 
 #if CONFIG_MINIDASH_CAN_ENABLE
         (void)md_signal_mailbox_read_frame(&s_vehicle_mailbox,dashboard);
+#if CONFIG_MINIDASH_CYD
+        static bool source_initialized, source_demo;
+        bool desired_demo=md_vehicle_app_demo();
+        if(!source_initialized || source_demo!=desired_demo) {
+            md_ui_screens_clear_history();
+            source_demo=desired_demo; source_initialized=true;
+        }
+        /* The desired mode can change before acquisition publishes its reset
+         * frame. Do not render or re-record a snapshot from the old source. */
+        if(md_cyd_filter_store(signals,desired_demo)) {
+            memset(&dashboard->vehicle,0,sizeof(dashboard->vehicle));
+            memset(&dashboard->drag,0,sizeof(dashboard->drag));
+        }
+#endif
 #else
         portENTER_CRITICAL(&s_signal_mux);
         *signals = s_signal_store;
@@ -1229,6 +1479,37 @@ static void MD_DISPLAY_TASK_UNUSED ui_task(void *argument)
                              now_ms, &diagnostics);
         lvgl_port_unlock();
     }
+}
+
+void md_display_app_status_dump(void)
+{
+    md_ui_signal_snapshot_t rpm={.state=MD_UI_SIGNAL_UNAVAILABLE},speed={.state=MD_UI_SIGNAL_UNAVAILABLE};
+    const uint32_t now=(uint32_t)(esp_timer_get_time()/1000);
+#if CONFIG_MINIDASH_CAN_ENABLE
+    (void)now;
+    (void)md_vehicle_app_signal_pair(&rpm,&speed);
+#else
+    portENTER_CRITICAL(&s_signal_mux);
+    rpm=md_ui_signal_snapshot(&s_signal_store,MD_SIGNAL_ENGINE_RPM,now);
+    speed=md_ui_signal_snapshot(&s_signal_store,MD_SIGNAL_VEHICLE_SPEED,now);
+    portEXIT_CRITICAL(&s_signal_mux);
+#endif
+    printf("MINIDASH_UI_STATUS display=%u touch=%u calibrated=%u screen=%d wifi=%u heap=%u minimum=%u largest=%u rpm=%.1f rpm_demo=%u speed=%.1f speed_demo=%u rpm_state=%u speed_state=%u\n",
+        s_display_ready,s_touch_ready,s_touch_calibrated,(int)atomic_load(&s_visible_screen),md_ui_web_active(),
+        (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT),
+        (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT),
+        (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT),
+        rpm.value,rpm.demo,speed.value,speed.demo,(unsigned)rpm.state,(unsigned)speed.state);
+#if CONFIG_MINIDASH_CYD
+    printf("MINIDASH_LIGHT gpio=34 adc=%d mode=%u output=%u target=%u ready=%u\n",
+        atomic_load(&s_light_raw),atomic_load(&s_light_mode),atomic_load(&s_light_output),
+        atomic_load(&s_light_target),s_light_ready);
+    uint32_t renders,render_ms; bool measured;
+    render_metrics_read(&renders,&render_ms,&measured);
+    printf("MINIDASH_CYD_RENDER rate=%lu average_ms=%lu measured=%u\n",
+        (unsigned long)renders,(unsigned long)render_ms,measured);
+#endif
+    fflush(stdout);
 }
 
 void md_display_app_start(void)

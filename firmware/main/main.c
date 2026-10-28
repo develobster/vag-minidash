@@ -8,7 +8,10 @@
 
 #include "driver/gpio.h"
 #include "esp_attr.h"
+#include "sdkconfig.h"
+#if CONFIG_BT_ENABLED
 #include "esp_bt.h"
+#endif
 #include "esp_chip_info.h"
 #include "esp_err.h"
 #include "esp_log.h"
@@ -74,11 +77,17 @@ static bool test_chip_info(void)
     esp_chip_info_t info = {0};
     esp_chip_info(&info);
 
-    const bool passed = info.model == CHIP_ESP32S3 && info.cores == 2;
+    const bool passed = info.model ==
+#if CONFIG_MINIDASH_CYD
+        CHIP_ESP32
+#else
+        CHIP_ESP32S3
+#endif
+        && info.cores == 2;
     char details[128];
     snprintf(details, sizeof(details),
              "model=%s cores=%u revision=%u.%u features=0x%lx idf=%s",
-             info.model == CHIP_ESP32S3 ? "ESP32-S3" : "unexpected",
+             info.model == CHIP_ESP32S3 ? "ESP32-S3" : info.model == CHIP_ESP32 ? "ESP32" : "unexpected",
              (unsigned)info.cores, (unsigned)(info.revision / 100),
              (unsigned)(info.revision % 100),
              (unsigned long)info.features, esp_get_idf_version());
@@ -90,16 +99,32 @@ static bool test_flash_size(void)
 {
     uint32_t size = 0;
     const esp_err_t err = esp_flash_get_physical_size(NULL, &size);
-    const bool passed = err == ESP_OK && size == 16U * 1024U * 1024U;
+    const bool passed = err == ESP_OK && size ==
+#if CONFIG_MINIDASH_CYD
+        4U * 1024U * 1024U;
+#else
+        16U * 1024U * 1024U;
+#endif
     char details[128];
-    snprintf(details, sizeof(details), "physical_bytes=%lu expected_bytes=16777216 result=%s",
-             (unsigned long)size, esp_err_to_name(err));
+    snprintf(details, sizeof(details), "physical_bytes=%lu expected_bytes=%u result=%s",
+             (unsigned long)size,
+#if CONFIG_MINIDASH_CYD
+             4194304U,
+#else
+             16777216U,
+#endif
+             esp_err_to_name(err));
     report_test("flash_size", passed, details);
     return passed;
 }
 
 static bool test_psram(void)
 {
+    #if CONFIG_MINIDASH_CYD
+    bool passed=heap_caps_get_total_size(MALLOC_CAP_SPIRAM)==0;
+    report_test("no_psram",passed,"CYD uses internal SRAM only");
+    return passed;
+#else
     const size_t total = heap_caps_get_total_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     const size_t free_before = heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     uint32_t *memory = heap_caps_malloc(PSRAM_TEST_BYTES,
@@ -139,6 +164,7 @@ static bool test_psram(void)
              (unsigned)PSRAM_TEST_BYTES);
     report_test("psram_rw", passed, details);
     return passed;
+#endif
 }
 
 static bool test_internal_heap(void)
@@ -204,7 +230,7 @@ static bool ensure_wifi_base(void)
     return s_wifi_netif != NULL;
 }
 
-static bool test_wifi_scan(void)
+static bool __attribute__((unused)) test_wifi_scan(void)
 {
     bool passed = ensure_wifi_base();
     esp_err_t err = passed ? ESP_OK : ESP_FAIL;
@@ -267,6 +293,7 @@ static bool test_wifi_scan(void)
 
 static bool test_ble_controller(void)
 {
+#if CONFIG_BT_ENABLED
     esp_bt_controller_config_t config = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     esp_err_t err = esp_bt_controller_init(&config);
     bool initialized = err == ESP_OK;
@@ -298,6 +325,10 @@ static bool test_ble_controller(void)
              esp_err_to_name(err));
     report_test("ble_controller", passed, details);
     return passed;
+#else
+    report_test("ble_disabled",true,"not part of CYD target");
+    return true;
+#endif
 }
 
 static bool test_task_watchdog(void)
@@ -369,7 +400,9 @@ static void __attribute__((unused)) run_self_test(void)
     test_psram();
     test_internal_heap();
     test_gpio_driver();
+#if !CONFIG_MINIDASH_CYD
     test_wifi_scan();
+#endif
     test_ble_controller();
     test_task_watchdog();
 
@@ -379,7 +412,11 @@ static void __attribute__((unused)) run_self_test(void)
                     ? "configured_console=USB_SERIAL_JTAG input_blocking=1"
                     : "configured_console=USB_SERIAL_JTAG input_blocking=0");
 #else
+#if CONFIG_MINIDASH_CYD
+    report_test("uart_console",true,"configured_console=UART0");
+#else
     report_test("usb_serial_jtag", false, "configured_console_is_not_USB_SERIAL_JTAG");
+#endif
 #endif
 
     printf("MINIDASH_SUMMARY pass=%lu fail=%lu\n",
@@ -393,6 +430,32 @@ static void print_ready(void)
            (unsigned long)s_boot_count);
     fflush(stdout);
 }
+
+#if CONFIG_MINIDASH_CYD
+/* UART VFS may return a partial read even after clearing O_NONBLOCK. Keep
+ * fragments until newline; never interpret or discard a half-arrived command. */
+static bool cyd_console_line(char *line, size_t capacity)
+{
+    static char pending[128];
+    static size_t length;
+    static bool overflow;
+    int ch;
+    while((ch=getchar())!=EOF) {
+        if(ch=='\r') continue;
+        if(ch=='\n') {
+            bool valid=!overflow && length<capacity;
+            if(valid) {memcpy(line,pending,length);line[length]=0;}
+            else printf("MINIDASH_COMMAND status=REJECTED reason=LINE_TOO_LONG\n");
+            length=0;overflow=false;
+            return valid;
+        }
+        if(length<sizeof(pending)-1) pending[length++]=(char)ch;
+        else overflow=true;
+    }
+    clearerr(stdin);
+    return false;
+}
+#endif
 
 void app_main(void)
 {
@@ -416,7 +479,11 @@ void app_main(void)
     printf("MINIDASH_BOOT count=%lu reset=%s idf=%s\n",
            (unsigned long)s_boot_count,
            reset_reason_name(esp_reset_reason()), esp_get_idf_version());
+#if CONFIG_MINIDASH_CYD
+    printf("MINIDASH_INFO board=minidash_cyd cores_expected=2 flash_expected_bytes=4194304 psram_expected_bytes=0 CAN=runtime_guarded WIFI=manual DEMO=menu\n");
+#else
     printf("MINIDASH_INFO board=ESP32-S3 cores_expected=2 flash_expected_bytes=16777216 psram_expected_bytes=8388608\n");
+#endif
     fflush(stdout);
     print_ready();
     md_vehicle_app_prepare();
@@ -425,6 +492,12 @@ void app_main(void)
 
     char line[128];
     for (;;) {
+#if CONFIG_MINIDASH_CYD
+        if(!cyd_console_line(line,sizeof(line))) {
+            vTaskDelay(pdMS_TO_TICKS(20));
+            continue;
+        }
+#else
         if (fgets(line, sizeof(line), stdin) == NULL) {
             /* A non-blocking VFS may report temporary lack of input as EOF. */
             clearerr(stdin);
@@ -440,6 +513,7 @@ void app_main(void)
             fflush(stdout);
             continue;
         }
+#endif
         line[strcspn(line, "\r\n")] = '\0';
         if(strncmp(line,"MDV1|",5)==0 || strncmp(line,"MDS1|",5)==0) {
 #if CONFIG_MINIDASH_HOST_INJECTION
@@ -495,10 +569,23 @@ void app_main(void)
             }
             printf("MINIDASH_VAG_CONFIG status=%s\n",valid && md_vehicle_app_vag_configure(&c)?"QUEUED":"REJECTED");
         } else if (strcmp(line, "status") == 0) {
+            md_display_app_status_dump();
+#if CONFIG_MINIDASH_CYD
+            md_vehicle_app_mode_dump();
+#endif
             printf("MINIDASH_BOOT count=%lu reset=%s idf=%s\n",
                    (unsigned long)s_boot_count,
                    reset_reason_name(esp_reset_reason()), esp_get_idf_version());
             print_ready();
+#if CONFIG_MINIDASH_CYD
+#if CONFIG_MINIDASH_CAN_ENABLE
+        } else if ((CONFIG_MINIDASH_CAN_RX_GPIO==27 && strcmp(line,"can-arm CONFIRM_WIRING_22_27_3V3")==0) ||
+                   (CONFIG_MINIDASH_CAN_RX_GPIO==35 && strcmp(line,"can-arm CONFIRM_WIRING_22_35_3V3")==0)) {
+            printf("MINIDASH_CAN_ARM status=%s\n",md_vehicle_app_confirm_wiring(true) ? "ARMED_UNTIL_REBOOT" : "REJECTED_NEED_MONITOR_READY");
+#endif
+        } else if (strcmp(line,"can-disarm")==0) {
+            md_vehicle_app_disarm(); md_vehicle_app_mode_dump();
+#endif
         } else if (strcmp(line, "config-legacy") == 0) {
             printf("MINIDASH_CONFIG_RECOVERY status=%s\n",md_display_app_restore_legacy()?"SAVED":"REJECTED");
             fflush(stdout);
@@ -520,9 +607,18 @@ void app_main(void)
         } else if (strcmp(line, "config-export") == 0) {
             md_display_app_configuration_dump();
         } else if (strcmp(line, "config") == 0) {
+#if CONFIG_MINIDASH_CYD
+            printf("MINIDASH_CONFIG use=Settings_Wi-Fi_Enable\n");
+#else
             md_display_app_config_mode();
+#endif
         } else if (strcmp(line, "web-test") == 0) {
+#if CONFIG_MINIDASH_CYD
+            if(md_ui_web_active()) md_ui_web_selftest();
+            else printf("MINIDASH_WEB_TEST enable_in_Settings_first\n");
+#else
             md_ui_web_selftest();
+#endif
         } else if (strcmp(line, "ui-test") == 0) {
             (void)md_ui_core_selftest_run();
             printf("MINIDASH_UI_VIEW_TEST cached_text_and_single_selection=%s\n",md_display_app_view_selftest()?"PASS":"FAIL");

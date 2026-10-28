@@ -3,9 +3,14 @@
 #include "ui_core.h" /* Existing portable canonical catalogue; no LVGL/RTOS. */
 
 #define MD_ACQ_MAX_BINDINGS 16U
+#if CONFIG_MINIDASH_CYD
+#define MD_ACQ_TRACE_SIZE 16U
+#define MD_ACQ_EXCHANGE_SIZE 4U
+#else
 #define MD_ACQ_TRACE_SIZE 96U
-#define MD_ACQ_DTC_MAX 12U
 #define MD_ACQ_EXCHANGE_SIZE 16U
+#endif
+#define MD_ACQ_DTC_MAX 12U
 #define MD_ACQ_VALIDATION_GAP_MS 250U
 typedef enum { MD_SOURCE_PASSIVE, MD_SOURCE_UDS, MD_SOURCE_OBD, MD_SOURCE_COUNT } md_source_t;
 typedef enum { MD_ACQ_LISTEN, MD_ACQ_DISCOVERY, MD_ACQ_CAPABILITIES,

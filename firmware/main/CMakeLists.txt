@@ -1,9 +1,9 @@
 idf_component_register(
-    SRCS "main.c" "can_pipeline.c" "generated_can_signals.c" "vag_can_db.c" "vag_can_db_nvs.c" "drag_timer.c" "power_manager.c" "backlight_controller.c" "display_manager.c" "st7789_backend.c"
+    SRCS "cyd_mode.c" "cyd_ambient.c" "simulation.c" "captive_dns.c" "main.c" "can_pipeline.c" "generated_can_signals.c" "vag_can_db.c" "vag_can_db_nvs.c" "drag_timer.c" "power_manager.c" "backlight_controller.c" "display_manager.c" "st7789_backend.c"
          "ili9341_backend.c" "xpt2046_touch.c" "display_app.c" "automotive_screens.c"
          "display_serial_protocol.c" "diagnostic_transport.c" "acquisition.c" "vehicle_app.c" "ui_instrument_profiles.c"
          "window_statistics.c" "performance_timer.c" "derived_engine.c" "validation_json.c"
-         "ui_core.c" "ui_core_selftest.c" "ui_theme.c" "ui_startup.c" "ui_i18n.c" "ui_screens.c"
+         "ui_core.c" "ui_core_selftest.c" "ui_theme.c" "ui_pixel_art.c" "ui_font_pixel.c" "ui_startup.c" "ui_i18n.c" "ui_screens.c"
          "ui_font_ru_10.c" "ui_font_ru_12.c" "ui_font_ru_14.c" "ui_font_ru_16.c"
          "ui_font_mono_10.c" "ui_font_mono_12.c" "ui_font_mono_14.c" "ui_font_mono_16.c" "ui_font_mono_20.c" "ui_font_mono_28.c" "ui_font_mono_48.c" "ui_font_cluster_16.c" "ui_font_cluster_20.c" "ui_font_cluster_28.c" "ui_font_cluster_48.c"
          "ui_settings_nvs.c" "ui_platform.c" "ui_model.c"
@@ -11,7 +11,7 @@ idf_component_register(
          "ui_touch_map.c" "ui_touch_nvs.c"
     EMBED_FILES "webui.html"
     INCLUDE_DIRS "."
-    PRIV_REQUIRES driver bt esp_app_format esp_driver_gpio esp_driver_ledc
+    PRIV_REQUIRES esp_adc driver bt esp_app_format esp_driver_gpio esp_driver_ledc
                    esp_driver_spi esp_lcd esp_lcd_ili9341 esp_lvgl_port
                    esp_http_client esp_http_server json esp_netif esp_timer lvgl nvs_flash esp_wifi spi_flash
 )
@@ -21,6 +21,15 @@ idf_component_register(
 # firmware build, including builds outside the optional bench scripts.
 set_source_files_properties("display_app.c" PROPERTIES
     COMPILE_OPTIONS "-fstack-usage;-Werror=stack-usage=3072")
+if(MINIDASH_BOARD STREQUAL "minidash_cyd")
+    set_source_files_properties("ui_screens.c" PROPERTIES
+        COMPILE_OPTIONS "-fstack-usage;-Werror=stack-usage=4096")
+    set_source_files_properties("vehicle_app.c" PROPERTIES
+        COMPILE_OPTIONS "-fstack-usage;-Werror=stack-usage=2048")
+else()
+    set_source_files_properties("vehicle_app.c" PROPERTIES
+        COMPILE_OPTIONS "-fstack-usage;-Werror=stack-usage=6144")
+endif()
 
 if(CONFIG_MINIDASH_CAN_ENABLE)
     target_sources(${COMPONENT_LIB} PRIVATE "can_error_probe.c" "can_incident.c" "can_link_tx.c")

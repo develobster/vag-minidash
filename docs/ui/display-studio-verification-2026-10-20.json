@@ -1,0 +1,105 @@
+{
+  "date": "2026-10-20",
+  "branch": "feature/hardware-cyd-esp32",
+  "baseline": "6d4cbc207337544fb8a5fa491ecb5922fecb0688",
+  "version": "cyd-0.4.0-studio",
+  "firmware_builds": {
+    "cyd": {
+      "status": "PASS",
+      "bytes": 1951376,
+      "sha256": "ab9cf8890e7748e9b8ffc28c13c433fb2c8be70f0d2a8c33dc9ff292311babf9"
+    },
+    "esp32_s3": {
+      "status": "PASS",
+      "bytes": 1956576,
+      "sha256": "27bb32c9c1bc19a034e6a50f98c62bee65520b7bf76ed741e8d5bb2313b09967"
+    }
+  },
+  "browser": {
+    "status": "PASS",
+    "checks": 42,
+    "scope": "Chromium + mocked HTTP + actual native schema validator",
+    "html_sha256": "f7e11d5208fbf3a2d425763144e283bd582fefa84440e62d2f1016d2c34dc370",
+    "hardware": false
+  },
+  "native_ctest": {
+    "passed": 12,
+    "failed": 0
+  },
+  "editor_model": "PASS",
+  "python": {
+    "tests": 229,
+    "skipped": 1,
+    "status": "PASS"
+  },
+  "host_frontend": {
+    "tests": 10,
+    "status": "PASS",
+    "build": "PASS"
+  },
+  "hardware": {
+    "performed": true,
+    "serial_ports": [
+      "COM4"
+    ],
+    "result": {
+      "date": "2026-10-20",
+      "status": "PASS",
+      "tested_app_sha256": "ab9cf8890e7748e9b8ffc28c13c433fb2c8be70f0d2a8c33dc9ff292311babf9",
+      "version": "cyd-0.4.0-studio",
+      "port": "COM4",
+      "hardware": 8,
+      "ui_core": 27,
+      "http": {
+        "passed": 69,
+        "failed": 0
+      },
+      "lvgl_font_fit": "PASS all 17 themes EN/RU",
+      "calibration_preserved": true,
+      "user_common_preserved_except_last_screen": true,
+      "platform_preserved": true,
+      "auto_brightness_mode": 2,
+      "real_reset": true,
+      "final_manual_ap": true,
+      "final_screen": "Wi-Fi QR",
+      "no_reset_wdt_abort_detected": true,
+      "observation_seconds": 212.2,
+      "idle_final_status": "MINIDASH_UI_STATUS display=1 touch=1 calibrated=1 screen=0 wifi=0 heap=144936 minimum=109320 largest=110592 rpm=4503.2 rpm_demo=1 speed=109.2 speed_demo=1",
+      "qr_final_status": "MINIDASH_UI_STATUS display=1 touch=1 calibrated=1 screen=10 wifi=1 heap=88904 minimum=87980 largest=86016 rpm=4635.8 rpm_demo=1 speed=113.1 speed_demo=1",
+      "stack": [
+        "MINIDASH_CYD_STACK http_min=2284 selftest_min=2320\r"
+      ],
+      "heap_cycles": [
+        "AP cycle internal_before=73864 after=60628 minimum=6012\r"
+      ],
+      "physical_lcd_observed_by_agent": false,
+      "external_phone_test": false
+    },
+    "nvs_backup_verified": true,
+    "app_flash_digest_verified": true,
+    "external_phone_test": false,
+    "physical_lcd_observation_by_agent": false
+  },
+  "backup": {
+    "original_bytes": 4194304,
+    "sha256": "904a38429a8b2b0863cab48ddafa06c15b3312ea2622389ae6962ed4e9412bc9",
+    "integrity_rechecked": true
+  },
+  "constraints": {
+    "schema": 4,
+    "max_pages": 4,
+    "max_widgets": 8,
+    "grid": [
+      12,
+      8
+    ],
+    "overlap": false,
+    "new_theme_ids": [
+      14,
+      15,
+      16
+    ],
+    "runtime_dependencies_added": false,
+    "can_uds_enabled": false
+  }
+}
