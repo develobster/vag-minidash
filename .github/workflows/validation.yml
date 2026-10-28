@@ -1,7 +1,7 @@
 name: MiniDash validation
 on:
   push:
-    branches: [integration/standalone]
+    branches: [integration/standalone, integration/cyd-unified]
   pull_request:
   workflow_dispatch:
 permissions:

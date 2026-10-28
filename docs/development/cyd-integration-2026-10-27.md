@@ -181,6 +181,15 @@ the generation stays consistent in snapshots during 100,000 publications.
 This does not prove a physical TWAI transition: testing the driver owner,
 source switch and loss counters remains necessary.
 
+### Remote validation, 29 October
+
+The isolated `integration/cyd-unified` branch is authorized for publication by
+the owner. Its push trigger is included in the validation workflow so future
+updates can run the host and firmware matrix without merging into the primary
+branch. The local YAML parses successfully; consult the actual workflow run for
+its status rather than treating configuration as a passed CI run. Backups and
+device-specific records remain local and are not committed.
+
 ### Bench and Tiguan acceptance, after a separate flashing decision
 
 1. Before wiring CAN, photograph and identify the board and transceiver, check
