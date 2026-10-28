@@ -1,7 +1,8 @@
 # CYD integration: preliminary work, 2026-10-27
 
-**Historical preliminary report: see the 28 October update below. Do not flash
-or use this branch on CYD until the remaining acceptance gates pass.** The baseline
+**Historical integration report:** the owner subsequently authorized a USB
+installation of the listen-only image. See [29 October device results](../hardware/cyd-integration-usb-2026-10-29.md).
+Remaining acceptance gates still prohibit claiming readiness for vehicle use. The baseline
 is `origin/integration/standalone` at `c10b76b`; the CYD reference is
 `origin/feature/hardware-cyd-esp32` at `30eda5b`; merge base is `b599fbc`.
 Both remote refs were fetched. No branch was merged, pushed or rewritten.
