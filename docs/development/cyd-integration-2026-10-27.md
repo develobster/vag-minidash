@@ -155,6 +155,24 @@ The installed clang-tidy could not analyze the ESP32 build database: it rejected
 GCC-only flags and could not resolve the target `stdio.h`; no static-analysis
 pass is claimed. The CI Linux job retains its native clang-tidy check.
 
+### Storage regression, 29 October
+
+Added host tests of the actual `ui_configuration_nvs.c` adapter for both CYD
+and S3 configurations with a transactional NVS stub. The tests cover a legacy
+settings fallback, a saved pixel theme and user-page title, brightness, corrupted
+configuration fallback without overwriting the damaged record, and open/write/
+commit failures without changing the previously committed mock record. The same
+test exercises the actual touch-calibration adapter: independent storage in the
+same namespace, matching geometry and rotation, and checksum rejection. Added a
+separate CYD-configured run of the 100,000-frame concurrent ring and mailbox
+test, including overflow, sequence wrap and high-water bounds. Both platform
+variants run the same fixed queue capacity; host execution does not establish
+hardware throughput or the accuracy of driver loss counters. All 28 configured
+native CTest cases passed; 26 cases passed with UBSan (the latter
+build does not include cJSON). The stubbed legacy loader is not a migration test
+of actual flash, and these tests do not demonstrate persistence across power
+loss, validate the connected board's NVS, or replace a verified backup.
+
 ### Bench and Tiguan acceptance, after a separate flashing decision
 
 1. Before wiring CAN, photograph and identify the board and transceiver, check
