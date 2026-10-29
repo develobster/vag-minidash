@@ -135,13 +135,17 @@ static bool build_pages(int selected)
     p=&pages[3];
     field(p,"0-100 km/h",10,48,225,73,&lv_font_montserrat_48);
     p->bar=lv_bar_create(p->root);if(!p->bar) return false;
-    lv_obj_set_pos(p->bar,xp(10),yp(121));lv_obj_set_size(p->bar,xp(300),yp(4));lv_bar_set_range(p->bar,0,1000);
+    lv_obj_set_pos(p->bar,xp(10),yp(121));lv_obj_set_size(p->bar,xp(215),yp(4));lv_bar_set_range(p->bar,0,1000);
     field(p,"STATE",240,48,72,60,&lv_font_montserrat_12);
     field(p,"0-60 s",10,128,90,47,&lv_font_montserrat_20);
     field(p,"60-100 s",110,128,100,47,&lv_font_montserrat_20);
     field(p,"PEAK RPM",10,177,130,39,&lv_font_montserrat_16);
     field(p,"PEAK BAR",166,177,144,39,&lv_font_montserrat_16);
-    (void)label(p,"RESET",245,110,65,18,&lv_font_montserrat_12,palette.accent);
+    lv_obj_t *reset=lv_obj_create(p->root);if(!reset) return false;
+    lv_obj_remove_style_all(reset);lv_obj_set_pos(reset,xp(235),yp(106));
+    lv_obj_set_size(reset,xp(77),yp(32));lv_obj_remove_flag(reset,LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_border_width(reset,1,0);lv_obj_set_style_border_color(reset,lv_color_hex(palette.accent),0);
+    (void)label(p,"RESET",245,114,65,18,&lv_font_montserrat_12,palette.accent);
     }
     if(selected<0 || selected==4) {
     p=&pages[4];

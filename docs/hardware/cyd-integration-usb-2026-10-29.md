@@ -117,3 +117,40 @@ two automotive LVGL render tests, and 27 on-device UI tests plus the view
 self-test. The flash was backed up and verified before installation. NVS was
 checked separately; private backups remain local and must not be committed.
 No vehicle test or physical touch confirmation was performed.
+
+
+## Larger Drag RESET and lightweight CYD data pages
+
+The owner reported difficulty hitting RESET and requested older pages be
+redesigned for speed like the automotive pages. On the 320 x 240 layout the
+scaled touch target now covers x=220..319 and y=94..145 (previously x=240..319
+and y=108..131). Press and release must both be within that target; a press
+starting there consumes the release, leaving navigation on the rest of the edge.
+A visible outlined RESET control is added and the Drag progress bar is shortened
+to avoid it. The control must be checked physically, including edges and swipes.
+
+On CYD, dashboard, custom dashboard, performance, temperatures, drivetrain and
+diagnostics fields now use flat transparent containers and suppress decorative
+frame and pixel-background drawing. Their current field bindings, status labels,
+editable signal slots, custom widget types, touch regions, colors and update
+logic are retained. Focus, settings and other non-data screens retain their
+existing presentation. S3 retains its existing data page styling. This visibly
+changes themed backgrounds and decorative frames on the CYD data pages.
+
+On the same connected CYD and settings, first-render diagnostics reported pages
+0..4 at 320, 314, 311, 275 and 530 ms, versus the prior 613, 611, 606, 554 and
+774 ms. Night and Drag reported 97 and 144 ms respectively. Timing includes
+scene construction and first LVGL rendering; it is not an optical measurement
+of the completed LCD refresh. Diagnostics remains slower, and theme-dependent
+performance and prolonged operation require further profiling and physical
+review. Next: verify readability, themes, widget editing, graph/bar updates,
+and expanded RESET on hardware; then investigate the diagnostics scene's 265 ms
+build time and measure vehicle data and memory under realistic operation.
+
+ESP-IDF 5.5.5 CYD listen-only and S3 builds passed, as did 28 core tests, 28
+native UI tests, 27 on-device UI tests and the on-device view self-test. Before
+the app-only USB write, a full flash backup was captured and verified; the app
+write hash matched and the NVS partition was byte-identical before first boot.
+Post-boot status reported display and touch ready and calibrated, with TX
+unarmed. Actual touch operation, appearance on the physical panel, vehicle
+signals and all configurations remain unverified. Backups are private and local.

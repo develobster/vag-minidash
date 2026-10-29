@@ -316,9 +316,10 @@ static bool test_touch_mapping_and_focus(void)
         md_touch_hit_zone(160, 100, 320, 240) != MD_TOUCH_HIT_CONTENT ||
         md_touch_hit_zone(-1, 100, 320, 240) != MD_TOUCH_HIT_NONE ||
         !md_touch_drag_reset_hit(300, 115, 320, 240) ||
-        !md_touch_drag_reset_hit(240, 108, 320, 240) ||
-        md_touch_drag_reset_hit(239, 115, 320, 240) ||
-        md_touch_drag_reset_hit(300, 132, 320, 240) ||
+        !md_touch_drag_reset_hit(220, 94, 320, 240) ||
+        !md_touch_drag_reset_hit(319, 145, 320, 240) ||
+        md_touch_drag_reset_hit(219, 115, 320, 240) ||
+        md_touch_drag_reset_hit(300, 146, 320, 240) ||
         md_touch_drag_reset_hit(320, 115, 320, 240)) return false;
     md_ui_settings_t settings;
     md_ui_state_t state;

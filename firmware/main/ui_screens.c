@@ -178,6 +178,18 @@ static char s_qr_payload[128];
 static screen_view_t *s_cyd_current;
 static bool s_cyd_calibrated;
 static unsigned s_cyd_settings_page;
+
+/* Use the lightweight automotive presentation for ordinary data pages while
+ * retaining their existing fields, bindings, gestures and custom widgets. */
+static bool cyd_flat_view(const screen_view_t *view)
+{
+    for (unsigned i=0; i<MD_UI_DASHBOARD_COUNT; ++i)
+        if (view==&s_dashboards[i]) return true;
+    return view==&s_screens[MD_UI_SCREEN_PERFORMANCE] ||
+        view==&s_screens[MD_UI_SCREEN_TEMPERATURES] ||
+        view==&s_screens[MD_UI_SCREEN_DRIVETRAIN] ||
+        view==&s_screens[MD_UI_SCREEN_DIAGNOSTICS];
+}
 #endif
 
 extern const lv_font_t md_ui_font_pixel_10;
@@ -609,7 +621,10 @@ static void style_root(screen_view_t *view, const char *title,
     lv_obj_set_style_bg_color(view->root, color(s_palette.background), 0);
     lv_obj_set_style_bg_opa(view->root, LV_OPA_COVER, 0);
     lv_obj_add_event_cb(view->root, phosphor_scanlines, LV_EVENT_DRAW_POST, NULL);
-    lv_obj_add_event_cb(view->root, pixel_background_draw, LV_EVENT_DRAW_MAIN, NULL);
+#if CONFIG_MINIDASH_CYD
+    if (!cyd_flat_view(view))
+#endif
+        lv_obj_add_event_cb(view->root, pixel_background_draw, LV_EVENT_DRAW_MAIN, NULL);
 
     view->title = lv_label_create(view->root);
     view->mode = lv_label_create(view->root);
@@ -727,7 +742,10 @@ static field_view_t *create_field(screen_view_t *view, int x, int y,
     lv_obj_set_style_border_color(field->card, color(s_palette.border), 0);
     lv_obj_set_style_border_width(field->card, 1, 0);
     themed_frame(field->card);
-    lv_obj_add_event_cb(field->card,metric_frame_draw,LV_EVENT_DRAW_MAIN,field);
+#if CONFIG_MINIDASH_CYD
+    if (!cyd_flat_view(view))
+#endif
+        lv_obj_add_event_cb(field->card,metric_frame_draw,LV_EVENT_DRAW_MAIN,field);
     /* Child positions below already include their own margins. */
     lv_obj_set_style_pad_all(field->card, 0, 0);
 
@@ -1653,7 +1671,12 @@ void md_ui_screens_touch_feedback(md_ui_screen_t screen,
             y < top + lv_obj_get_height(field->card);
         lv_obj_set_style_border_color(field->card,
             color(inside ? s_palette.accent : s_palette.border), 0);
+#if CONFIG_MINIDASH_CYD
+        lv_obj_set_style_border_width(field->card, inside ? 2 :
+            (cyd_flat_view(view) ? 0 : s_theme_style.border_width), 0);
+#else
         lv_obj_set_style_border_width(field->card, inside ? 2 : s_theme_style.border_width, 0);
+#endif
     }
 }
 
@@ -1782,6 +1805,13 @@ static void retheme_view(screen_view_t *view)
     for (unsigned i = 0; i < view->field_count; ++i) {
         field_view_t *field = &view->fields[i];
         themed_frame(field->card);
+#if CONFIG_MINIDASH_CYD
+        if (cyd_flat_view(view)) {
+            lv_obj_set_style_bg_opa(field->card, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_border_width(field->card, 0, 0);
+            lv_obj_set_style_shadow_width(field->card, 0, 0);
+        }
+#endif
         lv_obj_set_style_bg_color(field->card, color(s_palette.surface), 0);
         lv_obj_set_style_border_color(field->card, color(s_palette.border), 0);
         lv_obj_set_style_text_color(field->title, color(s_palette.muted), 0);
