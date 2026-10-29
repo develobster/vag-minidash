@@ -181,3 +181,25 @@ the saved language remained Russian.
 Physical text readability, user touch and all live vehicle-data states still
 need owner review on the panel. Next verify those states and Cyrillic in every
 selected theme; use the private local flash backup for recovery if needed.
+
+
+## Themed fonts on automotive screens
+
+The owner observed that automotive pages did not follow the selected theme's
+fonts. They now receive the current theme on creation, show and retheme.
+Static captions, navigation, source/status and numeric fields select the same
+sans, mono, pixel or cluster-digit families used by the existing interface;
+text is fitted within the allocated width. Pixel fonts use their existing mono
+Cyrillic fallback, so Russian glyphs can differ from Latin pixel glyphs; large
+Cyrillic status text uses supported sizes. No configuration format changed.
+
+Native LVGL tests cover all five pages and all 17 themes in Russian at 320x240
+and 240x320, checking Cyrillic glyph availability, text width, and mono/pixel
+font selection, plus existing English/Russian switching and partial refresh.
+28 native tests and CYD and S3 builds passed with ESP-IDF 5.5.5. The connected
+CYD was backed up and verified, app-only flash succeeded with hash verification,
+and NVS was unchanged before boot. On-device UI self-tests passed 27/27 plus
+the view test; all five pages opened in 89–141 ms by first-render diagnostics.
+The saved theme remained Pixel Arcade, language Russian, and demo remained on.
+Physical appearance and touch in each theme require owner review; next verify
+legibility on the panel and realistic vehicle inputs before any road-use claim.

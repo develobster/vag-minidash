@@ -28,26 +28,44 @@ static const char *translate(const char *text)
   if(!strcmp(text,translations[i].en)) return translations[i].ru;
  return text;
 }
-static const lv_font_t *ru_font(const lv_font_t *font)
+extern const lv_font_t md_ui_font_mono_10,md_ui_font_mono_12,md_ui_font_mono_14,md_ui_font_mono_16,md_ui_font_mono_20,md_ui_font_mono_28,md_ui_font_mono_48;
+extern const lv_font_t md_ui_font_pixel_10,md_ui_font_pixel_12,md_ui_font_pixel_14,md_ui_font_pixel_16,md_ui_font_pixel_20,md_ui_font_pixel_28,md_ui_font_pixel_48;
+extern const lv_font_t md_ui_font_cluster_16,md_ui_font_cluster_20,md_ui_font_cluster_28,md_ui_font_cluster_48;
+static md_ui_theme_id_t theme=MD_UI_THEME_OEM;
+static const lv_font_t *font_for(const lv_font_t *base, bool metric, bool cyrillic)
 {
- if(font->line_height>=md_ui_font_ru_16.line_height) return &md_ui_font_ru_16;
- if(font->line_height>=md_ui_font_ru_14.line_height) return &md_ui_font_ru_14;
- if(font->line_height>=md_ui_font_ru_12.line_height) return &md_ui_font_ru_12;
- return &md_ui_font_ru_10;
+ const lv_font_t *sans[]={&lv_font_montserrat_10,&lv_font_montserrat_12,&lv_font_montserrat_14,&lv_font_montserrat_16,&lv_font_montserrat_20,&lv_font_montserrat_28,&lv_font_montserrat_48};
+ const lv_font_t *mono[]={&md_ui_font_mono_10,&md_ui_font_mono_12,&md_ui_font_mono_14,&md_ui_font_mono_16,&md_ui_font_mono_20,&md_ui_font_mono_28,&md_ui_font_mono_48};
+ const lv_font_t *pixel[]={&md_ui_font_pixel_10,&md_ui_font_pixel_12,&md_ui_font_pixel_14,&md_ui_font_pixel_16,&md_ui_font_pixel_20,&md_ui_font_pixel_28,&md_ui_font_pixel_48};
+ const lv_font_t *russian[]={&md_ui_font_ru_10,&md_ui_font_ru_12,&md_ui_font_ru_14,&md_ui_font_ru_16};
+ unsigned i=0;for(;i<7;i++) if(base==sans[i]) break;if(i==7) i=0;
+ unsigned family=md_ui_theme_style(theme).font_family;
+ if(cyrillic && i>3) i=3;
+ if(family==1) return mono[i];
+ if(family==3) return pixel[i];
+ if(cyrillic) return russian[i];
+ if(family==2 && metric && i>=3) {
+  const lv_font_t *cluster[]={&md_ui_font_cluster_16,&md_ui_font_cluster_20,&md_ui_font_cluster_28,&md_ui_font_cluster_48};
+  return cluster[i-3];
+ }
+ return sans[i];
 }
-static void fit_russian(lv_obj_t *obj,const lv_font_t *preferred,int w)
+static bool contains_cyrillic(const char *text)
+{for(const unsigned char *p=(const unsigned char*)text;*p;p++) if(*p==0xd0 || *p==0xd1) return true;return false;}
+static void fit_text(lv_obj_t *obj,const lv_font_t *preferred,int w,bool metric)
 {
- const lv_font_t *fonts[]={ru_font(preferred),&md_ui_font_ru_14,&md_ui_font_ru_12,&md_ui_font_ru_10};
- const lv_font_t *chosen=fonts[0];
- for(unsigned i=0;i<4;i++) {lv_point_t size;const lv_font_t *f=fonts[i];
-  if(f->line_height>fonts[0]->line_height) continue;
+ const lv_font_t *sizes[]={&lv_font_montserrat_48,&lv_font_montserrat_28,&lv_font_montserrat_20,&lv_font_montserrat_16,&lv_font_montserrat_14,&lv_font_montserrat_12,&lv_font_montserrat_10};
+ const bool cyrillic=contains_cyrillic(lv_label_get_text(obj));
+ unsigned start=0;while(start<6 && sizes[start]!=preferred) start++;
+ const lv_font_t *chosen=font_for(sizes[start],metric,cyrillic);
+ for(unsigned i=start;i<7;i++) {lv_point_t size;const lv_font_t *f=font_for(sizes[i],metric,cyrillic);
   lv_text_get_size(&size,lv_label_get_text(obj),f,0,0,LV_COORD_MAX,LV_TEXT_FLAG_NONE);
   chosen=f;if(size.x<=w) break;
  }
- lv_obj_set_style_text_font(obj,chosen,0);
+ if(lv_obj_get_style_text_font(obj,0)!=chosen) lv_obj_set_style_text_font(obj,chosen,0);
 }
 #define MAX_CELLS 12U
-typedef struct {lv_obj_t *label;const lv_font_t *font;char text[64];uint32_t color;} cached_label_t;
+typedef struct {lv_obj_t *label;const lv_font_t *font;bool metric;char text[64];uint32_t color;} cached_label_t;
 typedef struct {
     lv_obj_t *root,*bar,*segments[8];
     cached_label_t cell[MAX_CELLS],source;
@@ -79,13 +97,14 @@ static lv_obj_t *label(auto_page_t *p,const char *text,int x,int y,int w,int h,c
     lv_obj_t *l=lv_label_create(p->root);if(!l) return NULL;
     lv_label_set_long_mode(l,LV_LABEL_LONG_MODE_CLIP);lv_label_set_text(l,translate(text));
     lv_obj_set_pos(l,xp(x),yp(y));lv_obj_set_size(l,xp(w),yp(h));
-    lv_obj_set_style_text_font(l,font,0);lv_obj_set_style_text_color(l,lv_color_hex(color),0);
+    lv_obj_set_style_text_font(l,font_for(font,false,contains_cyrillic(translate(text))),0);lv_obj_set_style_text_color(l,lv_color_hex(color),0);
     if(translate(text)!=text && p->label_count<MAX_LOCAL_LABELS) {
         p->labels[p->label_count++]=(local_label_t){l,text,font,xp(w)};
-        fit_russian(l,font,xp(w));
+        fit_text(l,font,xp(w),false);
     } else if(language==MD_UI_LANGUAGE_ENGLISH && p->label_count<MAX_LOCAL_LABELS) {
         for(unsigned i=0;i<sizeof(translations)/sizeof(translations[0]);i++) if(!strcmp(text,translations[i].en)) {
-            p->labels[p->label_count++]=(local_label_t){l,text,font,xp(w)};break;
+            p->labels[p->label_count++]=(local_label_t){l,text,font,xp(w)};
+            fit_text(l,font,xp(w),false);break;
         }
     }
     return l;
@@ -95,15 +114,13 @@ static void field(auto_page_t *p,const char *title,int x,int y,int w,int h,const
     if(p->used>=MAX_CELLS) return;
     (void)label(p,title,x,y,w,16,&lv_font_montserrat_12,palette.muted);
     cached_label_t *c=&p->cell[p->used++];
-    c->label=label(p,"--",x,y+18,w,h-18,font,palette.text);c->font=c->label?lv_obj_get_style_text_font(c->label,0):font;c->color=UINT32_MAX;
+    c->label=label(p,"--",x,y+18,w,h-18,font,palette.text);c->font=width<320?(font==&lv_font_montserrat_48?&lv_font_montserrat_28:font==&lv_font_montserrat_28?&lv_font_montserrat_20:font==&lv_font_montserrat_20?&lv_font_montserrat_16:font==&lv_font_montserrat_12?&lv_font_montserrat_10:font):font;c->metric=true;c->color=UINT32_MAX;
 }
 static void set(cached_label_t *c,const char *text,uint32_t color)
 {
     if(!c->label) return;
     if(strcmp(c->text,text)) {snprintf(c->text,sizeof(c->text),"%s",text);lv_label_set_text(c->label,c->text);
-        bool cyrillic=false;for(const unsigned char *q=(const unsigned char*)text;*q;q++) if(*q>=0xd0) {cyrillic=true;break;}
-        if(cyrillic) fit_russian(c->label,c->font,lv_obj_get_width(c->label));
-        else lv_obj_set_style_text_font(c->label,c->font,0);
+        fit_text(c->label,c->font,lv_obj_get_width(c->label),c->metric);
     }
     if(c->color!=color) {lv_obj_set_style_text_color(c->label,lv_color_hex(color),0);c->color=color;}
 }
@@ -151,7 +168,7 @@ static bool build_pages(int selected)
         lv_obj_remove_flag(p->root,LV_OBJ_FLAG_SCROLLABLE);
         (void)label(p,titles[i],8,5,304,20,&lv_font_montserrat_16,palette.text);
         p->source.label=label(p,"NO DATA",8,27,304,15,&lv_font_montserrat_10,palette.muted);
-        p->source.font=lv_obj_get_style_text_font(p->source.label,0);p->source.color=UINT32_MAX;
+        p->source.font=&lv_font_montserrat_10;p->source.color=UINT32_MAX;
         (void)label(p,"< PREV      TAP NEXT       NEXT >",8,221,304,17,&lv_font_montserrat_10,palette.muted);
     }
     auto_page_t *p;
@@ -257,6 +274,17 @@ void md_automotive_retheme(const md_ui_palette_t *colors)
         p->source.color=UINT32_MAX;p->shift_mask=UINT32_MAX;p->bar_value=-1;
     }
 }
+void md_automotive_theme(md_ui_theme_id_t selected)
+{
+ if(selected>=MD_UI_THEME_COUNT) selected=MD_UI_THEME_OEM;
+ if(theme==selected) return;
+ theme=selected;
+ for(unsigned i=0;i<PAGE_COUNT;i++) {auto_page_t *p=&pages[i];
+  for(unsigned j=0;j<p->label_count;j++) {local_label_t *l=&p->labels[j];fit_text(l->object,l->font,l->width,false);}
+  if(p->source.label) fit_text(p->source.label,p->source.font,lv_obj_get_width(p->source.label),false);
+  for(unsigned j=0;j<p->used;j++) if(p->cell[j].label) fit_text(p->cell[j].label,p->cell[j].font,lv_obj_get_width(p->cell[j].label),true);
+ }
+}
 void md_automotive_language(md_ui_language_t selected)
 {
  if(selected>=MD_UI_LANGUAGE_COUNT) selected=MD_UI_LANGUAGE_ENGLISH;
@@ -266,8 +294,7 @@ void md_automotive_language(md_ui_language_t selected)
   auto_page_t *p=&pages[i];
   for(unsigned j=0;j<p->label_count;j++) {local_label_t *l=&p->labels[j];
    lv_label_set_text(l->object,translate(l->english));
-   if(language==MD_UI_LANGUAGE_RUSSIAN) fit_russian(l->object,l->font,l->width);
-   else lv_obj_set_style_text_font(l->object,l->font,0);
+   fit_text(l->object,l->font,l->width,false);
   }
   p->source.text[0]=0;
   for(unsigned j=0;j<p->used;j++) p->cell[j].text[0]=0;

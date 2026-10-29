@@ -1329,6 +1329,7 @@ bool md_ui_screens_create(uint16_t width, uint16_t height,
     create_focus_screen();
     create_widget_picker_screen();
     create_calibration_screen();
+    md_automotive_theme(settings->theme);
     if(!md_automotive_create(width,height,palette)) return false;
     create_config_screen();
 #if CONFIG_MINIDASH_TOUCH_DEBUG_OVERLAY
@@ -1358,6 +1359,7 @@ bool md_ui_screens_create(uint16_t width, uint16_t height,
 
 #else
     s_cyd_current=NULL;
+    md_automotive_theme(settings->theme);
     if(!md_automotive_create(width,height,palette)) return false;
     s_settings_action=s_settings_action_label=s_settings_page=s_settings_page_label=NULL;
     s_settings_previous=s_settings_previous_label=s_wifi_switch=NULL;
@@ -1750,6 +1752,7 @@ void md_ui_screens_show(md_ui_screen_t screen,
     if (!s_created) return;
     if(md_automotive_screen(screen)) {
         md_automotive_language(settings->language);
+        md_automotive_theme(settings->theme);
 #if CONFIG_MINIDASH_CYD
         if(!md_automotive_root(screen)) {
             lv_obj_t *placeholder=lv_obj_create(NULL);
@@ -1846,6 +1849,7 @@ void md_ui_screens_retheme(const md_ui_palette_t *palette, md_ui_theme_id_t them
         if (i == MD_UI_SCREEN_CUSTOM || md_automotive_screen((md_ui_screen_t)i)) continue;
         retheme_view(&s_screens[i]);
     }
+    md_automotive_theme(theme);
     md_automotive_retheme(palette);
     for (unsigned i = 0; i < MD_UI_SETTINGS_ROWS; ++i) {
         setting_row_view_t *row = &s_setting_rows[i];

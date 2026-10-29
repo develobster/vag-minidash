@@ -7,6 +7,8 @@
 #include <direct.h>
 #endif
 #define CHECK(x) do{if(!(x)){fprintf(stderr,"AUTO UI FAIL %d: %s\n",__LINE__,#x);abort();}}while(0)
+extern const lv_font_t md_ui_font_mono_10,md_ui_font_mono_12,md_ui_font_mono_14,md_ui_font_mono_16;
+extern const lv_font_t md_ui_font_pixel_10,md_ui_font_pixel_12,md_ui_font_pixel_14,md_ui_font_pixel_16;
 static uint16_t pixels[320*320];
 static uint8_t buffer1[320*16*2],buffer2[320*16*2];
 static unsigned canvas_width,canvas_height,flushes,dirty_pixels;
@@ -86,6 +88,26 @@ static void canvas(unsigned w,unsigned h,const char *dir)
             CHECK(size.x<=lv_obj_get_width(child));
         }
         CHECK(russian);image(dir,i+10);
+        for(unsigned theme=0;theme<MD_UI_THEME_COUNT;theme++) {
+            md_automotive_theme((md_ui_theme_id_t)theme);md_automotive_update(s,100);lv_refr_now(display);
+            const lv_font_t *title_font=lv_obj_get_style_text_font(lv_obj_get_child(translated,0),0);
+            if(theme==MD_UI_THEME_TERMINAL) CHECK(title_font==&md_ui_font_mono_10 || title_font==&md_ui_font_mono_12 || title_font==&md_ui_font_mono_14 || title_font==&md_ui_font_mono_16);
+            if(theme==MD_UI_THEME_PIXEL_ARCADE) CHECK(title_font==&md_ui_font_pixel_10 || title_font==&md_ui_font_pixel_12 || title_font==&md_ui_font_pixel_14 || title_font==&md_ui_font_pixel_16);
+            for(unsigned j=0;j<lv_obj_get_child_count(translated);j++) {
+                lv_obj_t *child=lv_obj_get_child(translated,j);
+                if(!lv_obj_check_type(child,&lv_label_class)) continue;
+                const char *text=lv_label_get_text(child);
+                bool has_cyrillic=false;
+                for(const unsigned char *q=(const unsigned char *)text;*q;q++) if(*q==0xd0 || *q==0xd1) {has_cyrillic=true;break;}
+                if(!has_cyrillic) continue;
+                const lv_font_t *font=lv_obj_get_style_text_font(child,0);
+                lv_font_glyph_dsc_t glyph;CHECK(lv_font_get_glyph_dsc(font,&glyph,0x0416,0) && !glyph.is_placeholder);
+                lv_point_t size;lv_text_get_size(&size,text,font,0,0,LV_COORD_MAX,LV_TEXT_FLAG_NONE);
+                if(size.x>lv_obj_get_width(child)) fprintf(stderr,"Theme %u text too wide: %s %d > %d\n",theme,text,(int)size.x,(int)lv_obj_get_width(child));
+                CHECK(size.x<=lv_obj_get_width(child));
+            }
+        }
+        md_automotive_theme(MD_UI_THEME_OEM);
         md_automotive_language(MD_UI_LANGUAGE_ENGLISH);md_automotive_update(s,100);lv_refr_now(display);
         for(unsigned attempt=0;attempt<4;attempt++) {unsigned previous=flushes;lv_refr_now(display);if(flushes==previous) break;}
         unsigned before=flushes;md_automotive_update(s,100);lv_refr_now(display);CHECK(flushes==before);
