@@ -81,6 +81,9 @@ Code inspection found that a touch press inside Drag's RESET hit box could retur
 while still holding the LVGL lock. This can block subsequent rendering and touch
 handling. The handler now releases the lock before returning. The report does
 not establish that the RESET hit box was touched, so this is a plausible cause,
-not a confirmed reproduction. The installed image predates this fix; do not
-claim the device is fixed until an updated image is installed and the touch path
-is tested physically. No flashing or NVS operation was performed for this fix.
+not a confirmed reproduction. The updated CYD listen-only image was built and installed over USB. A fresh
+full-flash backup was read and verified before the app-only write; the app image
+was verified afterward and the NVS partition matched the backup before reboot.
+USB status after reboot reported display, touch, and calibration ready, demo and
+Wi-Fi off, and TX unarmed. CYD and S3 builds, 28 core tests, and two rendering
+tests passed. The physical touch path and reported freeze remain unverified.
