@@ -203,3 +203,29 @@ the view test; all five pages opened in 89–141 ms by first-render diagnostics.
 The saved theme remained Pixel Arcade, language Russian, and demo remained on.
 Physical appearance and touch in each theme require owner review; next verify
 legibility on the panel and realistic vehicle inputs before any road-use claim.
+
+
+## Offline CAN readiness review after project history consolidation
+
+The owner confirmed the current device is connected only through USB. No vehicle
+connection, firmware flash, mode change, active CAN/OBD request or physical CAN
+experiment was performed in this review. The most recent build configuration
+`build-minidash_cyd-listen/config/sdkconfig.h` enables CYD and CAN, specifies
+TX22/RX27, and does not define `CONFIG_MINIDASH_STANDARD_OBD`. Code inspection
+shows the receive driver selects `TWAI_MODE_LISTEN_ONLY` when not commanded into
+normal mode; runtime mode and actual wiring must still be checked on the device.
+VAG decoder output remains candidate unless validated against an eligible
+profile. `drag_timer_observe` requires trusted speed; synthetic or unvalidated
+values are not accepted as a measured run. This review does not establish that
+the Tiguan OBD gateway exposes the expected passive signals or that the CYD
+hardware is wired correctly.
+
+Five native tests passed: CYD mode policy, VAG database, drag timer, and both
+CAN pipeline variants. Both signal generators passed `--check`. The 35 Python
+CAN replay and car-validation tests passed with the pinned `cantools==41.0.2`
+installed in ignored local test dependencies; all frames were synthetic.
+These results are software evidence only, not CAN bus or vehicle acceptance.
+Next verify the actual transceiver, 3.3 V supply, physical pins, termination
+and power arrangement on the isolated bench; then, with owner participation,
+plan a passive RX-only stationary vehicle session and compare any candidates
+with independent readings. Never infer the CYD wiring from the earlier S3 rig.
