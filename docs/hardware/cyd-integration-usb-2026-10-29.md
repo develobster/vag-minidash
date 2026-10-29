@@ -72,3 +72,15 @@ the physical wiring state is not inferred from zero RX. Actual touch operation,
 display appearance, diagnostic transmission, bus-off recovery, sustained CAN
 loss and vehicle signals are unverified. Do not declare the system ready for
 vehicle operation or claim sleep current or measurement accuracy.
+
+## Drag touch freeze reported after installation
+
+The owner reported a freeze while switching screens at Drag. USB status remained
+responsive when inspected and reported screen 4; no crash log was observed.
+Code inspection found that a touch press inside Drag's RESET hit box could return
+while still holding the LVGL lock. This can block subsequent rendering and touch
+handling. The handler now releases the lock before returning. The report does
+not establish that the RESET hit box was touched, so this is a plausible cause,
+not a confirmed reproduction. The installed image predates this fix; do not
+claim the device is fixed until an updated image is installed and the touch path
+is tested physically. No flashing or NVS operation was performed for this fix.

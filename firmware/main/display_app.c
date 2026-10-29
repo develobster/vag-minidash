@@ -703,7 +703,9 @@ static void apply_event(const ui_event_t *event,
                y>=s_ui_height*108/240 && y<s_ui_height*132/240 &&
                s_last_press_x>=s_ui_width*240/320 &&
                s_last_press_y>=s_ui_height*108/240 && s_last_press_y<s_ui_height*132/240) {
-                md_vehicle_app_drag_reset();return;
+                md_vehicle_app_drag_reset();
+                lvgl_port_unlock();
+                return;
             }
             const md_touch_hit_t hit = md_touch_hit_zone(x, y,
                                                             s_ui_width, s_ui_height);
