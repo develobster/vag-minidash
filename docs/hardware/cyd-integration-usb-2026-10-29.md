@@ -154,3 +154,30 @@ write hash matched and the NVS partition was byte-identical before first boot.
 Post-boot status reported display and touch ready and calibrated, with TX
 unarmed. Actual touch operation, appearance on the physical panel, vehicle
 signals and all configurations remain unverified. Backups are private and local.
+
+
+## Russian language on automotive screens
+
+The owner reported that the five automotive screens stayed English while
+Russian was selected. Automotive screens now receive the existing language
+setting on show/update and translate their titles, field labels, navigation
+hint, RESET, source/demo captions, regeneration state, Drag state and reason.
+Platform identifiers and standard technical units remain unchanged where
+appropriate. Static captions and dynamic text with Cyrillic use the bundled
+Russian fonts; captions choose a smaller supported size when needed. English
+remains available and changing language refreshes existing scenes. This affects
+CYD and S3 without a settings format change.
+
+Native LVGL tests switch English to Russian and back on all five screens, in
+320x240 and 240x320, check Cyrillic font availability and text width, render
+images, and retain the existing unchanged/partial-refresh checks. Both CYD and
+S3 firmware builds and 28 native UI tests passed with ESP-IDF 5.5.5. All five
+Russian landscape software-render images were visually inspected. On the connected
+CYD, the full flash backup was verified, only the app partition was written,
+the write hash matched, and NVS remained byte-identical before boot. Post-boot
+status reported calibrated touch and demo enabled (preserved user setting);
+27 on-device UI checks and the view test passed, all five screens opened, and
+the saved language remained Russian.
+Physical text readability, user touch and all live vehicle-data states still
+need owner review on the panel. Next verify those states and Cyrillic in every
+selected theme; use the private local flash backup for recovery if needed.

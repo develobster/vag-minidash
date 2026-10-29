@@ -1749,6 +1749,7 @@ void md_ui_screens_show(md_ui_screen_t screen,
 {
     if (!s_created) return;
     if(md_automotive_screen(screen)) {
+        md_automotive_language(settings->language);
 #if CONFIG_MINIDASH_CYD
         if(!md_automotive_root(screen)) {
             lv_obj_t *placeholder=lv_obj_create(NULL);
@@ -2292,7 +2293,7 @@ void md_ui_screens_update(md_ui_screen_t screen,
     if (!s_created || !settings || !state || !signals) return;
     for (unsigned i = 0; i < MD_SIGNAL_COUNT; ++i)
         md_ui_history_observe(&s_history[i], &signals->signals[i], now_ms);
-    if(md_automotive_screen(screen)) {md_automotive_update(screen,now_ms);return;}
+    if(md_automotive_screen(screen)) {md_automotive_language(settings->language);md_automotive_update(screen,now_ms);return;}
     s_language = settings->language;
     if (s_font_language != s_language) apply_language_fonts();
     screen_view_t *view = view_for(screen, settings);

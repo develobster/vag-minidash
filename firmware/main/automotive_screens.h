@@ -8,6 +8,7 @@ bool md_automotive_open(md_ui_screen_t screen);
 void md_automotive_release(void);
 lv_obj_t *md_automotive_root(md_ui_screen_t screen);
 void md_automotive_retheme(const md_ui_palette_t *palette);
+void md_automotive_language(md_ui_language_t language);
 void md_automotive_frame(const md_dashboard_frame_t *frame);
 void md_automotive_update(md_ui_screen_t screen,uint32_t now_ms);
 /* Native/software-render acceptance uses the same objects and layout. */

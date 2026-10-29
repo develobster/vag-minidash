@@ -68,6 +68,26 @@ static void canvas(unsigned w,unsigned h,const char *dir)
         fprintf(stderr,"AUTO UI %ux%u page=%u startup_flushes=%u settled=%u\n",
                 w,h,i,flushes,settled);
         CHECK(settled);image(dir,i);
+        md_automotive_language(MD_UI_LANGUAGE_RUSSIAN);
+        md_automotive_update(s,100);lv_refr_now(display);
+        lv_obj_t *translated=md_automotive_root(s);bool russian=false;
+        for(unsigned j=0;j<lv_obj_get_child_count(translated);j++) {
+            lv_obj_t *child=lv_obj_get_child(translated,j);
+            if(!lv_obj_check_type(child,&lv_label_class)) continue;
+            const char *text=lv_label_get_text(child);
+            bool has_cyrillic=false;
+            for(const unsigned char *q=(const unsigned char *)text;*q;q++)
+                if(*q==0xd0 || *q==0xd1) {has_cyrillic=true;break;}
+            if(!has_cyrillic) continue;
+            russian=true;const lv_font_t *font=lv_obj_get_style_text_font(child,0);
+            lv_font_glyph_dsc_t glyph;CHECK(lv_font_get_glyph_dsc(font,&glyph,0x0410,0));
+            lv_point_t size;lv_text_get_size(&size,text,font,0,0,LV_COORD_MAX,LV_TEXT_FLAG_NONE);
+            if(size.x>lv_obj_get_width(child)) fprintf(stderr,"Text too wide: %s %d > %d\n",text,(int)size.x,(int)lv_obj_get_width(child));
+            CHECK(size.x<=lv_obj_get_width(child));
+        }
+        CHECK(russian);image(dir,i+10);
+        md_automotive_language(MD_UI_LANGUAGE_ENGLISH);md_automotive_update(s,100);lv_refr_now(display);
+        for(unsigned attempt=0;attempt<4;attempt++) {unsigned previous=flushes;lv_refr_now(display);if(flushes==previous) break;}
         unsigned before=flushes;md_automotive_update(s,100);lv_refr_now(display);CHECK(flushes==before);
         md_dashboard_frame_t changed=f;
         if(i==0 || i==4) changed.vehicle.value[VAG_SPEED]+=1;
