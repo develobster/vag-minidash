@@ -78,6 +78,12 @@ bool md_touch_map_apply(const md_touch_map_t *map, uint16_t raw_x, uint16_t raw_
     return true;
 }
 
+bool md_touch_drag_reset_hit(int16_t x, int16_t y, uint16_t width, uint16_t height)
+{
+    return width && height && x >= (int)width * 240 / 320 && x < width &&
+        y >= (int)height * 108 / 240 && y < (int)height * 132 / 240;
+}
+
 md_touch_hit_t md_touch_hit_zone(int16_t x, int16_t y,
                                   uint16_t width, uint16_t height)
 {

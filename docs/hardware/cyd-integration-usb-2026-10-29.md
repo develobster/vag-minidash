@@ -87,3 +87,33 @@ was verified afterward and the NVS partition matched the backup before reboot.
 USB status after reboot reported display, touch, and calibration ready, demo and
 Wi-Fi off, and TX unarmed. CYD and S3 builds, 28 core tests, and two rendering
 tests passed. The physical touch path and reported freeze remain unverified.
+
+
+## Drag RESET and screen-switch latency follow-up
+
+The owner reported that pressing RESET on Drag switched to the next screen,
+and that the older pages draw markedly more slowly than the automotive pages.
+The press handler previously queued a reset but the release still entered
+right-edge navigation. The press and release coordinates now share a scaled
+hit test, and a press that starts in RESET consumes the release; a reset is
+queued only if released within the hit area. Other edge navigation is unchanged.
+The UI core self-test checks hit area boundaries. Actual finger input and timer
+reset on the physical device require owner confirmation.
+
+On the attached CYD, the diagnostic first-render timing measured the five
+older pages at 613, 611, 606, 554 and 774 ms, versus 95–148 ms for sampled
+automotive pages. The older scenes are reconstructed on this SRAM-constrained
+target, and their populated views are more expensive to render. An experimental
+CYD change disabling rounded cards and gradients measured 670, 666, 663, 608
+and 817 ms for the same pages, so it was removed; no performance improvement is
+claimed. The measurement includes scene build and first LVGL render, not a
+photographic measurement of panel completion. Next investigate LVGL draw and
+SPI flush profiling per scene and theme, retaining existing design and memory
+limits; accept a change only after repeatable on-device improvement and visual
+review, including low-memory operation and touch responsiveness.
+
+ESP-IDF 5.5.5 CYD listen-only and S3 builds succeeded, as did 28 core tests,
+two automotive LVGL render tests, and 27 on-device UI tests plus the view
+self-test. The flash was backed up and verified before installation. NVS was
+checked separately; private backups remain local and must not be committed.
+No vehicle test or physical touch confirmation was performed.

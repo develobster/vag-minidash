@@ -697,13 +697,9 @@ static void apply_event(const ui_event_t *event,
                 md_ui_screens_debug_touch(x, y);
                 lvgl_port_unlock();
             } else if (md_ui_screen_is_content(state->screen) && lvgl_port_lock(20)) {
-                /* RESET crosses the generic right-edge navigation zone. Give its
-             * whole visible hit box precedence, including the press origin. */
-            if(state->screen==MD_UI_SCREEN_DRAG && x>=s_ui_width*240/320 &&
-               y>=s_ui_height*108/240 && y<s_ui_height*132/240 &&
-               s_last_press_x>=s_ui_width*240/320 &&
-               s_last_press_y>=s_ui_height*108/240 && s_last_press_y<s_ui_height*132/240) {
-                md_vehicle_app_drag_reset();
+                /* RESET overlaps the navigation edge; handle it on release. */
+            if(state->screen==MD_UI_SCREEN_DRAG &&
+               md_touch_drag_reset_hit(x,y,s_ui_width,s_ui_height)) {
                 lvgl_port_unlock();
                 return;
             }
@@ -814,6 +810,12 @@ static void apply_event(const ui_event_t *event,
         }
         md_ui_screens_debug_touch(x, y);
         lvgl_port_unlock();
+        if (!state->sleeping && state->screen == MD_UI_SCREEN_DRAG &&
+            md_touch_drag_reset_hit(s_last_press_x,s_last_press_y,s_ui_width,s_ui_height)) {
+            if (md_touch_drag_reset_hit(x,y,s_ui_width,s_ui_height))
+                md_vehicle_app_drag_reset();
+            return;
+        }
         if (state->sleeping) action = MD_UI_ACTION_WAKE;
         else if (state->screen == MD_UI_SCREEN_FOCUS) action = MD_UI_ACTION_BACK;
         else if (state->screen == MD_UI_SCREEN_WIDGET_PICKER) {
