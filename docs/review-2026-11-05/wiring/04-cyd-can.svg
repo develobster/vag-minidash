@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1100" viewBox="0 0 1600 1100">
+<rect width="1600" height="1100" fill="#f5f7fb"/>
+<style>text{font-family:DejaVu Sans,sans-serif;fill:#18273b}.title{font-size:38px;font-weight:bold}.sub{font-size:23px}.label{font-size:25px}.small{font-size:21px}.box{fill:white;stroke:#b8c5d5;stroke-width:2}</style>
+<text x="55" y="65" class="title" text-anchor="start">CYD ESP32 → SN65HVD230 → OBD-II</text>
+<text x="55" y="110" class="sub" text-anchor="start">CAN 500 кбит/с · TX GPIO22, RX GPIO27 · сверить с выбранным sdkconfig</text>
+<rect x="60" y="180" width="420" height="540" rx="18" class="box"/>
+<text x="80" y="222" class="label" text-anchor="start">CYD ESP32</text>
+<rect x="820" y="180" width="420" height="540" rx="18" class="box"/>
+<text x="840" y="222" class="label" text-anchor="start">Модуль SN65HVD230</text>
+<text x="90" y="273" class="label" text-anchor="start">3V3</text>
+<text x="850" y="273" class="label" text-anchor="start">VCC / 3V3</text>
+<path d="M440,290 L840,290" stroke="#d77511" stroke-width="5" fill="none"/>
+<circle cx="440" cy="290" r="6" fill="#d77511"/>
+<circle cx="840" cy="290" r="6" fill="#d77511"/>
+<text x="640.0" y="276" class="small" text-anchor="middle">3.3 В</text>
+<text x="90" y="383" class="label" text-anchor="start">GND</text>
+<text x="850" y="383" class="label" text-anchor="start">GND</text>
+<path d="M440,400 L840,400" stroke="#354457" stroke-width="5" fill="none"/>
+<circle cx="440" cy="400" r="6" fill="#354457"/>
+<circle cx="840" cy="400" r="6" fill="#354457"/>
+<text x="640.0" y="386" class="small" text-anchor="middle">общая масса</text>
+<text x="90" y="493" class="label" text-anchor="start">GPIO22 / TX</text>
+<text x="850" y="493" class="label" text-anchor="start">CTX / TXD / D</text>
+<path d="M440,510 L840,510" stroke="#7b46c5" stroke-width="5" fill="none"/>
+<circle cx="440" cy="510" r="6" fill="#7b46c5"/>
+<circle cx="840" cy="510" r="6" fill="#7b46c5"/>
+<text x="640.0" y="496" class="small" text-anchor="middle">→</text>
+<text x="90" y="603" class="label" text-anchor="start">GPIO27 / RX</text>
+<text x="850" y="603" class="label" text-anchor="start">CRX / RXD / R</text>
+<path d="M440,620 L840,620" stroke="#007ea7" stroke-width="5" fill="none"/>
+<circle cx="440" cy="620" r="6" fill="#007ea7"/>
+<circle cx="840" cy="620" r="6" fill="#007ea7"/>
+<text x="640.0" y="606" class="small" text-anchor="middle">← приём</text>
+<text x="1270" y="285" class="label" text-anchor="start">OBD 6</text>
+<text x="1270" y="395" class="label" text-anchor="start">OBD 14</text>
+<text x="1080" y="270" class="label" text-anchor="start">CANH</text>
+<text x="1080" y="380" class="label" text-anchor="start">CANL</text>
+<path d="M1200,300 L1500,300" stroke="#1a8651" stroke-width="5" fill="none"/>
+<circle cx="1200" cy="300" r="6" fill="#1a8651"/>
+<circle cx="1500" cy="300" r="6" fill="#1a8651"/>
+<path d="M1200,410 L1500,410" stroke="#aa6b16" stroke-width="5" fill="none"/>
+<circle cx="1200" cy="410" r="6" fill="#aa6b16"/>
+<circle cx="1500" cy="410" r="6" fill="#aa6b16"/>
+<text x="1270" y="465" class="small" text-anchor="start">витая пара</text>
+<text x="85" y="775" class="small" text-anchor="start">Питание платы: только 5 В на вход 5V/VIN или USB; схема питания - отдельный лист.</text>
+<text x="85" y="825" class="small" text-anchor="start">GND платы, трансивера и DC/DC общие. OBD4 - возврат питания; OBD5 - опорная масса.</text>
+<text x="85" y="875" class="small" text-anchor="start">Для автомобильного ответвления дополнительный 120 Ω не устанавливать. Проверить модуль.</text>
+<text x="85" y="925" class="small" text-anchor="start">S3: исторический R2 снят. CYD: наличие и монтаж резистора ещё проверить.</text>
+<text x="85" y="975" class="small" text-anchor="start">На CN1 CYD искать подписи 3V3/GND/IO22/IO27; порядок контактов не угадывать.</text>
+<text x="55" y="1060" class="small" text-anchor="start">MiniDash · 2026-11-05 · Контакты показаны по именам, не по расположению на плате.</text>
+</svg>

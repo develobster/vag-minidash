@@ -1,0 +1,80 @@
+{
+  "date": "2026-11-05",
+  "timezone": "Europe/Minsk",
+  "reviewed_commit": "63e3c543dc07d8034b4443e9d20050463fed11dc",
+  "original_baseline": "c10b76b568163ff7e983c858bdf5c1a32be89bb7",
+  "branches": 17,
+  "branch_unique_commits": 0,
+  "fast_forward_commits": 26,
+  "firmware_changed_in_review": false,
+  "python": "3.12.14",
+  "gcc": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0",
+  "tests": {
+    "ctest_basic": {
+      "passed": 26,
+      "total": 26
+    },
+    "ctest_json_lvgl": {
+      "passed": 30,
+      "total": 30,
+      "cjson": "1.7.19",
+      "lvgl": "9.5.0"
+    },
+    "python": {
+      "run": 243,
+      "skipped": 1,
+      "skip_reason": "Windows DPAPI required",
+      "result": "OK"
+    },
+    "javascript": {
+      "passed": 10
+    },
+    "generators": [
+      "generate_can_signals.py --check PASS",
+      "generate_vag_can_db.py --check PASS"
+    ],
+    "lsan": {
+      "result": "ENVIRONMENT_BLOCKED",
+      "reason": "Cannot read /proc/task; LeakSanitizer fatal ptrace/inspection restriction"
+    },
+    "asan_ubsan_without_lsan": {
+      "result": "PASS",
+      "passed": 26,
+      "total": 26,
+      "ASAN_OPTIONS": "detect_leaks=0"
+    }
+  },
+  "ci": {
+    "run": 40847927113,
+    "sha": "63e3c543dc07d8034b4443e9d20050463fed11dc",
+    "jobs": {
+      "host": "success",
+      "standalone": "success",
+      "listen-only": "success",
+      "sleep-ili9341": "success",
+      "cyd": "success",
+      "cyd-listen-only": "success"
+    }
+  },
+  "hardware": {
+    "connected": false,
+    "flashed": false,
+    "vehicle_tested": false,
+    "stl_physically_printed": false
+  },
+  "cad": {
+    "files": 18,
+    "fit_coupon": 1,
+    "dimensions": "ASSUMED_FIT_TEST_ALLOWANCES",
+    "watertight": true,
+    "winding_consistent": true,
+    "single_body_per_part": true,
+    "coupon_bodies": 2
+  },
+  "limitations": [
+    "No local ESP-IDF",
+    "No local branches from other computers",
+    "No new electrical or vehicle evidence",
+    "Exact PCB mounting dimensions unavailable"
+  ]
+}

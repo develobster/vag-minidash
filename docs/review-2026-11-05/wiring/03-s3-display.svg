@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1100" viewBox="0 0 1600 1100">
+<rect width="1600" height="1100" fill="#f5f7fb"/>
+<style>text{font-family:DejaVu Sans,sans-serif;fill:#18273b}.title{font-size:38px;font-weight:bold}.sub{font-size:23px}.label{font-size:25px}.small{font-size:21px}.box{fill:white;stroke:#b8c5d5;stroke-width:2}</style>
+<text x="55" y="65" class="title" text-anchor="start">ESP32-S3 → отдельный TFT 2.4″ + XPT2046</text>
+<text x="55" y="110" class="sub" text-anchor="start">Профиль ST7789, 320×240 · GPIO из sdkconfig.defaults · существующий прототип</text>
+<rect x="60" y="155" width="420" height="745" rx="18" class="box"/>
+<text x="80" y="197" class="label" text-anchor="start">ESP32-S3 2025-V1.4</text>
+<rect x="990" y="155" width="550" height="745" rx="18" class="box"/>
+<text x="1010" y="197" class="label" text-anchor="start">TFT SPI V1.3 / XPT2046</text>
+<text x="90" y="233" class="small" text-anchor="start">3V3</text>
+<text x="1015" y="233" class="small" text-anchor="start">VCC</text>
+<path d="M440,245 L1010,245" stroke="#d77511" stroke-width="5" fill="none"/>
+<circle cx="440" cy="245" r="6" fill="#d77511"/>
+<circle cx="1010" cy="245" r="6" fill="#d77511"/>
+<text x="90" y="295" class="small" text-anchor="start">GND</text>
+<text x="1015" y="295" class="small" text-anchor="start">GND</text>
+<path d="M440,307 L1010,307" stroke="#354457" stroke-width="5" fill="none"/>
+<circle cx="440" cy="307" r="6" fill="#354457"/>
+<circle cx="1010" cy="307" r="6" fill="#354457"/>
+<text x="90" y="357" class="small" text-anchor="start">GPIO12</text>
+<text x="1015" y="357" class="small" text-anchor="start">SCK + T_CLK</text>
+<path d="M440,369 L1010,369" stroke="#3263ac" stroke-width="5" fill="none"/>
+<circle cx="440" cy="369" r="6" fill="#3263ac"/>
+<circle cx="1010" cy="369" r="6" fill="#3263ac"/>
+<text x="90" y="419" class="small" text-anchor="start">GPIO11</text>
+<text x="1015" y="419" class="small" text-anchor="start">SDI/MOSI + T_DIN</text>
+<path d="M440,431 L1010,431" stroke="#3263ac" stroke-width="5" fill="none"/>
+<circle cx="440" cy="431" r="6" fill="#3263ac"/>
+<circle cx="1010" cy="431" r="6" fill="#3263ac"/>
+<text x="90" y="481" class="small" text-anchor="start">GPIO10</text>
+<text x="1015" y="481" class="small" text-anchor="start">CS (дисплей)</text>
+<path d="M440,493 L1010,493" stroke="#3263ac" stroke-width="5" fill="none"/>
+<circle cx="440" cy="493" r="6" fill="#3263ac"/>
+<circle cx="1010" cy="493" r="6" fill="#3263ac"/>
+<text x="90" y="543" class="small" text-anchor="start">GPIO8</text>
+<text x="1015" y="543" class="small" text-anchor="start">DC / RS</text>
+<path d="M440,555 L1010,555" stroke="#3263ac" stroke-width="5" fill="none"/>
+<circle cx="440" cy="555" r="6" fill="#3263ac"/>
+<circle cx="1010" cy="555" r="6" fill="#3263ac"/>
+<text x="90" y="605" class="small" text-anchor="start">GPIO9</text>
+<text x="1015" y="605" class="small" text-anchor="start">RESET / RST</text>
+<path d="M440,617 L1010,617" stroke="#3263ac" stroke-width="5" fill="none"/>
+<circle cx="440" cy="617" r="6" fill="#3263ac"/>
+<circle cx="1010" cy="617" r="6" fill="#3263ac"/>
+<text x="90" y="667" class="small" text-anchor="start">GPIO13</text>
+<text x="1015" y="667" class="small" text-anchor="start">T_DO (не TFT SDO)</text>
+<path d="M440,679 L1010,679" stroke="#007ea7" stroke-width="5" fill="none"/>
+<circle cx="440" cy="679" r="6" fill="#007ea7"/>
+<circle cx="1010" cy="679" r="6" fill="#007ea7"/>
+<text x="90" y="729" class="small" text-anchor="start">GPIO14</text>
+<text x="1015" y="729" class="small" text-anchor="start">T_CS</text>
+<path d="M440,741 L1010,741" stroke="#3263ac" stroke-width="5" fill="none"/>
+<circle cx="440" cy="741" r="6" fill="#3263ac"/>
+<circle cx="1010" cy="741" r="6" fill="#3263ac"/>
+<text x="90" y="791" class="small" text-anchor="start">GPIO4</text>
+<text x="1015" y="791" class="small" text-anchor="start">LED: условно, см. ниже</text>
+<path d="M440,803 L1010,803" stroke="#7b46c5" stroke-width="5" fill="none"/>
+<circle cx="440" cy="803" r="6" fill="#7b46c5"/>
+<circle cx="1010" cy="803" r="6" fill="#7b46c5"/>
+<text x="65" y="935" class="small" text-anchor="start">T_IRQ и TFT SDO не подключены. Общий SPI для дисплея и тача; разные CS.</text>
+<text x="65" y="980" class="small" text-anchor="start">GPIO4 → LED проверялось на этом модуле; ток входа не измерен. Для другого TFT нужен драйвер.</text>
+<text x="65" y="1018" class="small" text-anchor="start">Нельзя одновременно соединять LED с GPIO4 и 3V3. Старые схемы TX17/RX16 здесь не применять.</text>
+<text x="55" y="1060" class="small" text-anchor="start">MiniDash · 2026-11-05 · Контакты показаны по именам, не по расположению на плате.</text>
+</svg>

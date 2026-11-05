@@ -1,3 +1,6 @@
+> **Актуальный обзор: 2026-11-05.** [Статус всех подсистем, консолидация S3/CYD, схемы и корпуса](docs/review-2026-11-05/README.md).
+> Единая база: `integration/standalone`; ранние разделы ниже сохраняют исторический контекст.
+
 # MiniDash / vag-minidash
 
 An ESP32-S3 automotive telemetry dashboard with CAN/ISO-TP/OBD acquisition,

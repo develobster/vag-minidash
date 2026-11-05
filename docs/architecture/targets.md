@@ -1,3 +1,6 @@
+> **Актуальный обзор: 2026-11-05.** [Статус всех подсистем, консолидация S3/CYD, схемы и корпуса](../review-2026-11-05/README.md).
+> Единая база: `integration/standalone`; ранние разделы ниже сохраняют исторический контекст.
+
 # Targets and shared MiniDash core
 
 Updated 2026-09-30. This remains one repository. No STM32 firmware, OLED

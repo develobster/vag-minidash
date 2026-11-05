@@ -1,3 +1,6 @@
+> **Актуальный обзор: 2026-11-05.** [Статус всех подсистем, консолидация S3/CYD, схемы и корпуса](docs/review-2026-11-05/README.md).
+> Единая база: `integration/standalone`; ранние разделы ниже сохраняют исторический контекст.
+
 > Historical design/lab note retained for context. Current implementation and evidence:
 > [status](docs/status.md), [architecture](docs/architecture/overview.md),
 > [development](docs/development.md). Plans/simulator features below

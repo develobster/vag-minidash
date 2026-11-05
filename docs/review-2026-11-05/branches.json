@@ -1,0 +1,121 @@
+[
+  {
+    "branch": "feature/diagnostic-data-import",
+    "sha": "54d0ea53875196b7c60798910b5aa98a094a91f4",
+    "candidate_only": 119,
+    "branch_only": 0,
+    "ancestor": true
+  },
+  {
+    "branch": "feature/engine-analytics",
+    "sha": "da1e6b7ba4897ab604308c35d5d179ff7e13047a",
+    "candidate_only": 69,
+    "branch_only": 0,
+    "ancestor": true
+  },
+  {
+    "branch": "feature/esp32-display-prototype",
+    "sha": "dc16a907f3420fbbf62245ff39081a1fbeb6e580",
+    "candidate_only": 117,
+    "branch_only": 0,
+    "ancestor": true
+  },
+  {
+    "branch": "feature/hardware-cyd-esp32",
+    "sha": "30eda5b018453619973883627299af8f44afa1ad",
+    "candidate_only": 32,
+    "branch_only": 0,
+    "ancestor": true
+  },
+  {
+    "branch": "feature/mqb-knowledge-import",
+    "sha": "0b3121dfbf5eefbd5bd0c9cc3e82a6d321969d9e",
+    "candidate_only": 112,
+    "branch_only": 0,
+    "ancestor": true
+  },
+  {
+    "branch": "feature/production-ui",
+    "sha": "00c6317c08b055ae0f56791ed250225c14b4301e",
+    "candidate_only": 109,
+    "branch_only": 0,
+    "ancestor": true
+  },
+  {
+    "branch": "feature/real-car-validation",
+    "sha": "bf7e8ba67b10d445f79971dfd481e5d5c3d776ca",
+    "candidate_only": 82,
+    "branch_only": 0,
+    "ancestor": true
+  },
+  {
+    "branch": "feature/repository-consolidation",
+    "sha": "3e5c6ca90ca7a9e0fa421c9b5d41e6fcda92b38a",
+    "candidate_only": 89,
+    "branch_only": 0,
+    "ancestor": true
+  },
+  {
+    "branch": "feature/research-replay-reliability",
+    "sha": "22a346bee87f82c12943fd7a3277ea219d698d03",
+    "candidate_only": 93,
+    "branch_only": 0,
+    "ancestor": true
+  },
+  {
+    "branch": "feature/standalone-acquisition",
+    "sha": "ab1c09cc9ba945ea57429a32b8379562f746fdf9",
+    "candidate_only": 85,
+    "branch_only": 0,
+    "ancestor": true
+  },
+  {
+    "branch": "feature/ui-ux-touch-zones",
+    "sha": "6f436dd29810e384e2d51cca9f886905abd9a7bd",
+    "candidate_only": 108,
+    "branch_only": 0,
+    "ancestor": true
+  },
+  {
+    "branch": "feature/vag-diagnostic-discovery",
+    "sha": "4eaf149d8f5239bedfa1c11c11c3401a7bb3ef73",
+    "candidate_only": 36,
+    "branch_only": 0,
+    "ancestor": true
+  },
+  {
+    "branch": "fix/can-display-startup",
+    "sha": "da1e6b7ba4897ab604308c35d5d179ff7e13047a",
+    "candidate_only": 69,
+    "branch_only": 0,
+    "ancestor": true
+  },
+  {
+    "branch": "integration/cyd-unified",
+    "sha": "63e3c543dc07d8034b4443e9d20050463fed11dc",
+    "candidate_only": 0,
+    "branch_only": 0,
+    "ancestor": true
+  },
+  {
+    "branch": "integration/standalone",
+    "sha": "c10b76b568163ff7e983c858bdf5c1a32be89bb7",
+    "candidate_only": 26,
+    "branch_only": 0,
+    "ancestor": true
+  },
+  {
+    "branch": "main",
+    "sha": "de7f071a2d7e574970614527d4397a274fa46813",
+    "candidate_only": 125,
+    "branch_only": 0,
+    "ancestor": true
+  },
+  {
+    "branch": "runtime/session-scheduler",
+    "sha": "e62ca59bf2bafec96797d68632b3c0f1c0810515",
+    "candidate_only": 124,
+    "branch_only": 0,
+    "ancestor": true
+  }
+]

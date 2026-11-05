@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1100" viewBox="0 0 1600 1100">
+<rect width="1600" height="1100" fill="#f5f7fb"/>
+<style>text{font-family:DejaVu Sans,sans-serif;fill:#18273b}.title{font-size:38px;font-weight:bold}.sub{font-size:23px}.label{font-size:25px}.small{font-size:21px}.box{fill:white;stroke:#b8c5d5;stroke-width:2}</style>
+<text x="55" y="65" class="title" text-anchor="start">Lite / Bluepill · только архитектурный эскиз</text>
+<text x="55" y="110" class="sub" text-anchor="start">Не схема для пайки: не выбраны OLED, GPIO, носитель и завершённая STM32-прошивка</text>
+<rect x="70" y="200" width="380" height="220" rx="18" class="box"/>
+<text x="90" y="242" class="label" text-anchor="start">Источник 5 В</text>
+<rect x="600" y="200" width="400" height="220" rx="18" class="box"/>
+<text x="620" y="242" class="label" text-anchor="start">STM32 / Bluepill?</text>
+<rect x="1150" y="200" width="380" height="220" rx="18" class="box"/>
+<text x="1170" y="242" class="label" text-anchor="start">OLED: не выбран</text>
+<rect x="600" y="620" width="400" height="220" rx="18" class="box"/>
+<text x="620" y="662" class="label" text-anchor="start">CAN-трансивер 3.3 В</text>
+<rect x="70" y="620" width="380" height="220" rx="18" class="box"/>
+<text x="90" y="662" class="label" text-anchor="start">OBD CANH / CANL</text>
+<rect x="1150" y="620" width="380" height="220" rx="18" class="box"/>
+<text x="1170" y="662" class="label" text-anchor="start">Кнопки: не назначены</text>
+<path d="M450,310 L600,310" stroke="#d23b37" stroke-width="5" fill="none"/>
+<circle cx="450" cy="310" r="6" fill="#d23b37"/>
+<circle cx="600" cy="310" r="6" fill="#d23b37"/>
+<path d="M1000,310 L1150,310" stroke="#3263ac" stroke-width="5" fill="none"/>
+<circle cx="1000" cy="310" r="6" fill="#3263ac"/>
+<circle cx="1150" cy="310" r="6" fill="#3263ac"/>
+<text x="1075.0" y="296" class="small" text-anchor="middle">SPI / I²C ?</text>
+<path d="M800,420 L800,620" stroke="#7b46c5" stroke-width="5" fill="none"/>
+<circle cx="800" cy="420" r="6" fill="#7b46c5"/>
+<circle cx="800" cy="620" r="6" fill="#7b46c5"/>
+<text x="825" y="530" class="small" text-anchor="start">CAN RX/TX: TBD</text>
+<path d="M450,730 L600,730" stroke="#1a8651" stroke-width="5" fill="none"/>
+<circle cx="450" cy="730" r="6" fill="#1a8651"/>
+<circle cx="600" cy="730" r="6" fill="#1a8651"/>
+<path d="M1000,730 L1150,730" stroke="#3263ac" stroke-width="5" fill="none"/>
+<circle cx="1000" cy="730" r="6" fill="#3263ac"/>
+<circle cx="1150" cy="730" r="6" fill="#3263ac"/>
+<text x="80" y="930" class="small" text-anchor="start">Есть переносимое C-ядро, но нет linked firmware, драйвера OLED и подтверждённого RAM/Flash fit.</text>
+<text x="80" y="980" class="small" text-anchor="start">Корпуса Lite в комплекте - только механические концепты. Не переносить GPIO от S3 или CYD.</text>
+<text x="55" y="1060" class="small" text-anchor="start">MiniDash · 2026-11-05 · Контакты показаны по именам, не по расположению на плате.</text>
+</svg>

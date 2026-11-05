@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1100" viewBox="0 0 1600 1100">
+<rect width="1600" height="1100" fill="#f5f7fb"/>
+<style>text{font-family:DejaVu Sans,sans-serif;fill:#18273b}.title{font-size:38px;font-weight:bold}.sub{font-size:23px}.label{font-size:25px}.small{font-size:21px}.box{fill:white;stroke:#b8c5d5;stroke-width:2}</style>
+<text x="55" y="65" class="title" text-anchor="start">Питание и общая масса · S3 / CYD</text>
+<text x="55" y="110" class="sub" text-anchor="start">Прототип с LM2596S: схема соединений, не квалифицированный автомобильный источник</text>
+<rect x="55" y="180" width="235" height="210" rx="18" class="box"/>
+<text x="75" y="222" class="label" text-anchor="start">OBD-II</text>
+<text x="80" y="295" class="label" text-anchor="start">16: +12 В</text>
+<text x="80" y="350" class="label" text-anchor="start">4: GND</text>
+<rect x="370" y="180" width="310" height="210" rx="18" class="box"/>
+<text x="390" y="222" class="label" text-anchor="start">F1 + KCD11</text>
+<text x="395" y="285" class="small" text-anchor="start">F1 → выключатель</text>
+<text x="395" y="340" class="small" text-anchor="start">0.5–1 A: проверить ток</text>
+<rect x="760" y="180" width="320" height="210" rx="18" class="box"/>
+<text x="780" y="222" class="label" text-anchor="start">LM2596S → 5 В</text>
+<text x="785" y="285" class="small" text-anchor="start">IN+        OUT+</text>
+<text x="785" y="340" class="small" text-anchor="start">IN−        OUT−</text>
+<rect x="1200" y="180" width="345" height="210" rx="18" class="box"/>
+<text x="1220" y="222" class="label" text-anchor="start">S3 / CYD</text>
+<text x="1230" y="285" class="label" text-anchor="start">5V / VIN</text>
+<text x="1230" y="340" class="label" text-anchor="start">GND</text>
+<path d="M260,300 L390,300" stroke="#d23b37" stroke-width="5" fill="none"/>
+<circle cx="260" cy="300" r="6" fill="#d23b37"/>
+<circle cx="390" cy="300" r="6" fill="#d23b37"/>
+<path d="M650,300 L785,300" stroke="#d23b37" stroke-width="5" fill="none"/>
+<circle cx="650" cy="300" r="6" fill="#d23b37"/>
+<circle cx="785" cy="300" r="6" fill="#d23b37"/>
+<path d="M1050,300 L1230,300" stroke="#d23b37" stroke-width="5" fill="none"/>
+<circle cx="1050" cy="300" r="6" fill="#d23b37"/>
+<circle cx="1230" cy="300" r="6" fill="#d23b37"/>
+<text x="1140.0" y="286" class="small" text-anchor="middle">5.0 В</text>
+<path d="M260,360 L260,480" stroke="#354457" stroke-width="5" fill="none"/>
+<circle cx="260" cy="360" r="6" fill="#354457"/>
+<circle cx="260" cy="480" r="6" fill="#354457"/>
+<path d="M260,480 L1430,480" stroke="#354457" stroke-width="5" fill="none"/>
+<circle cx="260" cy="480" r="6" fill="#354457"/>
+<circle cx="1430" cy="480" r="6" fill="#354457"/>
+<path d="M805,360 L805,480" stroke="#354457" stroke-width="5" fill="none"/>
+<circle cx="805" cy="360" r="6" fill="#354457"/>
+<circle cx="805" cy="480" r="6" fill="#354457"/>
+<path d="M1040,360 L1040,480" stroke="#354457" stroke-width="5" fill="none"/>
+<circle cx="1040" cy="360" r="6" fill="#354457"/>
+<circle cx="1040" cy="480" r="6" fill="#354457"/>
+<path d="M1430,360 L1430,480" stroke="#354457" stroke-width="5" fill="none"/>
+<circle cx="1430" cy="360" r="6" fill="#354457"/>
+<circle cx="1430" cy="480" r="6" fill="#354457"/>
+<text x="610" y="525" class="small" text-anchor="start">ОБЩАЯ GND: IN− и OUT− у этого DC/DC не изолированы</text>
+<text x="80" y="585" class="small" text-anchor="start">OBD5 подключается как опорная масса по проверенному жгуту; не использовать вместо OBD4.</text>
+<text x="80" y="630" class="small" text-anchor="start">В известном удлинителе 4 и 5 звонятся на один провод: перепроверить именно свой кабель.</text>
+<rect x="60" y="675" width="1470" height="320" rx="18" class="box"/>
+<text x="80" y="717" class="label" text-anchor="start">Перед первым включением</text>
+<text x="85" y="760" class="small" text-anchor="start">1. Отсоединить платы; измерить OUT+ относительно OUT−. На плату подавать только стабильные 5 В.</text>
+<text x="85" y="804" class="small" text-anchor="start">2. 12 В не подключать к ESP, CYD или CAN-модулю. SN65HVD230 питается от 3V3 платы.</text>
+<text x="85" y="848" class="small" text-anchor="start">3. USB ПК и внешний DC/DC одновременно не подключать без проверенной развязки источников.</text>
+<text x="85" y="892" class="small" text-anchor="start">4. F1 ставить у источника. После пайки проверить полярность, отсутствие КЗ и механическую фиксацию.</text>
+<text x="85" y="936" class="small" text-anchor="start">5. Постоянная установка требует защиты переполюсовки/импульсов и тепловой проверки DC/DC.</text>
+<text x="55" y="1060" class="small" text-anchor="start">MiniDash · 2026-11-05 · Контакты показаны по именам, не по расположению на плате.</text>
+</svg>
