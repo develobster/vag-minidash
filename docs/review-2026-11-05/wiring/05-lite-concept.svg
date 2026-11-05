@@ -29,9 +29,10 @@
 <path d="M450,730 L600,730" stroke="#1a8651" stroke-width="5" fill="none"/>
 <circle cx="450" cy="730" r="6" fill="#1a8651"/>
 <circle cx="600" cy="730" r="6" fill="#1a8651"/>
-<path d="M1000,730 L1150,730" stroke="#3263ac" stroke-width="5" fill="none"/>
-<circle cx="1000" cy="730" r="6" fill="#3263ac"/>
-<circle cx="1150" cy="730" r="6" fill="#3263ac"/>
+<path d="M1000,420 L1250,620" stroke="#3263ac" stroke-width="5" fill="none"/>
+<circle cx="1000" cy="420" r="6" fill="#3263ac"/>
+<circle cx="1250" cy="620" r="6" fill="#3263ac"/>
+<text x="1180" y="490" class="small" text-anchor="start">GPIO: TBD</text>
 <text x="80" y="930" class="small" text-anchor="start">Есть переносимое C-ядро, но нет linked firmware, драйвера OLED и подтверждённого RAM/Flash fit.</text>
 <text x="80" y="980" class="small" text-anchor="start">Корпуса Lite в комплекте - только механические концепты. Не переносить GPIO от S3 или CYD.</text>
 <text x="55" y="1060" class="small" text-anchor="start">MiniDash · 2026-11-05 · Контакты показаны по именам, не по расположению на плате.</text>
